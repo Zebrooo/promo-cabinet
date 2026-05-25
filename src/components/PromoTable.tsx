@@ -38,33 +38,42 @@ export function PromoTable({ promos }: { promos: Promo[] }) {
   }
 
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>#</th><th>Заголовок</th><th>Формат</th><th>Активен</th>
-          <th>Лимит</th><th>Кулдаун, ч</th><th>Порядок</th><th>Действия</th>
-        </tr>
-      </thead>
-      <tbody>
-        {order.map((p, i) => (
-          <tr key={p.id}>
-            <td>{i + 1}</td>
-            <td>{p.title}</td>
-            <td>{p.format}</td>
-            <td>{isActive(p) ? '✓' : '—'}</td>
-            <td>{p.maxImpressionsPerUser || '∞'}</td>
-            <td>{p.cooldownHours}</td>
-            <td className="row">
-              <button disabled={busy || i === 0} onClick={() => move(i, -1)}>↑</button>
-              <button disabled={busy || i === order.length - 1} onClick={() => move(i, 1)}>↓</button>
-            </td>
-            <td className="row">
-              <button onClick={() => router.push(`/cabinet/${encodeURIComponent(p.id)}`)}>Изменить</button>
-              <button disabled={busy} onClick={() => remove(p.id)}>Удалить</button>
-            </td>
+    <div className="queue-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th><th>Промо</th><th>Формат</th><th>Статус</th>
+            <th>Лимит</th><th>Кулд., ч</th><th>Очередь</th><th></th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {order.map((p, i) => (
+            <tr key={p.id}>
+              <td><span className="qpos">{i + 1}</span></td>
+              <td className="title-cell">
+                {p.title}
+                <small>{p.id}</small>
+              </td>
+              <td><span className="tag">{p.format}</span></td>
+              <td>
+                <span className={`pill ${isActive(p) ? 'pill--on' : 'pill--off'}`}>
+                  {isActive(p) ? 'активен' : 'не активен'}
+                </span>
+              </td>
+              <td><span className={`num ${p.maxImpressionsPerUser ? '' : 'num--inf'}`}>{p.maxImpressionsPerUser || '∞'}</span></td>
+              <td><span className="num">{p.cooldownHours}</span></td>
+              <td className="row">
+                <button className="iconbtn" aria-label="Выше" disabled={busy || i === 0} onClick={() => move(i, -1)}>↑</button>
+                <button className="iconbtn" aria-label="Ниже" disabled={busy || i === order.length - 1} onClick={() => move(i, 1)}>↓</button>
+              </td>
+              <td className="row actions">
+                <button onClick={() => router.push(`/cabinet/${encodeURIComponent(p.id)}`)}>Изменить</button>
+                <button className="btn--danger" disabled={busy} onClick={() => remove(p.id)}>Удалить</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
