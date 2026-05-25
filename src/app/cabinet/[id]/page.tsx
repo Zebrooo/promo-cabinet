@@ -16,7 +16,7 @@ export default async function EditPromoPage({ params }: { params: { id: string }
       <div className="pagehead">
         <div>
           <p className="kicker"><Link href="/cabinet">← Очередь</Link></p>
-          <h1>Редактирование <span className="mono" style={{ color: 'var(--accent-deep)' }}>{promo.id}</span></h1>
+          <h1>Редактирование <span className="mono" style={{ color: 'var(--accent-hover)' }}>{promo.id}</span></h1>
         </div>
       </div>
       <PromoForm mode="edit" initial={promo} />

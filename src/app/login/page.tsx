@@ -25,10 +25,10 @@ export default function LoginPage() {
       <div className="auth-card">
         <div className="brand">
           <div className="brand__mark">P</div>
-          <span className="brand__name">PROMO·<b>QUEUE</b></span>
+          <span className="brand__name">Promo</span>
         </div>
         <h1>Вход в кабинет</h1>
-        <p className="sub">Управление очередью промо · S3-каталог</p>
+        <p className="subnote">Список и очередь промо · S3-каталог</p>
         <form onSubmit={submit}>
           <div className="field">
             <label htmlFor="user">Логин</label>
