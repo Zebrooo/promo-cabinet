@@ -10,7 +10,8 @@ try {
 }
 
 export default defineConfig({
-  test: { environment: 'node', globals: false },
+  // Tests hit the real bucket.ru S3 endpoint, so allow generous network timeouts.
+  test: { environment: 'node', globals: false, testTimeout: 30000, hookTimeout: 30000 },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

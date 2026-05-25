@@ -1,0 +1,71 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { NextRequest } from 'next/server';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { catalogueKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
+import { createSessionToken } from '@/lib/auth';
+import { env } from '@/env';
+import { PUT, DELETE } from './route';
+
+const SECRET = 'unit-test-secret';
+
+const promo = (id: string) => ({
+  id, name: id, startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z',
+  targeting: {}, maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline' as const, title: id,
+});
+
+const seed = (promos: unknown[]) =>
+  getS3Client().send(new PutObjectCommand({
+    Bucket: env.promoBucket, Key: catalogueKey(), Body: JSON.stringify(promos), ContentType: 'application/json',
+  }));
+
+const ORIGINAL = { ...process.env };
+const authed = (init: RequestInit = {}) =>
+  new NextRequest('http://localhost/api/promos/a', {
+    ...init,
+    headers: { 'content-type': 'application/json', cookie: `promo_session=${createSessionToken(SECRET)}`, ...(init.headers ?? {}) },
+  });
+const ctx = (id: string) => ({ params: { id } });
+
+beforeEach(() => {
+  process.env.SESSION_SECRET = SECRET;
+  process.env.PROMO_KEY_PREFIX = `test/api-promos-id/${randomUUID()}/`;
+  resetS3ClientForTests();
+});
+afterEach(async () => {
+  await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: catalogueKey() })).catch(() => {});
+  process.env = { ...ORIGINAL };
+});
+
+describe('PUT /api/promos/[id]', () => {
+  it('updates an existing promo (200)', async () => {
+    await seed([promo('a')]);
+    const res = await PUT(authed({ method: 'PUT', body: JSON.stringify({ ...promo('a'), title: 'New' }) }), ctx('a'));
+    expect(res.status).toBe(200);
+  });
+
+  it('404 when the id is missing', async () => {
+    await seed([promo('a')]);
+    const res = await PUT(authed({ method: 'PUT', body: JSON.stringify(promo('zzz')) }), ctx('zzz'));
+    expect(res.status).toBe(404);
+  });
+
+  it('400 when the body id does not match the path id', async () => {
+    const res = await PUT(authed({ method: 'PUT', body: JSON.stringify(promo('b')) }), ctx('a'));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('DELETE /api/promos/[id]', () => {
+  it('deletes an existing promo (200)', async () => {
+    await seed([promo('a')]);
+    const res = await DELETE(authed({ method: 'DELETE' }), ctx('a'));
+    expect(res.status).toBe(200);
+  });
+
+  it('404 when the id is missing', async () => {
+    await seed([promo('a')]);
+    const res = await DELETE(authed({ method: 'DELETE' }), ctx('zzz'));
+    expect(res.status).toBe(404);
+  });
+});
