@@ -23,7 +23,8 @@ const seed = (promos: unknown[]) =>
 const ORIGINAL = { ...process.env };
 const authed = (init: RequestInit = {}) =>
   new NextRequest('http://localhost/api/promos/reorder', {
-    ...init,
+    method: init.method,
+    body: init.body,
     headers: { 'content-type': 'application/json', cookie: `promo_session=${createSessionToken(SECRET)}`, ...(init.headers ?? {}) },
   });
 
