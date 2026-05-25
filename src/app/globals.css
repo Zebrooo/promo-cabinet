@@ -316,4 +316,5 @@ textarea { min-height: 80px; resize: vertical; }
   display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start;
 }
 .preview-hint { color: var(--text-faint); font-size: 0.86rem; padding: 1rem; border: 1px dashed var(--border-2); border-radius: var(--radius); }
+.preview-note { color: var(--text-faint); font-size: 0.8rem; margin: 0; }
 @media (max-width: 860px) { .form-layout { grid-template-columns: 1fr; } .preview-aside { position: static; } }
