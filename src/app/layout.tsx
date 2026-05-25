@@ -1,4 +1,5 @@
 import './globals.css';
+import 'promo-renderer/styles.css';
 import type { ReactNode } from 'react';
 import { Manrope, JetBrains_Mono } from 'next/font/google';
 
