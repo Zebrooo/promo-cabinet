@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export const SESSION_COOKIE = 'promo_session';
+export { SESSION_COOKIE } from './session-cookie';
 
 function sign(value: string, secret: string): string {
   return createHmac('sha256', secret).update(value).digest('base64url');

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { SESSION_COOKIE } from '@/lib/auth';
+import { SESSION_COOKIE } from '@/lib/session-cookie';
 
 /**
  * Cheap edge gate: redirect unauthenticated page requests to /login and 401 unauthed
