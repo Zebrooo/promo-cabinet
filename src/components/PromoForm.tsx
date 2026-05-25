@@ -2,8 +2,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Promo } from '@/lib/schema';
+import { PromoPreview } from './PromoPreview';
 
-const FORMATS = ['inline', 'popup', 'fullscreen'] as const;
+const FORMATS = ['topline', 'inline', 'popup', 'fullscreen'] as const;
+
+type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean };
+const CAPS: Record<Promo['format'], Caps> = {
+  topline: { image: false, description: true, actionLabel: false, dismissible: true },
+  inline: { image: true, description: true, actionLabel: true, dismissible: false },
+  popup: { image: true, description: true, actionLabel: true, dismissible: true },
+  fullscreen: { image: true, description: true, actionLabel: true, dismissible: true },
+};
+
 const empty: Promo = {
   id: '', name: '', startsAt: '', endsAt: '', targeting: {},
   maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline', title: '',
@@ -24,18 +34,31 @@ function localInputToIso(local: string): string {
   return d.toISOString();
 }
 
+/** Drop fields the chosen format does not use, so stored data matches the format. */
+function sanitize(p: Promo): Promo {
+  const c = CAPS[p.format];
+  const out: Promo = { ...p };
+  if (!c.image) delete out.imageUrl;
+  if (!c.description) delete out.description;
+  if (!c.dismissible) delete out.dismissible;
+  if (out.action && !c.actionLabel) out.action = { href: out.action.href };
+  return out;
+}
+
 export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' | 'edit' }) {
   const router = useRouter();
   const [p, setP] = useState<Promo>(initial ?? empty);
   const [error, setError] = useState('');
   const set = (patch: Partial<Promo>) => setP((cur) => ({ ...cur, ...patch }));
+  const caps = CAPS[p.format];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    const body = sanitize(p);
     const url = mode === 'create' ? '/api/promos' : `/api/promos/${encodeURIComponent(p.id)}`;
     const method = mode === 'create' ? 'POST' : 'PUT';
-    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(p) });
+    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     if (res.ok) router.push('/cabinet');
     else {
       const data = await res.json().catch(() => ({}));
@@ -44,76 +67,96 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
   }
 
   return (
-    <form className="form-card" onSubmit={submit}>
-      <div className="form-grid">
-        <div className="field">
-          <label>ID (slug)</label>
-          <input className="mono-input" value={p.id} disabled={mode === 'edit'} onChange={(e) => set({ id: e.target.value })} placeholder="summer-sale" />
-        </div>
-        <div className="field">
-          <label>Формат</label>
-          <select value={p.format} onChange={(e) => set({ format: e.target.value as Promo['format'] })}>
-            {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
-          </select>
+    <div className="form-layout">
+      <form className="form-card" onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field">
+            <label>ID (slug)</label>
+            <input className="mono-input" value={p.id} disabled={mode === 'edit'} onChange={(e) => set({ id: e.target.value })} placeholder="summer-sale" />
+          </div>
+          <div className="field">
+            <label>Формат{mode === 'edit' ? ' (нельзя изменить)' : ''}</label>
+            <select value={p.format} disabled={mode === 'edit'} onChange={(e) => set({ format: e.target.value as Promo['format'] })}>
+              {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+
+          <div className="field field--full">
+            <label>Название (внутреннее)</label>
+            <input value={p.name} onChange={(e) => set({ name: e.target.value })} />
+          </div>
+          <div className="field field--full">
+            <label>Заголовок</label>
+            <input value={p.title} onChange={(e) => set({ title: e.target.value })} />
+          </div>
+
+          {caps.description && (
+            <div className="field field--full">
+              <label>Описание</label>
+              <textarea value={p.description ?? ''} onChange={(e) => set({ description: e.target.value || undefined })} />
+            </div>
+          )}
+
+          {caps.image && (
+            <div className="field field--full">
+              <label>Картинка (URL)</label>
+              <input className="mono-input" value={p.imageUrl ?? ''} onChange={(e) => set({ imageUrl: e.target.value || undefined })} placeholder="https://…" />
+            </div>
+          )}
+
+          <div className="field">
+            <label>Начало показа</label>
+            <input type="datetime-local" lang="ru" value={isoToLocalInput(p.startsAt)} onChange={(e) => set({ startsAt: localInputToIso(e.target.value) })} />
+          </div>
+          <div className="field">
+            <label>Окончание показа</label>
+            <input type="datetime-local" lang="ru" value={isoToLocalInput(p.endsAt)} onChange={(e) => set({ endsAt: localInputToIso(e.target.value) })} />
+          </div>
+
+          <div className="field">
+            <label>Макс. показов (0 = ∞)</label>
+            <input type="number" min={0} value={p.maxImpressionsPerUser} onChange={(e) => set({ maxImpressionsPerUser: Number(e.target.value) })} />
+          </div>
+          <div className="field">
+            <label>Кулдаун, часов (0 = нет)</label>
+            <input type="number" min={0} value={p.cooldownHours} onChange={(e) => set({ cooldownHours: Number(e.target.value) })} />
+          </div>
+
+          <div className="field">
+            <label>{caps.actionLabel ? 'CTA href (необязательно)' : 'Ссылка баннера (необязательно)'}</label>
+            <input className="mono-input" value={p.action?.href ?? ''}
+              onChange={(e) => set({ action: e.target.value ? { href: e.target.value, label: caps.actionLabel ? p.action?.label : undefined } : undefined })}
+              placeholder="/sale/summer" />
+          </div>
+          {caps.actionLabel && (
+            <div className="field">
+              <label>CTA label (необязательно)</label>
+              <input value={p.action?.label ?? ''} disabled={!p.action?.href}
+                onChange={(e) => set({ action: p.action?.href ? { href: p.action.href, label: e.target.value || undefined } : undefined })} />
+            </div>
+          )}
+          {caps.dismissible && (
+            <div className="field">
+              <label>Можно закрыть (×)</label>
+              <select value={(p.dismissible ?? true) ? 'yes' : 'no'} onChange={(e) => set({ dismissible: e.target.value === 'yes' })}>
+                <option value="yes">Да</option>
+                <option value="no">Нет</option>
+              </select>
+            </div>
+          )}
         </div>
 
-        <div className="field field--full">
-          <label>Название (внутреннее)</label>
-          <input value={p.name} onChange={(e) => set({ name: e.target.value })} />
+        {error && <p className="error">{error}</p>}
+        <div className="form-actions">
+          <button type="submit" className="primary">Сохранить</button>
+          <button type="button" onClick={() => router.push('/cabinet')}>Отмена</button>
         </div>
+      </form>
 
-        <div className="field field--full">
-          <label>Заголовок</label>
-          <input value={p.title} onChange={(e) => set({ title: e.target.value })} />
-        </div>
-
-        <div className="field field--full">
-          <label>Описание</label>
-          <textarea value={p.description ?? ''} onChange={(e) => set({ description: e.target.value || undefined })} />
-        </div>
-
-        <div className="field field--full">
-          <label>Картинка (URL)</label>
-          <input className="mono-input" value={p.imageUrl ?? ''} onChange={(e) => set({ imageUrl: e.target.value || undefined })} placeholder="https://…" />
-        </div>
-
-        <div className="field">
-          <label>Начало показа</label>
-          <input type="datetime-local" lang="ru" value={isoToLocalInput(p.startsAt)} onChange={(e) => set({ startsAt: localInputToIso(e.target.value) })} />
-        </div>
-        <div className="field">
-          <label>Окончание показа</label>
-          <input type="datetime-local" lang="ru" value={isoToLocalInput(p.endsAt)} onChange={(e) => set({ endsAt: localInputToIso(e.target.value) })} />
-        </div>
-
-        <div className="field">
-          <label>Макс. показов (0 = ∞)</label>
-          <input type="number" min={0} value={p.maxImpressionsPerUser}
-            onChange={(e) => set({ maxImpressionsPerUser: Number(e.target.value) })} />
-        </div>
-        <div className="field">
-          <label>Кулдаун, часов (0 = нет)</label>
-          <input type="number" min={0} value={p.cooldownHours}
-            onChange={(e) => set({ cooldownHours: Number(e.target.value) })} />
-        </div>
-
-        <div className="field">
-          <label>CTA href (необязательно)</label>
-          <input className="mono-input" value={p.action?.href ?? ''}
-            onChange={(e) => set({ action: e.target.value ? { href: e.target.value, label: p.action?.label } : undefined })} placeholder="/sale/summer" />
-        </div>
-        <div className="field">
-          <label>CTA label (необязательно)</label>
-          <input value={p.action?.label ?? ''} disabled={!p.action?.href}
-            onChange={(e) => set({ action: p.action?.href ? { href: p.action.href, label: e.target.value || undefined } : undefined })} />
-        </div>
-      </div>
-
-      {error && <p className="error">{error}</p>}
-      <div className="form-actions">
-        <button type="submit" className="primary">Сохранить</button>
-        <button type="button" onClick={() => router.push('/cabinet')}>Отмена</button>
-      </div>
-    </form>
+      <aside className="preview-aside">
+        <p className="kicker">Превью</p>
+        <PromoPreview promo={p} />
+      </aside>
+    </div>
   );
 }
