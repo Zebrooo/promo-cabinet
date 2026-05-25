@@ -1,0 +1,39 @@
+import { z } from 'zod';
+
+export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
+export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen']);
+
+/**
+ * Validation source of truth for a promo. MUST match abhPromo's catalogue-schema.ts.
+ * The `startsAt < endsAt` rule is enforced with a refinement.
+ */
+export const promoSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    startsAt: z.string().datetime(),
+    endsAt: z.string().datetime(),
+    targeting: z.object({
+      minAge: z.number().int().nonnegative().optional(),
+      maxAge: z.number().int().nonnegative().optional(),
+      regions: z.array(z.string()).optional(),
+      subscriptionLevels: z.array(subscriptionLevelSchema).optional(),
+    }),
+    maxImpressionsPerUser: z.number().int().nonnegative(),
+    cooldownHours: z.number().int().nonnegative(),
+    format: promoFormatSchema,
+    title: z.string().min(1),
+    description: z.string().optional(),
+    imageUrl: z.string().url().optional(),
+    action: z.object({ href: z.string().min(1), label: z.string().optional() }).optional(),
+    dismissible: z.boolean().optional(),
+  })
+  .refine((p) => new Date(p.startsAt).getTime() < new Date(p.endsAt).getTime(), {
+    message: 'startsAt must be before endsAt',
+    path: ['endsAt'],
+  });
+
+export const catalogueSchema = z.array(promoSchema);
+
+export type Promo = z.infer<typeof promoSchema>;
+export type Catalogue = z.infer<typeof catalogueSchema>;
