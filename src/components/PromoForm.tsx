@@ -9,6 +9,21 @@ const empty: Promo = {
   maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline', title: '',
 };
 
+/** Stored value is ISO-8601 (UTC). The native picker works in local wall-clock. */
+function isoToLocalInput(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(local: string): string {
+  if (!local) return '';
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString();
+}
+
 export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' | 'edit' }) {
   const router = useRouter();
   const [p, setP] = useState<Promo>(initial ?? empty);
@@ -63,12 +78,12 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
         </div>
 
         <div className="field">
-          <label>Начало (ISO 8601)</label>
-          <input className="mono-input" value={p.startsAt} placeholder="2024-01-01T00:00:00.000Z" onChange={(e) => set({ startsAt: e.target.value })} />
+          <label>Начало показа</label>
+          <input type="datetime-local" lang="ru" value={isoToLocalInput(p.startsAt)} onChange={(e) => set({ startsAt: localInputToIso(e.target.value) })} />
         </div>
         <div className="field">
-          <label>Конец (ISO 8601)</label>
-          <input className="mono-input" value={p.endsAt} placeholder="2024-12-31T00:00:00.000Z" onChange={(e) => set({ endsAt: e.target.value })} />
+          <label>Окончание показа</label>
+          <input type="datetime-local" lang="ru" value={isoToLocalInput(p.endsAt)} onChange={(e) => set({ endsAt: localInputToIso(e.target.value) })} />
         </div>
 
         <div className="field">
