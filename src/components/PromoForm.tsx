@@ -34,15 +34,16 @@ function localInputToIso(local: string): string {
   return d.toISOString();
 }
 
-/** Drop fields the chosen format does not use, so stored data matches the format. */
+/** Reduce a promo to the fields its format uses, so stored data matches the format. */
 function sanitize(p: Promo): Promo {
   const c = CAPS[p.format];
-  const out: Promo = { ...p };
-  if (!c.image) delete out.imageUrl;
-  if (!c.description) delete out.description;
-  if (!c.dismissible) delete out.dismissible;
-  if (out.action && !c.actionLabel) out.action = { href: out.action.href };
-  return out;
+  return {
+    ...p,
+    imageUrl: c.image ? p.imageUrl : undefined,
+    description: c.description ? p.description : undefined,
+    dismissible: c.dismissible ? p.dismissible : undefined,
+    action: p.action ? (c.actionLabel ? p.action : { href: p.action.href }) : undefined,
+  };
 }
 
 export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' | 'edit' }) {
@@ -76,6 +77,7 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
           </div>
           <div className="field">
             <label>Формат{mode === 'edit' ? ' (нельзя изменить)' : ''}</label>
+            {/* value is one of FORMATS, which are exactly Promo['format'] */}
             <select value={p.format} disabled={mode === 'edit'} onChange={(e) => set({ format: e.target.value as Promo['format'] })}>
               {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
@@ -155,7 +157,7 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
 
       <aside className="preview-aside">
         <p className="kicker">Превью</p>
-        <PromoPreview promo={p} />
+        <PromoPreview promo={sanitize(p)} />
       </aside>
     </div>
   );
