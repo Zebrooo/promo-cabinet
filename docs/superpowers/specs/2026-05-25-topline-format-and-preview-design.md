@@ -86,10 +86,11 @@ so stored data matches the format.
 ### 3d. In-form preview (`PromoPreview` client component)
 - Maps the in-progress promo to the renderer's `Advertisement` subset
   `{ id, format, title, description?, imageUrl?, action?, dismissible? }`.
-- Renders `<PromoProvider config={{ navigate: () => {} }}><PromoRenderer ad={ad} /></PromoProvider>`.
-- **inline / topline**: rendered live in a contained preview panel, updating as fields change.
-- **popup / fullscreen**: a "Показать превью" button mounts the renderer, which opens the
-  real overlay (portal to body) with its own `×`.
+- Renders `<PromoProvider config={{ navigate: () => {} }}><PromoRenderer ad={ad} /></PromoProvider>`
+  and nothing else. **No per-format branching in the cabinet** — the root `PromoRenderer`
+  receives the promo and itself decides which format component to show. `inline`/`topline`
+  render in the contained preview panel; `popup`/`fullscreen` open their real overlay
+  (portal to body) with their own `×`, exactly as they would in a host app.
 - If `title` is empty, show a hint ("Заполните заголовок…") instead of rendering.
 
 ### 3e. Locked format

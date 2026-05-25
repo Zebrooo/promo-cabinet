@@ -416,14 +416,14 @@ git commit -m "chore: depend on promo-renderer (file:) and load its styles"
 
 - [ ] **Step 1: Create the preview component**
 
-Create `src/components/PromoPreview.tsx`:
+Create `src/components/PromoPreview.tsx`. It does **no per-format branching** — it maps the
+promo to an `Advertisement` and hands it to the root `PromoRenderer`, which itself decides
+which format component to render (inline/topline in flow, popup/fullscreen as their own
+portal overlay):
 ```tsx
 'use client';
-import { useState } from 'react';
 import { PromoProvider, PromoRenderer, type Advertisement } from 'promo-renderer';
 import type { Promo } from '@/lib/schema';
-
-const OVERLAY = new Set(['popup', 'fullscreen']);
 
 /** Map an in-progress promo to the renderer's Advertisement subset. */
 function toAd(p: Promo): Advertisement {
@@ -439,30 +439,13 @@ function toAd(p: Promo): Advertisement {
 }
 
 export function PromoPreview({ promo }: { promo: Promo }) {
-  const [openKey, setOpenKey] = useState(0);
-
   if (!promo.title) {
     return <div className="preview-hint">Заполните заголовок, чтобы увидеть превью.</div>;
   }
-  const ad = toAd(promo);
-
-  if (OVERLAY.has(promo.format)) {
-    return (
-      <div className="preview-panel">
-        <button type="button" onClick={() => setOpenKey((k) => k + 1)}>Показать превью</button>
-        {openKey > 0 && (
-          <PromoProvider key={openKey} config={{ navigate: () => {} }}>
-            <PromoRenderer ad={ad} />
-          </PromoProvider>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="preview-panel">
       <PromoProvider config={{ navigate: () => {} }}>
-        <PromoRenderer ad={ad} />
+        <PromoRenderer ad={toAd(promo)} />
       </PromoProvider>
     </div>
   );
