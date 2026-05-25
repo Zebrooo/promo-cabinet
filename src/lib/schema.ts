@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
-export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen']);
+export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline']);
 
 /**
  * Validation source of truth for a promo. MUST match abhPromo's catalogue-schema.ts.

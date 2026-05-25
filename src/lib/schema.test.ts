@@ -56,6 +56,15 @@ describe('promoSchema', () => {
     expect(() => promoSchema.parse({ ...valid, format: 'banner' })).toThrow();
   });
 
+  it('accepts the topline format', () => {
+    expect(() =>
+      promoSchema.parse({
+        id: 'tl', name: 'TL', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
+        targeting: {}, maxImpressionsPerUser: 0, cooldownHours: 0, format: 'topline', title: 'T',
+      }),
+    ).not.toThrow();
+  });
+
   it('rejects an action without href', () => {
     expect(() => promoSchema.parse({ ...valid, action: { label: 'x' } })).toThrow();
   });
