@@ -163,6 +163,15 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
           </div>
 
           <div className="field">
+            <label>Аудитория</label>
+            <select value={p.audience ?? 'all'} onChange={(e) => set({ audience: e.target.value as Promo['audience'] })}>
+              <option value="all">Все</option>
+              <option value="authenticated">Только залогиненные</option>
+              <option value="anonymous">Только гости</option>
+            </select>
+          </div>
+
+          <div className="field">
             <label>{caps.actionLabel ? 'CTA href (необязательно)' : 'Ссылка баннера (необязательно)'}</label>
             <input className="mono-input" value={p.action?.href ?? ''}
               onChange={(e) => set({ action: e.target.value ? { href: e.target.value, label: caps.actionLabel ? p.action?.label : undefined } : undefined })}

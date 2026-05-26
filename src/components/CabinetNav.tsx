@@ -4,11 +4,11 @@ import { usePathname } from 'next/navigation';
 
 export function CabinetNav() {
   const path = usePathname();
-  const onQueue = path.startsWith('/cabinet/queue');
+  const onQueues = path.startsWith('/cabinet/queues');
   return (
     <nav className="nav">
-      <Link href="/cabinet" className={`nav__tab ${onQueue ? '' : 'is-active'}`}>Список</Link>
-      <Link href="/cabinet/queue" className={`nav__tab ${onQueue ? 'is-active' : ''}`}>Очередь</Link>
+      <Link href="/cabinet" className={`nav__tab ${onQueues ? '' : 'is-active'}`}>Список</Link>
+      <Link href="/cabinet/queues" className={`nav__tab ${onQueues ? 'is-active' : ''}`}>Очереди</Link>
     </nav>
   );
 }
