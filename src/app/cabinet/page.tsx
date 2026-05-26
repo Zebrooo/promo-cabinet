@@ -12,13 +12,13 @@ export default async function CabinetPage() {
 
     // Build membership map: promoId → queue names[]
     const membership: Record<string, string[]> = {};
-    for (const q of queuesIndex) {
-      const qObj = await readQueue(q.name);
-      for (const id of qObj.ids) {
+    const objs = await Promise.all(queuesIndex.map((q) => readQueue(q.name)));
+    queuesIndex.forEach((q, i) => {
+      for (const id of objs[i].ids) {
         if (!membership[id]) membership[id] = [];
         membership[id].push(q.name);
       }
-    }
+    });
 
     const queueNames = queuesIndex.map((q) => q.name);
 

@@ -59,7 +59,7 @@ export default async function QueueNamePage({ params }: Props) {
     );
   } catch (err) {
     // notFound() throws, let it propagate
-    if (err instanceof Error && err.message === 'NEXT_NOT_FOUND') throw err;
+    if ((err as { digest?: string }).digest === 'NEXT_NOT_FOUND') throw err;
     return (
       <main>
         <div className="pagehead"><h1>Очередь: {queueName}</h1></div>

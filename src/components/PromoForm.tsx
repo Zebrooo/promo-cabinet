@@ -17,6 +17,7 @@ const CAPS: Record<Promo['format'], Caps> = {
 const empty: Promo = {
   id: '', name: '', startsAt: '', endsAt: '', targeting: {},
   maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline', title: '',
+  audience: 'all',
 };
 
 /** Stored value is ISO-8601 (UTC). The native picker works in local wall-clock. */
