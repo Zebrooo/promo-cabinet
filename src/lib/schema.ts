@@ -27,6 +27,8 @@ export const promoSchema = z
     imageUrl: z.string().url().optional(),
     action: z.object({ href: z.string().min(1), label: z.string().optional() }).optional(),
     dismissible: z.boolean().optional(),
+    backgroundColor: z.string().optional(),
+    textColor: z.string().optional(),
   })
   .refine((p) => new Date(p.startsAt).getTime() < new Date(p.endsAt).getTime(), {
     message: 'startsAt must be before endsAt',

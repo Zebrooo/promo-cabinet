@@ -18,6 +18,8 @@ function toAd(p: Promo): Advertisement {
     imageUrl: p.imageUrl,
     action: p.action,
     dismissible: p.dismissible,
+    backgroundColor: p.backgroundColor,
+    textColor: p.textColor,
   };
 }
 

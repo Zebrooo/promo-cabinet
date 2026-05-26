@@ -6,12 +6,12 @@ import { PromoPreview } from './PromoPreview';
 
 const FORMATS = ['topline', 'inline', 'popup', 'fullscreen'] as const;
 
-type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean };
+type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean; colors: boolean };
 const CAPS: Record<Promo['format'], Caps> = {
-  topline: { image: false, description: true, actionLabel: false, dismissible: true },
-  inline: { image: true, description: true, actionLabel: true, dismissible: false },
-  popup: { image: true, description: true, actionLabel: true, dismissible: true },
-  fullscreen: { image: true, description: true, actionLabel: true, dismissible: true },
+  topline: { image: false, description: true, actionLabel: false, dismissible: false, colors: true },
+  inline: { image: true, description: true, actionLabel: true, dismissible: false, colors: false },
+  popup: { image: true, description: true, actionLabel: true, dismissible: true, colors: false },
+  fullscreen: { image: true, description: true, actionLabel: true, dismissible: true, colors: false },
 };
 
 const empty: Promo = {
@@ -42,6 +42,8 @@ function sanitize(p: Promo): Promo {
     imageUrl: c.image ? p.imageUrl : undefined,
     description: c.description ? p.description : undefined,
     dismissible: c.dismissible ? p.dismissible : undefined,
+    backgroundColor: c.colors ? p.backgroundColor : undefined,
+    textColor: c.colors ? p.textColor : undefined,
     action: p.action ? (c.actionLabel ? p.action : { href: p.action.href }) : undefined,
   };
 }
@@ -180,6 +182,18 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
                 <option value="no">Нет</option>
               </select>
             </div>
+          )}
+          {caps.colors && (
+            <>
+              <div className="field">
+                <label>Цвет фона баннера</label>
+                <input type="color" value={p.backgroundColor ?? '#2563eb'} onChange={(e) => set({ backgroundColor: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>Цвет текста</label>
+                <input type="color" value={p.textColor ?? '#ffffff'} onChange={(e) => set({ textColor: e.target.value })} />
+              </div>
+            </>
           )}
         </div>
 
