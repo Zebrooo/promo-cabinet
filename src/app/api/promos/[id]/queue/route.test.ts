@@ -6,7 +6,7 @@ import { promosKey, queueKey, getS3Client, resetS3ClientForTests } from '@/lib/s
 import { createSessionToken } from '@/lib/auth';
 import { readPool, readQueue } from '@/lib/catalogue';
 import { env } from '@/env';
-import { PUT, DELETE } from './route';
+import { POST, DELETE } from './route';
 
 const SECRET = 'unit-test-secret';
 
@@ -26,17 +26,16 @@ const seedQueue = (ids: string[]) =>
   }));
 
 const ORIGINAL = { ...process.env };
-const authed = (init: RequestInit = {}) =>
-  new NextRequest('http://localhost/api/promos/a', {
-    method: init.method,
-    body: init.body,
+const authed = (id: string, method = 'POST', init: RequestInit = {}) =>
+  new NextRequest(`http://localhost/api/promos/${id}/queue`, {
+    method,
     headers: { 'content-type': 'application/json', cookie: `promo_session=${createSessionToken(SECRET)}`, ...(init.headers ?? {}) },
   });
 const ctx = (id: string) => ({ params: { id } });
 
 beforeEach(() => {
   process.env.SESSION_SECRET = SECRET;
-  process.env.PROMO_KEY_PREFIX = `test/api-promos-id/${randomUUID()}/`;
+  process.env.PROMO_KEY_PREFIX = `test/api-queue/${randomUUID()}/`;
   resetS3ClientForTests();
 });
 afterEach(async () => {
@@ -47,46 +46,45 @@ afterEach(async () => {
   process.env = { ...ORIGINAL };
 });
 
-describe('PUT /api/promos/[id]', () => {
-  it('updates an existing promo (200)', async () => {
+describe('POST /api/promos/[id]/queue', () => {
+  it('enqueues: queue has the id; pool unchanged', async () => {
     await seedPool([promo('a')]);
-    const res = await PUT(authed({ method: 'PUT', body: JSON.stringify({ ...promo('a'), title: 'New' }) }), ctx('a'));
+    const res = await POST(authed('a'), ctx('a'));
     expect(res.status).toBe(200);
+    const queue = await readQueue();
+    const pool = await readPool();
+    expect(queue).toContain('a');
+    expect(pool.map((p) => p.id)).toContain('a');
   });
 
-  it('404 when the id is missing', async () => {
-    await seedPool([promo('a')]);
-    const res = await PUT(authed({ method: 'PUT', body: JSON.stringify(promo('zzz')) }), ctx('zzz'));
+  it('404 when promo does not exist in the pool', async () => {
+    const res = await POST(authed('unknown'), ctx('unknown'));
     expect(res.status).toBe(404);
   });
 
-  it('400 when the body id does not match the path id', async () => {
-    const res = await PUT(authed({ method: 'PUT', body: JSON.stringify(promo('b')) }), ctx('a'));
-    expect(res.status).toBe(400);
+  it('401 without a valid session', async () => {
+    const res = await POST(
+      new NextRequest('http://localhost/api/promos/a/queue', { method: 'POST' }),
+      ctx('a'),
+    );
+    expect(res.status).toBe(401);
   });
 });
 
-describe('DELETE /api/promos/[id]', () => {
-  it('removes from BOTH pool and queue', async () => {
+describe('DELETE /api/promos/[id]/queue', () => {
+  it('dequeues: queue empty; pool still has the promo', async () => {
     await seedPool([promo('a')]);
     await seedQueue(['a']);
-    const res = await DELETE(authed({ method: 'DELETE' }), ctx('a'));
+    const res = await DELETE(authed('a', 'DELETE'), ctx('a'));
     expect(res.status).toBe(200);
-    const pool = await readPool();
     const queue = await readQueue();
-    expect(pool.find((p) => p.id === 'a')).toBeUndefined();
+    const pool = await readPool();
     expect(queue).toEqual([]);
+    expect(pool.map((p) => p.id)).toContain('a');
   });
 
-  it('deletes an existing promo not in queue (200)', async () => {
-    await seedPool([promo('a')]);
-    const res = await DELETE(authed({ method: 'DELETE' }), ctx('a'));
+  it('dequeue is idempotent (id not in queue — still 200)', async () => {
+    const res = await DELETE(authed('a', 'DELETE'), ctx('a'));
     expect(res.status).toBe(200);
-  });
-
-  it('404 when the id is missing from pool', async () => {
-    await seedPool([promo('a')]);
-    const res = await DELETE(authed({ method: 'DELETE' }), ctx('zzz'));
-    expect(res.status).toBe(404);
   });
 });

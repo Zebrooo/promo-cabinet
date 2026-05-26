@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { catalogueKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
+import { promosKey, queueKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
 import { createSessionToken } from '@/lib/auth';
+import { readPool, readQueue } from '@/lib/catalogue';
 import { env } from '@/env';
 import { GET, POST } from './route';
 
@@ -14,10 +15,16 @@ const validPromo = {
   targeting: {}, maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline', title: 'A',
 };
 
-/** Pre-seed the catalogue object for the current (unique) test prefix. */
-const seed = (promos: unknown[]) =>
+/** Pre-seed the pool object for the current (unique) test prefix. */
+const seedPool = (promos: unknown[]) =>
   getS3Client().send(new PutObjectCommand({
-    Bucket: env.promoBucket, Key: catalogueKey(), Body: JSON.stringify(promos), ContentType: 'application/json',
+    Bucket: env.promoBucket, Key: promosKey(), Body: JSON.stringify(promos), ContentType: 'application/json',
+  }));
+
+/** Pre-seed the queue object for the current (unique) test prefix. */
+const seedQueue = (ids: string[]) =>
+  getS3Client().send(new PutObjectCommand({
+    Bucket: env.promoBucket, Key: queueKey(), Body: JSON.stringify(ids), ContentType: 'application/json',
   }));
 
 const ORIGINAL = { ...process.env };
@@ -34,16 +41,27 @@ beforeEach(() => {
   resetS3ClientForTests();
 });
 afterEach(async () => {
-  await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: catalogueKey() })).catch(() => {});
+  await Promise.allSettled([
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: promosKey() })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey() })),
+  ]);
   process.env = { ...ORIGINAL };
 });
 
 describe('GET /api/promos', () => {
-  it('returns the catalogue', async () => {
-    await seed([validPromo]);
+  it('returns { promos, queue }', async () => {
+    await seedPool([validPromo]);
+    await seedQueue(['a']);
     const res = await GET(authed());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([validPromo]);
+    const body = await res.json();
+    expect(body).toEqual({ promos: [validPromo], queue: ['a'] });
+  });
+
+  it('returns empty promos and queue when nothing seeded', async () => {
+    const res = await GET(authed());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ promos: [], queue: [] });
   });
 
   it('401 without a valid session', async () => {
@@ -53,13 +71,17 @@ describe('GET /api/promos', () => {
 });
 
 describe('POST /api/promos', () => {
-  it('creates a promo (201)', async () => {
+  it('adds to the pool but NOT the queue (201)', async () => {
     const res = await POST(authed({ method: 'POST', body: JSON.stringify(validPromo) }));
     expect(res.status).toBe(201);
+    const pool = await readPool();
+    const queue = await readQueue();
+    expect(pool.map((p) => p.id)).toContain('a');
+    expect(queue).toEqual([]);
   });
 
   it('409 on a duplicate id', async () => {
-    await seed([validPromo]);
+    await seedPool([validPromo]);
     const res = await POST(authed({ method: 'POST', body: JSON.stringify(validPromo) }));
     expect(res.status).toBe(409);
   });
