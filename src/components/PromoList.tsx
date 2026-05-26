@@ -8,11 +8,20 @@ function isActive(p: Promo): boolean {
   return new Date(p.startsAt).getTime() <= now && now <= new Date(p.endsAt).getTime();
 }
 
+/** Case-insensitive substring match over id, title, internal name and format. */
+function matches(p: Promo, q: string): boolean {
+  return [p.id, p.title, p.name, p.format].some((field) => field.toLowerCase().includes(q));
+}
+
 export function PromoList({ promos, queuedIds }: { promos: Promo[]; queuedIds: string[] }) {
   const router = useRouter();
   const [queued, setQueued] = useState<Set<string>>(new Set(queuedIds));
   const [list, setList] = useState<Promo[]>(promos);
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const q = query.trim().toLowerCase();
+  const visible = q ? list.filter((p) => matches(p, q)) : list;
 
   async function enqueue(id: string) {
     setBusy(true);
@@ -38,9 +47,24 @@ export function PromoList({ promos, queuedIds }: { promos: Promo[]; queuedIds: s
   }
 
   return (
-    <div className="cards">
-      {list.map((p) => {
-        const inQueue = queued.has(p.id);
+    <>
+      <div className="list-toolbar">
+        <input
+          className="search-input"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Поиск по id, заголовку, названию, формату…"
+          aria-label="Поиск по каталогу промо"
+        />
+        <span className="list-toolbar__count">{visible.length} из {list.length}</span>
+      </div>
+      {visible.length === 0 ? (
+        <div className="empty">Ничего не найдено по запросу «{query}».</div>
+      ) : (
+        <div className="cards">
+          {visible.map((p) => {
+            const inQueue = queued.has(p.id);
         return (
           <article className="card" key={p.id}>
             <div className="card__top">
@@ -61,8 +85,10 @@ export function PromoList({ promos, queuedIds }: { promos: Promo[]; queuedIds: s
               <button className="btn--danger" disabled={busy} onClick={() => removeForever(p.id)}>Удалить совсем</button>
             </div>
           </article>
-        );
-      })}
-    </div>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
