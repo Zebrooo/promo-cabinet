@@ -3,7 +3,9 @@ import {
   addPromo,
   updatePromo,
   removePromo,
-  reorderPromos,
+  enqueue,
+  dequeue,
+  reorderQueue,
   DuplicateIdError,
   NotFoundError,
   ReorderMismatchError,
@@ -62,15 +64,20 @@ describe('removePromo', () => {
   });
 });
 
-describe('reorderPromos', () => {
-  it('reorders to the given id sequence', () => {
-    const result = reorderPromos([make('a'), make('b'), make('c')], ['c', 'a', 'b']);
-    expect(result.map((p) => p.id)).toEqual(['c', 'a', 'b']);
+describe('queue ops', () => {
+  it('enqueue appends when absent and is idempotent', () => {
+    expect(enqueue(['a'], 'b')).toEqual(['a', 'b']);
+    expect(enqueue(['a', 'b'], 'b')).toEqual(['a', 'b']);
   });
-
-  it('throws ReorderMismatchError when ids are not a permutation', () => {
-    expect(() => reorderPromos([make('a'), make('b')], ['a'])).toThrow(ReorderMismatchError);
-    expect(() => reorderPromos([make('a'), make('b')], ['a', 'b', 'c'])).toThrow(ReorderMismatchError);
-    expect(() => reorderPromos([make('a'), make('b')], ['a', 'a'])).toThrow(ReorderMismatchError);
+  it('dequeue removes the id and is idempotent', () => {
+    expect(dequeue(['a', 'b'], 'a')).toEqual(['b']);
+    expect(dequeue(['b'], 'a')).toEqual(['b']);
+  });
+  it('reorderQueue accepts a permutation', () => {
+    expect(reorderQueue(['a', 'b', 'c'], ['c', 'a', 'b'])).toEqual(['c', 'a', 'b']);
+  });
+  it('reorderQueue rejects a non-permutation', () => {
+    expect(() => reorderQueue(['a', 'b'], ['a'])).toThrow(ReorderMismatchError);
+    expect(() => reorderQueue(['a', 'b'], ['a', 'x'])).toThrow(ReorderMismatchError);
   });
 });

@@ -4,7 +4,7 @@ export class DuplicateIdError extends Error {}
 export class NotFoundError extends Error {}
 export class ReorderMismatchError extends Error {}
 
-/** Append a promo to the end of the queue. Rejects a duplicate id. */
+/** Append a promo to the pool. Rejects a duplicate id. */
 export function addPromo(promos: Promo[], promo: Promo): Promo[] {
   if (promos.some((p) => p.id === promo.id)) {
     throw new DuplicateIdError(`promo "${promo.id}" already exists`);
@@ -27,14 +27,22 @@ export function removePromo(promos: Promo[], id: string): Promo[] {
   return promos.filter((p) => p.id !== id);
 }
 
+/** Append id to the queue if not already present (idempotent). */
+export function enqueue(queue: string[], id: string): string[] {
+  return queue.includes(id) ? queue : [...queue, id];
+}
+
+/** Remove id from the queue (idempotent). */
+export function dequeue(queue: string[], id: string): string[] {
+  return queue.filter((q) => q !== id);
+}
+
 /** Reorder the queue to match `ids`, which must be a permutation of the current ids. */
-export function reorderPromos(promos: Promo[], ids: string[]): Promo[] {
-  const current = promos.map((p) => p.id);
-  const sameLength = ids.length === current.length;
-  const sameSet = new Set(ids).size === ids.length && ids.every((id) => current.includes(id));
+export function reorderQueue(queue: string[], ids: string[]): string[] {
+  const sameLength = ids.length === queue.length;
+  const sameSet = new Set(ids).size === ids.length && ids.every((id) => queue.includes(id));
   if (!sameLength || !sameSet) {
-    throw new ReorderMismatchError('ids must be a permutation of the current promo ids');
+    throw new ReorderMismatchError('ids must be a permutation of the current queue ids');
   }
-  const byId = new Map(promos.map((p) => [p.id, p]));
-  return ids.map((id) => byId.get(id)!);
+  return [...ids];
 }
