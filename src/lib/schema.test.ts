@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { promoSchema, catalogueSchema, queueSchema, type Promo } from './schema';
+import { promoSchema, catalogueSchema, queueSchema, audienceSchema, type Promo } from './schema';
 
 const valid: Promo = {
   id: 'summer-sale',
@@ -67,6 +67,41 @@ describe('promoSchema', () => {
 
   it('rejects an action without href', () => {
     expect(() => promoSchema.parse({ ...valid, action: { label: 'x' } })).toThrow();
+  });
+});
+
+describe('audience field', () => {
+  it('accepts a promo with audience: authenticated', () => {
+    expect(() => promoSchema.parse({ ...valid, audience: 'authenticated' })).not.toThrow();
+  });
+
+  it('accepts a promo with audience: anonymous', () => {
+    expect(() => promoSchema.parse({ ...valid, audience: 'anonymous' })).not.toThrow();
+  });
+
+  it('accepts a promo with audience: all', () => {
+    expect(() => promoSchema.parse({ ...valid, audience: 'all' })).not.toThrow();
+  });
+
+  it('accepts a promo without audience (optional)', () => {
+    const { ...rest } = valid;
+    expect(() => promoSchema.parse(rest)).not.toThrow();
+  });
+
+  it('rejects audience: nope', () => {
+    expect(() => promoSchema.parse({ ...valid, audience: 'nope' })).toThrow();
+  });
+});
+
+describe('audienceSchema', () => {
+  it('accepts all, authenticated, anonymous', () => {
+    expect(() => audienceSchema.parse('all')).not.toThrow();
+    expect(() => audienceSchema.parse('authenticated')).not.toThrow();
+    expect(() => audienceSchema.parse('anonymous')).not.toThrow();
+  });
+
+  it('rejects unknown values', () => {
+    expect(() => audienceSchema.parse('nope')).toThrow();
   });
 });
 

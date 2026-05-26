@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
 export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline']);
+export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
 
 /**
  * Validation source of truth for a promo. MUST match abhPromo's catalogue-schema.ts.
@@ -30,6 +31,7 @@ export const promoSchema = z
     backgroundColor: z.string().optional(),
     textColor: z.string().optional(),
     backgroundImage: z.string().optional(),
+    audience: audienceSchema.optional(),
   })
   .refine((p) => new Date(p.startsAt).getTime() < new Date(p.endsAt).getTime(), {
     message: 'startsAt must be before endsAt',
