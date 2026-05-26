@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
-import { mutateCatalogue } from '@/lib/catalogue';
-import { reorderPromos, ReorderMismatchError } from '@/lib/mutations';
+import { mutateQueue } from '@/lib/catalogue';
+import { reorderQueue, ReorderMismatchError } from '@/lib/mutations';
 
 export const runtime = 'nodejs';
 
-const bodySchema = z.object({ ids: z.array(z.string().min(1)).min(1) });
+const bodySchema = z.object({ ids: z.array(z.string().min(1)) });
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    await mutateCatalogue((promos) => reorderPromos(promos, ids));
+    await mutateQueue((current) => reorderQueue(current, ids));
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof ReorderMismatchError) return NextResponse.json({ error: 'reorder_mismatch' }, { status: 400 });
