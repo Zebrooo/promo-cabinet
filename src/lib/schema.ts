@@ -35,5 +35,11 @@ export const promoSchema = z
 
 export const catalogueSchema = z.array(promoSchema);
 
+/** The pool is an array of promos. */
+export const poolSchema = catalogueSchema;
+/** The queue is an ordered array of promo ids. */
+export const queueSchema = z.array(z.string().min(1));
+export type Queue = z.infer<typeof queueSchema>;
+
 export type Promo = z.infer<typeof promoSchema>;
 export type Catalogue = z.infer<typeof catalogueSchema>;

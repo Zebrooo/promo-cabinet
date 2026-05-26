@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { promoSchema, catalogueSchema, type Promo } from './schema';
+import { promoSchema, catalogueSchema, queueSchema, type Promo } from './schema';
 
 const valid: Promo = {
   id: 'summer-sale',
@@ -77,5 +77,12 @@ describe('catalogueSchema', () => {
       { ...valid, id: 'b' },
     ]);
     expect(parsed.map((p) => p.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('queueSchema', () => {
+  it('accepts an array of id strings and rejects non-strings', () => {
+    expect(() => queueSchema.parse(['a', 'b'])).not.toThrow();
+    expect(() => queueSchema.parse(['a', 2])).toThrow();
   });
 });
