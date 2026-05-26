@@ -20,10 +20,18 @@ export function PromoQueue({ promos }: { promos: Promo[] }) {
     [next[index], next[target]] = [next[target], next[index]];
     setOrder(next);
     setBusy(true);
-    await fetch('/api/promos/reorder', {
+    await fetch('/api/queue', {
       method: 'PUT', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ids: next.map((p) => p.id) }),
     });
+    setBusy(false);
+    router.refresh();
+  }
+
+  async function dequeue(id: string) {
+    setBusy(true);
+    await fetch(`/api/promos/${encodeURIComponent(id)}/queue`, { method: 'DELETE' });
+    setOrder((cur) => cur.filter((p) => p.id !== id));
     setBusy(false);
     router.refresh();
   }
@@ -44,6 +52,7 @@ export function PromoQueue({ promos }: { promos: Promo[] }) {
           <div className="qrow__move">
             <button className="iconbtn" aria-label="Выше" disabled={busy || i === 0} onClick={() => move(i, -1)}>↑</button>
             <button className="iconbtn" aria-label="Ниже" disabled={busy || i === order.length - 1} onClick={() => move(i, 1)}>↓</button>
+            <button className="iconbtn" aria-label="Убрать из очереди" disabled={busy} onClick={() => dequeue(p.id)}>✕</button>
           </div>
         </li>
       ))}
