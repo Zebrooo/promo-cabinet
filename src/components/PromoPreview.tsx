@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { PromoProvider, PromoRenderer, type Advertisement } from 'promo-renderer';
+import { PromoProvider, PromoRenderer, type Advertisement } from '@zebrooo/promo-renderer';
 import type { Promo } from '@/lib/schema';
 
 const noop = (_href: string) => {};

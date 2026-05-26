@@ -17,8 +17,13 @@ export function middleware(req: NextRequest): NextResponse {
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-  const loginUrl = new URL('/login', req.url);
-  return NextResponse.redirect(loginUrl);
+  // Build the redirect from the forwarded host/proto so it points at the PUBLIC origin
+  // when behind a reverse proxy / tunnel. `req.url` normalizes to the internal bind
+  // (e.g. localhost:PORT), which would send the browser to an unreachable address.
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https';
+  const base = host ? `${proto}://${host}` : req.url;
+  return NextResponse.redirect(new URL('/login', base));
 }
 
 export const config = {
