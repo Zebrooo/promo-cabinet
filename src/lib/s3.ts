@@ -19,9 +19,14 @@ export function getS3Client(): S3Client {
   return client;
 }
 
-/** Catalogue object key, honouring the optional key prefix. */
-export function catalogueKey(): string {
-  return `${env.promoKeyPrefix}catalogue.json`;
+/** Pool object key (all promos), honouring the optional key prefix. */
+export function promosKey(): string {
+  return `${env.promoKeyPrefix}promos.json`;
+}
+
+/** Queue object key (ordered active promo ids), honouring the optional key prefix. */
+export function queueKey(): string {
+  return `${env.promoKeyPrefix}queue.json`;
 }
 
 /** Test seam: drop the memoized client. */
