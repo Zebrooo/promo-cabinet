@@ -18,7 +18,6 @@ const make = (id: string): Promo => ({
   startsAt: '2024-01-01T00:00:00.000Z',
   endsAt: '2024-12-31T00:00:00.000Z',
   targeting: {},
-  maxImpressionsPerUser: 0,
   cooldownHours: 0,
   format: 'inline',
   title: id,

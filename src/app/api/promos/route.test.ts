@@ -12,7 +12,7 @@ const SECRET = 'unit-test-secret';
 
 const validPromo = {
   id: 'a', name: 'A', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z',
-  targeting: {}, maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline', title: 'A',
+  targeting: {}, cooldownHours: 0, format: 'inline', title: 'A',
 };
 
 /** Pre-seed the pool object for the current (unique) test prefix. */

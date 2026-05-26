@@ -7,7 +7,6 @@ const valid: Promo = {
   startsAt: '2024-01-01T00:00:00.000Z',
   endsAt: '2024-12-31T00:00:00.000Z',
   targeting: { minAge: 18, regions: ['ru'], subscriptionLevels: ['plus'] },
-  maxImpressionsPerUser: 3,
   cooldownHours: 24,
   format: 'popup',
   title: 'Распродажа',
@@ -30,7 +29,6 @@ describe('promoSchema', () => {
         startsAt: '2024-01-01T00:00:00.000Z',
         endsAt: '2024-02-01T00:00:00.000Z',
         targeting: {},
-        maxImpressionsPerUser: 0,
         cooldownHours: 0,
         format: 'inline',
         title: 'T',
@@ -60,7 +58,7 @@ describe('promoSchema', () => {
     expect(() =>
       promoSchema.parse({
         id: 'tl', name: 'TL', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
-        targeting: {}, maxImpressionsPerUser: 0, cooldownHours: 0, format: 'topline', title: 'T',
+        targeting: {}, cooldownHours: 0, format: 'topline', title: 'T',
       }),
     ).not.toThrow();
   });

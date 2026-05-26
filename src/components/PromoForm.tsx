@@ -16,7 +16,7 @@ const CAPS: Record<Promo['format'], Caps> = {
 
 const empty: Promo = {
   id: '', name: '', startsAt: '', endsAt: '', targeting: {},
-  maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline', title: '',
+  cooldownHours: 0, format: 'inline', title: '',
   audience: 'all',
 };
 
@@ -154,10 +154,6 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
             <input type="datetime-local" lang="ru" value={isoToLocalInput(p.endsAt)} onChange={(e) => set({ endsAt: localInputToIso(e.target.value) })} />
           </div>
 
-          <div className="field">
-            <label>Макс. показов (0 = ∞)</label>
-            <input type="number" min={0} value={p.maxImpressionsPerUser} onChange={(e) => set({ maxImpressionsPerUser: Number(e.target.value) })} />
-          </div>
           <div className="field">
             <label>Кулдаун, часов (0 = нет)</label>
             <input type="number" min={0} value={p.cooldownHours} onChange={(e) => set({ cooldownHours: Number(e.target.value) })} />

@@ -36,7 +36,7 @@ const seedQueue = (name: string, persist: boolean, ids: string[]) =>
 
 const promo = (id: string) => ({
   id, name: id, startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z',
-  targeting: {}, maxImpressionsPerUser: 0, cooldownHours: 0, format: 'inline' as const, title: id,
+  targeting: {}, cooldownHours: 0, format: 'inline' as const, title: id,
 });
 
 beforeEach(() => {

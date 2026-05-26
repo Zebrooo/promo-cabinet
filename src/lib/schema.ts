@@ -20,7 +20,6 @@ export const promoSchema = z
       regions: z.array(z.string()).optional(),
       subscriptionLevels: z.array(subscriptionLevelSchema).optional(),
     }),
-    maxImpressionsPerUser: z.number().int().nonnegative(),
     cooldownHours: z.number().int().nonnegative(),
     format: promoFormatSchema,
     title: z.string().min(1),

@@ -92,7 +92,7 @@ export function PromoList({ promos, membership, queueNames }: PromoListProps) {
                 <p className="card__id">{p.id}</p>
                 <dl className="card__meta">
                   <div><dt>Активен сейчас</dt><dd>{isActive(p) ? 'да' : 'нет'}</dd></div>
-                  <div><dt>Лимит</dt><dd>{p.maxImpressionsPerUser || '∞'}</dd></div>
+                  <div><dt>Кулдаун</dt><dd>{p.cooldownHours ? `${p.cooldownHours} ч` : 'нет'}</dd></div>
                 </dl>
                 {queueNames.length > 0 && (
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
