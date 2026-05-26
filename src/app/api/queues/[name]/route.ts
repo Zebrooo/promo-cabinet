@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
 import { readPool, readQueue, writeQueue, mutateQueue, readQueuesIndex, writeQueuesIndex } from '@/lib/catalogue';
-import { queueKey, queuesIndexKey, getS3Client } from '@/lib/s3';
+import { queueKey, getS3Client } from '@/lib/s3';
 import { reorderQueue, ReorderMismatchError } from '@/lib/mutations';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '@/env';
@@ -65,7 +65,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
     const entryIdx = index.findIndex((e) => e.name === params.name);
     if (entryIdx === -1) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
-    let currentName = params.name;
+    const currentName = params.name;
     let updatedQueue = { ...queue };
 
     if (body.persist !== undefined) {
@@ -77,14 +77,21 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
       if (index.some((e) => e.name === newName)) {
         return NextResponse.json({ error: 'duplicate_queue' }, { status: 409 });
       }
-      // Write queue under new name and delete old key
+      const oldName = currentName;
+      // Safer ordering: (a) write queue under the new key, (b) write the
+      // updated index pointing to the new name, (c) delete the old key last.
+      // A failure after (b) leaves only a harmless orphaned old key.
       await writeQueue(newName, updatedQueue);
-      await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(currentName) }));
-      currentName = newName;
-    } else {
-      await writeQueue(currentName, updatedQueue);
+      const newIndex = index.map((e, i) =>
+        i === entryIdx ? { name: newName, persist: updatedQueue.persist } : e,
+      );
+      await writeQueuesIndex(newIndex);
+      await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(oldName) }));
+
+      return NextResponse.json({ ok: true });
     }
 
+    await writeQueue(currentName, updatedQueue);
     // Update index entry
     const newIndex = index.map((e, i) =>
       i === entryIdx ? { name: currentName, persist: updatedQueue.persist } : e,
@@ -101,10 +108,13 @@ export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextRes
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
     const index = await readQueuesIndex();
+    if (!index.some((e) => e.name === params.name)) {
+      return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    }
     const newIndex = index.filter((e) => e.name !== params.name);
+    await writeQueuesIndex(newIndex);
     // Delete the queue object
     await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(params.name) })).catch(() => {});
-    await writeQueuesIndex(newIndex);
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });

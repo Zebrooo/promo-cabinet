@@ -147,6 +147,15 @@ describe('DELETE /api/queues/[name]', () => {
     expect(idx.some((e) => e.name === 'main')).toBe(true);
   });
 
+  it('404 when deleting an unknown queue name', async () => {
+    await seedIndex([{ name: 'main', persist: false }]);
+    const res = await DELETE(authed('other', { method: 'DELETE' }), ctx('other'));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: 'not_found' });
+    const idx = await readQueuesIndex();
+    expect(idx.some((e) => e.name === 'main')).toBe(true);
+  });
+
   it('401 without a valid session', async () => {
     const res = await DELETE(new NextRequest('http://localhost/api/queues/other', { method: 'DELETE' }), ctx('other'));
     expect(res.status).toBe(401);
