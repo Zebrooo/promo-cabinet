@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isAuthed } from '@/lib/api-auth';
 import { promoSchema } from '@/lib/schema';
-import { mutateCatalogue } from '@/lib/catalogue';
-import { removePromo, updatePromo, NotFoundError } from '@/lib/mutations';
+import { mutatePool, mutateQueue } from '@/lib/catalogue';
+import { removePromo, updatePromo, dequeue, NotFoundError } from '@/lib/mutations';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
   }
 
   try {
-    await mutateCatalogue((promos) => updatePromo(promos, params.id, promo));
+    await mutatePool((promos) => updatePromo(promos, params.id, promo));
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json({ error: 'not_found' }, { status: 404 });
@@ -30,11 +30,13 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
   }
 }
 
+/** Hard delete: remove from the queue first, then the pool. */
 export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   try {
-    await mutateCatalogue((promos) => removePromo(promos, params.id));
+    await mutateQueue((ids) => dequeue(ids, params.id));
+    await mutatePool((promos) => removePromo(promos, params.id));
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json({ error: 'not_found' }, { status: 404 });
