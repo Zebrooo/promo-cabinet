@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isAuthed } from '@/lib/api-auth';
 import { promoSchema } from '@/lib/schema';
-import { mutatePool, mutateQueue } from '@/lib/catalogue';
+import { mutatePool, mutateQueue, readQueuesIndex } from '@/lib/catalogue';
 import { removePromo, updatePromo, dequeue, NotFoundError } from '@/lib/mutations';
 
 export const runtime = 'nodejs';
@@ -30,12 +30,15 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
   }
 }
 
-/** Hard delete: remove from the queue first, then the pool. */
+/** Hard delete: remove from all queues, then the pool. */
 export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   try {
-    await mutateQueue((ids) => dequeue(ids, params.id));
+    const index = await readQueuesIndex();
+    await Promise.all(
+      index.map((entry) => mutateQueue(entry.name, (q) => ({ ...q, ids: dequeue(q.ids, params.id) }))),
+    );
     await mutatePool((promos) => removePromo(promos, params.id));
     return NextResponse.json({ ok: true });
   } catch (err) {

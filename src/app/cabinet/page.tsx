@@ -7,9 +7,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function CabinetPage() {
   requireSession();
-  let promos; let queue;
+  let promos; let queuedIds: string[] = [];
   try {
-    ({ promos, queue } = await readState());
+    const state = await readState();
+    promos = state.promos;
+    // Legacy compatibility: show no queued badge until named-queue UI is built
   } catch {
     return (
       <main>
@@ -29,7 +31,7 @@ export default async function CabinetPage() {
       </div>
       {promos.length === 0
         ? <div className="empty">Промо пока нет. Создайте первое — оно появится здесь; добавьте его в очередь, чтобы показывать.</div>
-        : <PromoList promos={promos} queuedIds={queue} />}
+        : <PromoList promos={promos} queuedIds={queuedIds} />}
     </main>
   );
 }

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { promosKey, queueKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
+import { promosKey, queueKey, queuesIndexKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
 import { createSessionToken } from '@/lib/auth';
 import { readPool, readQueue } from '@/lib/catalogue';
 import { env } from '@/env';
@@ -22,7 +22,7 @@ const seedPool = (promos: unknown[]) =>
 
 const seedQueue = (ids: string[]) =>
   getS3Client().send(new PutObjectCommand({
-    Bucket: env.promoBucket, Key: queueKey(), Body: JSON.stringify(ids), ContentType: 'application/json',
+    Bucket: env.promoBucket, Key: queueKey('main'), Body: JSON.stringify({ persist: false, ids }), ContentType: 'application/json',
   }));
 
 const ORIGINAL = { ...process.env };
@@ -41,19 +41,20 @@ beforeEach(() => {
 afterEach(async () => {
   await Promise.allSettled([
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: promosKey() })),
-    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey() })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('main') })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queuesIndexKey() })),
   ]);
   process.env = { ...ORIGINAL };
 });
 
 describe('POST /api/promos/[id]/queue', () => {
-  it('enqueues: queue has the id; pool unchanged', async () => {
+  it('enqueues: main queue has the id; pool unchanged', async () => {
     await seedPool([promo('a')]);
     const res = await POST(authed('a'), ctx('a'));
     expect(res.status).toBe(200);
-    const queue = await readQueue();
+    const queue = await readQueue('main');
     const pool = await readPool();
-    expect(queue).toContain('a');
+    expect(queue.ids).toContain('a');
     expect(pool.map((p) => p.id)).toContain('a');
   });
 
@@ -72,14 +73,14 @@ describe('POST /api/promos/[id]/queue', () => {
 });
 
 describe('DELETE /api/promos/[id]/queue', () => {
-  it('dequeues: queue empty; pool still has the promo', async () => {
+  it('dequeues from main: queue empty; pool still has the promo', async () => {
     await seedPool([promo('a')]);
     await seedQueue(['a']);
     const res = await DELETE(authed('a', 'DELETE'), ctx('a'));
     expect(res.status).toBe(200);
-    const queue = await readQueue();
+    const queue = await readQueue('main');
     const pool = await readPool();
-    expect(queue).toEqual([]);
+    expect(queue.ids).toEqual([]);
     expect(pool.map((p) => p.id)).toContain('a');
   });
 

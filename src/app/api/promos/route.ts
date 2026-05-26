@@ -9,8 +9,8 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
-    const { promos, queue } = await readState();
-    return NextResponse.json({ promos, queue });
+    const { promos, queues } = await readState();
+    return NextResponse.json({ promos, queues });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
   }

@@ -46,5 +46,17 @@ export const poolSchema = catalogueSchema;
 export const queueSchema = z.array(z.string().min(1));
 export type Queue = z.infer<typeof queueSchema>;
 
+/** Named-queues index: array of { name, persist }. */
+export const queuesIndexSchema = z.array(
+  z.object({ name: z.string().min(1), persist: z.boolean() }),
+);
+/** Per-queue object: { persist, ids }. */
+export const queueObjectSchema = z.object({
+  persist: z.boolean().default(false),
+  ids: z.array(z.string().min(1)).default([]),
+});
+
 export type Promo = z.infer<typeof promoSchema>;
 export type Catalogue = z.infer<typeof catalogueSchema>;
+export type QueuesIndex = z.infer<typeof queuesIndexSchema>;
+export type QueueObject = z.infer<typeof queueObjectSchema>;

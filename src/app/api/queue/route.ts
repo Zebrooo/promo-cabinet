@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    await mutateQueue((current) => reorderQueue(current, ids));
+    await mutateQueue('main', (q) => ({ ...q, ids: reorderQueue(q.ids, ids) }));
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof ReorderMismatchError) return NextResponse.json({ error: 'reorder_mismatch' }, { status: 400 });

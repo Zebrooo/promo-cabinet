@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { promosKey, queueKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
+import { promosKey, queueKey, queuesIndexKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
 import { createSessionToken } from '@/lib/auth';
 import { readQueue } from '@/lib/catalogue';
 import { env } from '@/env';
@@ -12,7 +12,7 @@ const SECRET = 'unit-test-secret';
 
 const seedQueue = (ids: string[]) =>
   getS3Client().send(new PutObjectCommand({
-    Bucket: env.promoBucket, Key: queueKey(), Body: JSON.stringify(ids), ContentType: 'application/json',
+    Bucket: env.promoBucket, Key: queueKey('main'), Body: JSON.stringify({ persist: false, ids }), ContentType: 'application/json',
   }));
 
 const ORIGINAL = { ...process.env };
@@ -31,18 +31,19 @@ beforeEach(() => {
 afterEach(async () => {
   await Promise.allSettled([
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: promosKey() })),
-    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey() })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('main') })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queuesIndexKey() })),
   ]);
   process.env = { ...ORIGINAL };
 });
 
 describe('PUT /api/queue', () => {
-  it('reorders the queue to the given id sequence (200)', async () => {
+  it('reorders the main queue to the given id sequence (200)', async () => {
     await seedQueue(['a', 'b']);
     const res = await PUT(authed({ body: JSON.stringify({ ids: ['b', 'a'] }) }));
     expect(res.status).toBe(200);
-    const queue = await readQueue();
-    expect(queue).toEqual(['b', 'a']);
+    const queue = await readQueue('main');
+    expect(queue.ids).toEqual(['b', 'a']);
   });
 
   it('400 reorder_mismatch when ids are not a permutation', async () => {

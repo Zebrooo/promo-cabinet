@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { promosKey, queueKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
+import { promosKey, queueKey, queuesIndexKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
 import { createSessionToken } from '@/lib/auth';
-import { readPool, readQueue } from '@/lib/catalogue';
+import { readPool } from '@/lib/catalogue';
 import { env } from '@/env';
 import { GET, POST } from './route';
 
@@ -21,10 +21,10 @@ const seedPool = (promos: unknown[]) =>
     Bucket: env.promoBucket, Key: promosKey(), Body: JSON.stringify(promos), ContentType: 'application/json',
   }));
 
-/** Pre-seed the queue object for the current (unique) test prefix. */
+/** Pre-seed the main queue object for the current (unique) test prefix. */
 const seedQueue = (ids: string[]) =>
   getS3Client().send(new PutObjectCommand({
-    Bucket: env.promoBucket, Key: queueKey(), Body: JSON.stringify(ids), ContentType: 'application/json',
+    Bucket: env.promoBucket, Key: queueKey('main'), Body: JSON.stringify({ persist: false, ids }), ContentType: 'application/json',
   }));
 
 const ORIGINAL = { ...process.env };
@@ -43,25 +43,26 @@ beforeEach(() => {
 afterEach(async () => {
   await Promise.allSettled([
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: promosKey() })),
-    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey() })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('main') })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queuesIndexKey() })),
   ]);
   process.env = { ...ORIGINAL };
 });
 
 describe('GET /api/promos', () => {
-  it('returns { promos, queue }', async () => {
+  it('returns { promos, queues }', async () => {
     await seedPool([validPromo]);
-    await seedQueue(['a']);
     const res = await GET(authed());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ promos: [validPromo], queue: ['a'] });
+    expect(body).toMatchObject({ promos: [validPromo] });
+    expect(Array.isArray(body.queues)).toBe(true);
   });
 
-  it('returns empty promos and queue when nothing seeded', async () => {
+  it('returns empty promos and queues when nothing seeded', async () => {
     const res = await GET(authed());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ promos: [], queue: [] });
+    expect(await res.json()).toEqual({ promos: [], queues: [] });
   });
 
   it('401 without a valid session', async () => {
@@ -71,13 +72,11 @@ describe('GET /api/promos', () => {
 });
 
 describe('POST /api/promos', () => {
-  it('adds to the pool but NOT the queue (201)', async () => {
+  it('adds to the pool (201)', async () => {
     const res = await POST(authed({ method: 'POST', body: JSON.stringify(validPromo) }));
     expect(res.status).toBe(201);
     const pool = await readPool();
-    const queue = await readQueue();
     expect(pool.map((p) => p.id)).toContain('a');
-    expect(queue).toEqual([]);
   });
 
   it('409 on a duplicate id', async () => {

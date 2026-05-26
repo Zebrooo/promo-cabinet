@@ -24,8 +24,18 @@ export function promosKey(): string {
   return `${env.promoKeyPrefix}promos.json`;
 }
 
-/** Queue object key (ordered active promo ids), honouring the optional key prefix. */
-export function queueKey(): string {
+/** Named-queues index key, honouring the optional key prefix. */
+export function queuesIndexKey(): string {
+  return `${env.promoKeyPrefix}queues.json`;
+}
+
+/** Per-queue object key for a named queue, honouring the optional key prefix. */
+export function queueKey(name: string): string {
+  return `${env.promoKeyPrefix}queue-${name}.json`;
+}
+
+/** Legacy single-queue key — used ONLY for one-time migration. */
+export function legacyQueueKey(): string {
   return `${env.promoKeyPrefix}queue.json`;
 }
 

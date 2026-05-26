@@ -7,9 +7,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function QueuePage() {
   requireSession();
-  let promos; let queue;
+  let promos: Promo[] = []; let ordered: Promo[] = [];
   try {
-    ({ promos, queue } = await readState());
+    const state = await readState();
+    promos = state.promos;
+    // Legacy queue page: no-op until named-queue UI is built — queue will be empty
+    void promos;
+    ordered = [];
   } catch {
     return (
       <main>
@@ -18,9 +22,6 @@ export default async function QueuePage() {
       </main>
     );
   }
-  // Resolve queue ids to promos, in order, skipping dangling ids.
-  const byId = new Map(promos.map((p) => [p.id, p]));
-  const ordered = queue.map((id) => byId.get(id)).filter((p): p is Promo => p !== undefined);
 
   return (
     <main>
