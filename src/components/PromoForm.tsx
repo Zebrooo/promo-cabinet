@@ -46,6 +46,28 @@ function sanitize(p: Promo): Promo {
   };
 }
 
+/** Maps server error codes to readable Russian messages. */
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_promo: 'Проверьте поля: ID, название и заголовок обязательны, а начало показа должно быть раньше окончания.',
+  duplicate_id: 'Промо с таким ID уже существует — выберите другой ID.',
+  id_mismatch: 'ID промо не совпадает.',
+  not_found: 'Промо не найдено.',
+  unauthorized: 'Сессия истекла. Войдите снова.',
+  catalogue_unavailable: 'Хранилище недоступно (S3). Попробуйте ещё раз.',
+};
+
+/** Quick client-side check so the user gets a clear message before hitting the API. */
+function clientValidate(p: Promo): string | null {
+  if (!p.id.trim()) return 'Укажите ID (slug).';
+  if (!p.name.trim()) return 'Укажите внутреннее название.';
+  if (!p.title.trim()) return 'Укажите заголовок.';
+  if (!p.startsAt || !p.endsAt) return 'Укажите начало и окончание показа.';
+  if (new Date(p.startsAt).getTime() >= new Date(p.endsAt).getTime()) {
+    return 'Начало показа должно быть раньше окончания.';
+  }
+  return null;
+}
+
 export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' | 'edit' }) {
   const router = useRouter();
   const [p, setP] = useState<Promo>(initial ?? empty);
@@ -56,15 +78,28 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    const localError = clientValidate(p);
+    if (localError) {
+      setError(localError);
+      return;
+    }
     const body = sanitize(p);
     const url = mode === 'create' ? '/api/promos' : `/api/promos/${encodeURIComponent(p.id)}`;
     const method = mode === 'create' ? 'POST' : 'PUT';
-    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    if (res.ok) router.push('/cabinet');
-    else {
-      const data = await res.json().catch(() => ({}));
-      setError(`Ошибка: ${data.error ?? res.status}`);
+    let res: Response;
+    try {
+      res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    } catch {
+      setError('Сеть недоступна — проверьте соединение и повторите.');
+      return;
     }
+    if (res.ok) {
+      router.push('/cabinet');
+      router.refresh();
+      return;
+    }
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    setError(ERROR_MESSAGES[data.error ?? ''] ?? `Не удалось сохранить (ошибка ${res.status}).`);
   }
 
   return (
