@@ -6,12 +6,12 @@ import { PromoPreview } from './PromoPreview';
 
 const FORMATS = ['topline', 'inline', 'popup', 'fullscreen'] as const;
 
-type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean; colors: boolean };
+type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean; colors: boolean; bgImage: boolean };
 const CAPS: Record<Promo['format'], Caps> = {
-  topline: { image: false, description: true, actionLabel: false, dismissible: false, colors: true },
-  inline: { image: true, description: true, actionLabel: true, dismissible: false, colors: false },
-  popup: { image: true, description: true, actionLabel: true, dismissible: true, colors: false },
-  fullscreen: { image: true, description: true, actionLabel: true, dismissible: true, colors: false },
+  topline: { image: false, description: true, actionLabel: false, dismissible: false, colors: true, bgImage: false },
+  inline: { image: true, description: true, actionLabel: true, dismissible: false, colors: false, bgImage: false },
+  popup: { image: true, description: true, actionLabel: true, dismissible: true, colors: true, bgImage: true },
+  fullscreen: { image: true, description: true, actionLabel: true, dismissible: true, colors: true, bgImage: true },
 };
 
 const empty: Promo = {
@@ -44,6 +44,7 @@ function sanitize(p: Promo): Promo {
     dismissible: c.dismissible ? p.dismissible : undefined,
     backgroundColor: c.colors ? p.backgroundColor : undefined,
     textColor: c.colors ? p.textColor : undefined,
+    backgroundImage: c.bgImage ? p.backgroundImage : undefined,
     action: p.action ? (c.actionLabel ? p.action : { href: p.action.href }) : undefined,
   };
 }
@@ -186,7 +187,7 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
           {caps.colors && (
             <>
               <div className="field">
-                <label>Цвет фона баннера</label>
+                <label>Цвет фона</label>
                 <input type="color" value={p.backgroundColor ?? '#2563eb'} onChange={(e) => set({ backgroundColor: e.target.value })} />
               </div>
               <div className="field">
@@ -194,6 +195,12 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
                 <input type="color" value={p.textColor ?? '#ffffff'} onChange={(e) => set({ textColor: e.target.value })} />
               </div>
             </>
+          )}
+          {caps.bgImage && (
+            <div className="field field--full">
+              <label>Фон-картинка (URL, необязательно)</label>
+              <input className="mono-input" value={p.backgroundImage ?? ''} onChange={(e) => set({ backgroundImage: e.target.value || undefined })} placeholder="https://…" />
+            </div>
           )}
         </div>
 

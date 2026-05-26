@@ -29,6 +29,7 @@ export const promoSchema = z
     dismissible: z.boolean().optional(),
     backgroundColor: z.string().optional(),
     textColor: z.string().optional(),
+    backgroundImage: z.string().optional(),
   })
   .refine((p) => new Date(p.startsAt).getTime() < new Date(p.endsAt).getTime(), {
     message: 'startsAt must be before endsAt',

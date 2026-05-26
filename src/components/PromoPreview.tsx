@@ -20,6 +20,7 @@ function toAd(p: Promo): Advertisement {
     dismissible: p.dismissible,
     backgroundColor: p.backgroundColor,
     textColor: p.textColor,
+    backgroundImage: p.backgroundImage,
   };
 }
 
