@@ -1,20 +1,20 @@
 import Link from 'next/link';
 import { requireSession } from '@/lib/require-session';
-import { readCatalogue } from '@/lib/catalogue';
+import { readState } from '@/lib/catalogue';
 import { PromoList } from '@/components/PromoList';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CabinetPage() {
   requireSession();
-  let promos;
+  let promos; let queue;
   try {
-    ({ promos } = await readCatalogue());
+    ({ promos, queue } = await readState());
   } catch {
     return (
       <main>
-        <div className="pagehead"><h1>Список промо</h1></div>
-        <p className="error">Не удалось прочитать каталог из S3.</p>
+        <div className="pagehead"><h1>Все промо</h1></div>
+        <p className="error">Не удалось прочитать данные из S3.</p>
       </main>
     );
   }
@@ -23,13 +23,13 @@ export default async function CabinetPage() {
       <div className="pagehead">
         <div>
           <p className="kicker">Каталог</p>
-          <h1>Список промо <span className="count-badge">{promos.length}</span></h1>
+          <h1>Все промо <span className="count-badge">{promos.length}</span></h1>
         </div>
         <Link className="btn btn--primary" href="/cabinet/new">+ Новое промо</Link>
       </div>
       {promos.length === 0
-        ? <div className="empty">Промо пока нет. Создайте первое — оно появится здесь и встанет в очередь.</div>
-        : <PromoList promos={promos} />}
+        ? <div className="empty">Промо пока нет. Создайте первое — оно появится здесь; добавьте его в очередь, чтобы показывать.</div>
+        : <PromoList promos={promos} queuedIds={queue} />}
     </main>
   );
 }
