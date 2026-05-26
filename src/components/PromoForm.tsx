@@ -155,6 +155,17 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
           </div>
 
           <div className="field">
+            <label>Макс. показов на пользователя (пусто = без лимита)</label>
+            <input
+              type="number"
+              min={1}
+              value={p.maxImpressionsPerUser ?? ''}
+              onChange={(e) =>
+                set({ maxImpressionsPerUser: e.target.value === '' ? undefined : Number(e.target.value) })
+              }
+            />
+          </div>
+          <div className="field">
             <label>Кулдаун, часов (0 = нет)</label>
             <input type="number" min={0} value={p.cooldownHours} onChange={(e) => set({ cooldownHours: Number(e.target.value) })} />
           </div>

@@ -66,6 +66,21 @@ describe('promoSchema', () => {
   it('rejects an action without href', () => {
     expect(() => promoSchema.parse({ ...valid, action: { label: 'x' } })).toThrow();
   });
+
+  it('accepts a positive maxImpressionsPerUser cap', () => {
+    expect(() => promoSchema.parse({ ...valid, maxImpressionsPerUser: 5 })).not.toThrow();
+  });
+
+  it('accepts an omitted maxImpressionsPerUser (unlimited)', () => {
+    const { maxImpressionsPerUser, ...rest } = valid as Promo & { maxImpressionsPerUser?: number };
+    void maxImpressionsPerUser;
+    expect(() => promoSchema.parse(rest)).not.toThrow();
+  });
+
+  it('rejects a zero or negative maxImpressionsPerUser', () => {
+    expect(() => promoSchema.parse({ ...valid, maxImpressionsPerUser: 0 })).toThrow();
+    expect(() => promoSchema.parse({ ...valid, maxImpressionsPerUser: -2 })).toThrow();
+  });
 });
 
 describe('audience field', () => {
