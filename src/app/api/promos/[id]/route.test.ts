@@ -45,9 +45,10 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await Promise.allSettled([
-    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: promosKey() })),
-    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('main') })),
-    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queuesIndexKey() })),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: promosKey() })).catch(() => {}),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('main') })).catch(() => {}),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('secondary') })).catch(() => {}),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queuesIndexKey() })).catch(() => {}),
   ]);
   process.env = { ...ORIGINAL };
 });
@@ -94,5 +95,21 @@ describe('DELETE /api/promos/[id]', () => {
     await seedPool([promo('a')]);
     const res = await DELETE(authed({ method: 'DELETE' }), ctx('zzz'));
     expect(res.status).toBe(404);
+  });
+
+  it('hard delete clears id from ALL named queues', async () => {
+    await seedPool([promo('a')]);
+    await seedQueuesIndex([{ name: 'main', persist: false }, { name: 'secondary', persist: true }]);
+    await seedQueue(['a']);
+    // Also seed secondary queue with 'a'
+    await getS3Client().send(new PutObjectCommand({
+      Bucket: env.promoBucket, Key: queueKey('secondary'),
+      Body: JSON.stringify({ persist: true, ids: ['a'] }), ContentType: 'application/json',
+    }));
+    const res = await DELETE(authed({ method: 'DELETE' }), ctx('a'));
+    expect(res.status).toBe(200);
+    expect((await readPool()).find((p) => p.id === 'a')).toBeUndefined();
+    expect((await readQueue('main')).ids).toEqual([]);
+    expect((await readQueue('secondary')).ids).toEqual([]);
   });
 });
