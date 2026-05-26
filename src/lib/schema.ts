@@ -20,7 +20,12 @@ export const promoSchema = z
       regions: z.array(z.string()).optional(),
       subscriptionLevels: z.array(subscriptionLevelSchema).optional(),
     }),
-    maxImpressionsPerUser: z.number().int().positive().optional(),
+    // Optional per-user cap. Legacy data used 0 = unlimited; coerce that to
+    // undefined (the new "unlimited") so old catalogues still parse.
+    maxImpressionsPerUser: z.preprocess(
+      (v) => (v === 0 ? undefined : v),
+      z.number().int().positive().optional(),
+    ),
     cooldownHours: z.number().int().nonnegative(),
     format: promoFormatSchema,
     title: z.string().min(1),

@@ -77,8 +77,12 @@ describe('promoSchema', () => {
     expect(() => promoSchema.parse(rest)).not.toThrow();
   });
 
-  it('rejects a zero or negative maxImpressionsPerUser', () => {
-    expect(() => promoSchema.parse({ ...valid, maxImpressionsPerUser: 0 })).toThrow();
+  it('coerces legacy maxImpressionsPerUser: 0 to undefined (unlimited)', () => {
+    const parsed = promoSchema.parse({ ...valid, maxImpressionsPerUser: 0 });
+    expect(parsed.maxImpressionsPerUser).toBeUndefined();
+  });
+
+  it('rejects a negative maxImpressionsPerUser', () => {
     expect(() => promoSchema.parse({ ...valid, maxImpressionsPerUser: -2 })).toThrow();
   });
 });
