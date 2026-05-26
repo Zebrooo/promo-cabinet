@@ -20,20 +20,26 @@ export function PromoQueue({ promos }: { promos: Promo[] }) {
     [next[index], next[target]] = [next[target], next[index]];
     setOrder(next);
     setBusy(true);
-    await fetch('/api/queue', {
-      method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ids: next.map((p) => p.id) }),
-    });
-    setBusy(false);
-    router.refresh();
+    try {
+      await fetch('/api/queue', {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: next.map((p) => p.id) }),
+      });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function dequeue(id: string) {
     setBusy(true);
-    await fetch(`/api/promos/${encodeURIComponent(id)}/queue`, { method: 'DELETE' });
-    setOrder((cur) => cur.filter((p) => p.id !== id));
-    setBusy(false);
-    router.refresh();
+    try {
+      await fetch(`/api/promos/${encodeURIComponent(id)}/queue`, { method: 'DELETE' });
+      setOrder((cur) => cur.filter((p) => p.id !== id));
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

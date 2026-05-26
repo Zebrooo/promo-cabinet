@@ -16,19 +16,25 @@ export function PromoList({ promos, queuedIds }: { promos: Promo[]; queuedIds: s
 
   async function enqueue(id: string) {
     setBusy(true);
-    await fetch(`/api/promos/${encodeURIComponent(id)}/queue`, { method: 'POST' });
-    setQueued((cur) => new Set(cur).add(id));
-    setBusy(false);
-    router.refresh();
+    try {
+      await fetch(`/api/promos/${encodeURIComponent(id)}/queue`, { method: 'POST' });
+      setQueued((cur) => new Set(cur).add(id));
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function removeForever(id: string) {
     if (!confirm(`Удалить промо "${id}" совсем? Это уберёт его из очереди и из хранилища.`)) return;
     setBusy(true);
-    await fetch(`/api/promos/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    setList((cur) => cur.filter((p) => p.id !== id));
-    setBusy(false);
-    router.refresh();
+    try {
+      await fetch(`/api/promos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      setList((cur) => cur.filter((p) => p.id !== id));
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
