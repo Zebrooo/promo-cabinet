@@ -197,6 +197,15 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
             <input className="mono-input" value={slugListToText(p.categories)} placeholder="kvartiry"
               onChange={(e) => set({ categories: parseSlugList(e.target.value) })} />
           </div>
+          <div className="field">
+            <label>Кому показывать (по объявлениям)</label>
+            <select value={p.sellerStatus ?? ''}
+              onChange={(e) => set({ sellerStatus: e.target.value === '' ? undefined : (e.target.value as 'seller' | 'buyer') })}>
+              <option value="">Всем</option>
+              <option value="seller">Только продавцам (есть объявления)</option>
+              <option value="buyer">Только покупателям (нет объявлений)</option>
+            </select>
+          </div>
 
           <div className="field">
             <label>{caps.actionLabel ? 'CTA href (необязательно)' : 'Ссылка баннера (необязательно)'}</label>

@@ -39,6 +39,7 @@ export const promoSchema = z
     audience: audienceSchema.optional(),
     sections: z.array(z.string().min(1)).optional(),
     categories: z.array(z.string().min(1)).optional(),
+    sellerStatus: z.enum(['seller', 'buyer']).optional(),
   })
   .refine((p) => new Date(p.startsAt).getTime() < new Date(p.endsAt).getTime(), {
     message: 'startsAt must be before endsAt',

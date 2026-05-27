@@ -91,6 +91,12 @@ describe('promoSchema', () => {
     expect(parsed.sections).toEqual(['avto']);
     expect(parsed.categories).toEqual(['kvartiry']);
   });
+
+  it('accepts sellerStatus seller/buyer and rejects others', () => {
+    expect(promoSchema.parse({ ...valid, sellerStatus: 'seller' }).sellerStatus).toBe('seller');
+    expect(promoSchema.parse({ ...valid, sellerStatus: 'buyer' }).sellerStatus).toBe('buyer');
+    expect(() => promoSchema.parse({ ...valid, sellerStatus: 'nope' })).toThrow();
+  });
 });
 
 describe('audience field', () => {
