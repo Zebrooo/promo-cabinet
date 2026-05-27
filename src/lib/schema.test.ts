@@ -97,6 +97,11 @@ describe('promoSchema', () => {
     expect(promoSchema.parse({ ...valid, sellerStatus: 'buyer' }).sellerStatus).toBe('buyer');
     expect(() => promoSchema.parse({ ...valid, sellerStatus: 'nope' })).toThrow();
   });
+
+  it('round-trips a full targeting block', () => {
+    const parsed = promoSchema.parse({ ...valid, targeting: { minAge: 18, maxAge: 35, regions: ['sukhum'], subscriptionLevels: ['plus'] } });
+    expect(parsed.targeting).toEqual({ minAge: 18, maxAge: 35, regions: ['sukhum'], subscriptionLevels: ['plus'] });
+  });
 });
 
 describe('audience field', () => {

@@ -86,6 +86,8 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
   const [p, setP] = useState<Promo>(initial ?? empty);
   const [error, setError] = useState('');
   const set = (patch: Partial<Promo>) => setP((cur) => ({ ...cur, ...patch }));
+  const setTargeting = (patch: Partial<Promo['targeting']>) =>
+    set({ targeting: { ...p.targeting, ...patch } });
   const caps = CAPS[p.format];
 
   async function submit(e: React.FormEvent) {
@@ -205,6 +207,41 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
               <option value="seller">Только продавцам (есть объявления)</option>
               <option value="buyer">Только покупателям (нет объявлений)</option>
             </select>
+          </div>
+
+          <div className="field">
+            <label>Возраст от</label>
+            <input type="number" min={0} value={p.targeting.minAge ?? ''}
+              onChange={(e) => setTargeting({ minAge: e.target.value === '' ? undefined : Number(e.target.value) })} />
+          </div>
+          <div className="field">
+            <label>Возраст до</label>
+            <input type="number" min={0} value={p.targeting.maxAge ?? ''}
+              onChange={(e) => setTargeting({ maxAge: e.target.value === '' ? undefined : Number(e.target.value) })} />
+          </div>
+          <div className="field">
+            <label>Регионы (через запятую, пусто = все)</label>
+            <input className="mono-input" value={slugListToText(p.targeting.regions)} placeholder="sukhum, gagra"
+              onChange={(e) => setTargeting({ regions: parseSlugList(e.target.value) })} />
+          </div>
+          <div className="field">
+            <label>Уровни подписки (пусто = любой)</label>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {(['none', 'plus', 'premium'] as const).map((lvl) => (
+                <label key={lvl} style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    checked={p.targeting.subscriptionLevels?.includes(lvl) ?? false}
+                    onChange={(e) => {
+                      const cur = p.targeting.subscriptionLevels ?? [];
+                      const next = e.target.checked ? [...cur, lvl] : cur.filter((x) => x !== lvl);
+                      setTargeting({ subscriptionLevels: next.length ? next : undefined });
+                    }}
+                  />
+                  {lvl}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="field">

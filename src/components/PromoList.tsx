@@ -13,6 +13,14 @@ function matches(p: Promo, q: string): boolean {
   return [p.id, p.title, p.name, p.format].some((field) => field.toLowerCase().includes(q));
 }
 
+function targetingSummary(t: Promo['targeting']): string {
+  const parts: string[] = [];
+  if (t.minAge !== undefined || t.maxAge !== undefined) parts.push(`${t.minAge ?? 0}–${t.maxAge ?? '∞'}`);
+  if (t.regions?.length) parts.push(t.regions.join(','));
+  if (t.subscriptionLevels?.length) parts.push(t.subscriptionLevels.join(','));
+  return parts.length ? parts.join(' · ') : 'все';
+}
+
 interface PromoListProps {
   promos: Promo[];
   /** queue names each promo belongs to: Record<promoId, queueName[]> */
@@ -97,6 +105,7 @@ export function PromoList({ promos, membership, queueNames }: PromoListProps) {
                   <div><dt>Разделы</dt><dd>{(p.sections ?? []).join(', ') || 'все'}</dd></div>
                   <div><dt>Категории</dt><dd>{(p.categories ?? []).join(', ') || 'все'}</dd></div>
                   <div><dt>Продавец/покупатель</dt><dd>{p.sellerStatus === 'seller' ? 'продавцы' : p.sellerStatus === 'buyer' ? 'покупатели' : 'все'}</dd></div>
+                  <div><dt>Таргетинг</dt><dd>{targetingSummary(p.targeting)}</dd></div>
                 </dl>
                 {queueNames.length > 0 && (
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
