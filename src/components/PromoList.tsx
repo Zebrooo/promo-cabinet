@@ -94,6 +94,8 @@ export function PromoList({ promos, membership, queueNames }: PromoListProps) {
                   <div><dt>Активен сейчас</dt><dd>{isActive(p) ? 'да' : 'нет'}</dd></div>
                   <div><dt>Лимит</dt><dd>{p.maxImpressionsPerUser ?? '∞'}</dd></div>
                   <div><dt>Кулдаун</dt><dd>{p.cooldownHours ? `${p.cooldownHours} ч` : 'нет'}</dd></div>
+                  <div><dt>Разделы</dt><dd>{(p.sections ?? []).join(', ') || 'все'}</dd></div>
+                  <div><dt>Категории</dt><dd>{(p.categories ?? []).join(', ') || 'все'}</dd></div>
                 </dl>
                 {queueNames.length > 0 && (
                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>

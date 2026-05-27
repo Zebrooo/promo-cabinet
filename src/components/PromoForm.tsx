@@ -35,6 +35,15 @@ function localInputToIso(local: string): string {
   return d.toISOString();
 }
 
+/** Comma/space-separated slugs <-> string[]. Empty → undefined. */
+function parseSlugList(s: string): string[] | undefined {
+  const arr = s.split(',').map((x) => x.trim()).filter(Boolean);
+  return arr.length ? arr : undefined;
+}
+function slugListToText(arr?: string[]): string {
+  return (arr ?? []).join(', ');
+}
+
 /** Reduce a promo to the fields its format uses, so stored data matches the format. */
 function sanitize(p: Promo): Promo {
   const c = CAPS[p.format];
@@ -177,6 +186,16 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
               <option value="authenticated">Только залогиненные</option>
               <option value="anonymous">Только гости</option>
             </select>
+          </div>
+          <div className="field">
+            <label>Разделы (через запятую, пусто = все)</label>
+            <input className="mono-input" value={slugListToText(p.sections)} placeholder="avto, realty"
+              onChange={(e) => set({ sections: parseSlugList(e.target.value) })} />
+          </div>
+          <div className="field">
+            <label>Категории (через запятую, пусто = все)</label>
+            <input className="mono-input" value={slugListToText(p.categories)} placeholder="kvartiry"
+              onChange={(e) => set({ categories: parseSlugList(e.target.value) })} />
           </div>
 
           <div className="field">

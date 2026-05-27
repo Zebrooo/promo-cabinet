@@ -85,6 +85,12 @@ describe('promoSchema', () => {
   it('rejects a negative maxImpressionsPerUser', () => {
     expect(() => promoSchema.parse({ ...valid, maxImpressionsPerUser: -2 })).toThrow();
   });
+
+  it('accepts sections and categories', () => {
+    const parsed = promoSchema.parse({ ...valid, sections: ['avto'], categories: ['kvartiry'] });
+    expect(parsed.sections).toEqual(['avto']);
+    expect(parsed.categories).toEqual(['kvartiry']);
+  });
 });
 
 describe('audience field', () => {
