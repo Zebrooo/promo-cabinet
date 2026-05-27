@@ -16,8 +16,8 @@ function matches(p: Promo, q: string): boolean {
 function targetingSummary(t: Promo['targeting']): string {
   const parts: string[] = [];
   if (t.minAge !== undefined || t.maxAge !== undefined) parts.push(`${t.minAge ?? 0}–${t.maxAge ?? '∞'}`);
-  if (t.regions?.length) parts.push(t.regions.join(','));
-  if (t.subscriptionLevels?.length) parts.push(t.subscriptionLevels.join(','));
+  if (t.regions?.length) parts.push(t.regions.join(', '));
+  if (t.subscriptionLevels?.length) parts.push(t.subscriptionLevels.join(', '));
   return parts.length ? parts.join(' · ') : 'все';
 }
 
