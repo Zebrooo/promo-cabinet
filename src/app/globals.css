@@ -196,12 +196,12 @@ button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .card__title { font-size: 1.08rem; font-weight: 700; letter-spacing: -0.02em; }
 .card__id { font-family: var(--font-mono), monospace; font-size: 0.74rem; color: var(--text-faint); margin-top: -0.3rem; }
 .card__meta {
-  display: flex; gap: 1.25rem; margin: 0.35rem 0 0.2rem;
+  display: flex; flex-wrap: wrap; gap: 0.55rem 1.25rem; margin: 0.35rem 0 0.2rem;
   padding-top: 0.7rem; border-top: 1px solid var(--border);
 }
-.card__meta div { display: flex; flex-direction: column; gap: 1px; }
+.card__meta div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .card__meta dt { font-size: 0.68rem; color: var(--text-faint); font-weight: 600; }
-.card__meta dd { margin: 0; font-family: var(--font-mono), monospace; font-size: 0.92rem; font-weight: 500; }
+.card__meta dd { margin: 0; font-family: var(--font-mono), monospace; font-size: 0.92rem; font-weight: 500; overflow-wrap: anywhere; }
 .card__actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
 .card__actions .btn, .card__actions button { flex: 1; justify-content: center; }
 
