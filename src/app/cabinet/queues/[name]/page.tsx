@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/lib/require-session';
 import { readPool, readQueue, readQueuesIndex } from '@/lib/catalogue';
@@ -33,38 +32,16 @@ export default async function QueueNamePage({ params }: Props) {
     });
 
     return (
-      <main>
-        <div className="pagehead">
-          <div>
-            <p className="kicker">
-              <Link href="/cabinet/queues">Очереди</Link>
-              {' / '}
-              {queueName}
-            </p>
-            <h1>
-              Очередь: <span style={{ fontFamily: 'var(--font-mono), monospace' }}>{queueName}</span>
-              {' '}
-              <span className="count-badge">{queuePromos.length}</span>
-            </h1>
-            <p className="subnote">№1 проверяется первым; пользователю показывается первое подходящее промо.</p>
-          </div>
-        </div>
-        <QueueEditor
-          name={queueName}
-          persist={queueObj.persist}
-          promos={queuePromos}
-          poolPromos={poolPromos}
-        />
-      </main>
+      <QueueEditor
+        name={queueName}
+        persist={queueObj.persist}
+        promos={queuePromos}
+        poolPromos={poolPromos}
+      />
     );
   } catch (err) {
     // notFound() throws, let it propagate
     if ((err as { digest?: string }).digest === 'NEXT_NOT_FOUND') throw err;
-    return (
-      <main>
-        <div className="pagehead"><h1>Очередь: {queueName}</h1></div>
-        <p className="error">Не удалось прочитать данные из S3.</p>
-      </main>
-    );
+    return <p className="empty">Не удалось прочитать данные из S3.</p>;
   }
 }

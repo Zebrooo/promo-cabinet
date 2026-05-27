@@ -21,25 +21,56 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card">
+    <div className="login-shell">
+      {/* Left — dark teal panel */}
+      <div className="login-panel">
         <div className="brand">
-          <div className="brand__mark">P</div>
-          <span className="brand__name">Promo</span>
+          <div className="mark">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          </div>
+          <div>
+            <div className="nm">Промо-кабинет</div>
+            <div className="sub">Абхаз Авто</div>
+          </div>
         </div>
-        <h1>Вход в кабинет</h1>
-        <p className="subnote">Список и очередь промо · S3-каталог</p>
-        <form onSubmit={submit}>
+        <div className="stripes">
+          <div className="s" style={{ background: '#2BA293', width: '72%' }} />
+          <div className="s" style={{ background: '#B89673', width: '48%' }} />
+          <div className="s" style={{ background: '#DF5530', width: '84%' }} />
+        </div>
+        <div className="footer-copy">© Абхаз Авто · 2026</div>
+      </div>
+
+      {/* Right — form area */}
+      <div className="login-form-area">
+        <h2>Вход</h2>
+        <p className="sub">Только для администраторов</p>
+        <form className="login-form" onSubmit={submit}>
           <div className="field">
             <label htmlFor="user">Логин</label>
-            <input id="user" autoComplete="username" value={user} onChange={(e) => setUser(e.target.value)} />
+            <input
+              id="user"
+              className="input"
+              autoComplete="username"
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+            />
           </div>
           <div className="field">
             <label htmlFor="password">Пароль</label>
-            <input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              id="password"
+              type="password"
+              className="input"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
           {error && <p className="error">{error}</p>}
-          <button type="submit" className="primary">Войти →</button>
+          <button type="submit" className="btn btn-primary btn-lg">Войти →</button>
         </form>
       </div>
     </div>

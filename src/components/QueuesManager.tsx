@@ -72,65 +72,89 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="page-header">
+        <div className="left">
+          <div className="eyebrow">ОЧЕРЕДИ</div>
+          <h1>Очереди</h1>
+        </div>
+      </div>
+
       {queues.length === 0 ? (
         <div className="empty">Очередей пока нет.</div>
       ) : (
-        <ol className="queue">
+        <div className="queue-list" style={{ marginBottom: 28 }}>
           {queues.map((q) => (
-            <li className="qrow" key={q.name}>
-              <div className="qrow__main">
-                <span className="qrow__title">{q.name}</span>
-              </div>
-              <span className={`pill ${q.persist ? 'pill--on' : 'pill--off'}`}>
+            <div className="queue-row" key={q.name}>
+              <span className="queue-name">{q.name}</span>
+              <span className={`badge ${q.persist ? 'badge-persist' : 'badge-no-persist'}`}>
                 {q.persist ? 'persist' : 'не persist'}
               </span>
-              <Link href={`/cabinet/queues/${encodeURIComponent(q.name)}`} className="btn">
-                Управлять
-              </Link>
-              <button
-                disabled={busy}
-                onClick={() => togglePersist(q.name, q.persist)}
-                title={q.persist ? 'Снять флаг persist' : 'Включить persist'}
-              >
-                {q.persist ? 'Выкл persist' : 'Вкл persist'}
-              </button>
-              <button
-                className="btn--danger"
-                disabled={busy}
-                onClick={() => deleteQueue(q.name)}
-              >
-                Удалить
-              </button>
-            </li>
+              <div className="queue-actions">
+                <Link
+                  href={`/cabinet/queues/${encodeURIComponent(q.name)}`}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Управлять
+                </Link>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  disabled={busy}
+                  onClick={() => togglePersist(q.name, q.persist)}
+                  title={q.persist ? 'Снять флаг persist' : 'Включить persist'}
+                >
+                  {q.persist ? 'Выкл persist' : 'Вкл persist'}
+                </button>
+                <button
+                  className="btn btn-danger btn-sm"
+                  disabled={busy}
+                  onClick={() => deleteQueue(q.name)}
+                >
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M6 2h4a1 1 0 0 0-2 0H6a1 1 0 0 0-2 0H2v1h12V2h-2a1 1 0 0 0-2 0zM3 5l1 8h8l1-8H3z" fill="currentColor"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
           ))}
-        </ol>
+        </div>
       )}
 
-      <div className="form-card" style={{ maxWidth: '520px' }}>
-        <h2 style={{ fontSize: '1.05rem', marginBottom: '1rem' }}>Создать очередь</h2>
-        <form onSubmit={createQueue}>
-          <div className="form-grid">
-            <div className="field field--full">
+      <div className="form-panel" style={{ maxWidth: 480 }}>
+        <div className="panel-head"><h3>Создать очередь</h3></div>
+        <div className="panel-body">
+          <form onSubmit={createQueue} style={{ display: 'contents' }}>
+            <div className="field">
               <label>Имя очереди</label>
               <input
+                className="input"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="promo-main"
               />
+              <div className="hint">Используйте строчные буквы и дефисы</div>
             </div>
             <div className="field">
               <label>Persist (не сбрасывать после показа)</label>
-              <select value={newPersist ? 'yes' : 'no'} onChange={(e) => setNewPersist(e.target.value === 'yes')}>
+              <select
+                className="select"
+                value={newPersist ? 'yes' : 'no'}
+                onChange={(e) => setNewPersist(e.target.value === 'yes')}
+              >
                 <option value="no">Нет</option>
                 <option value="yes">Да</option>
               </select>
             </div>
-          </div>
-          {createError && <p className="error">{createError}</p>}
-          <div className="form-actions">
-            <button type="submit" className="primary" disabled={busy}>Создать</button>
-          </div>
-        </form>
+            {createError && <p className="error">{createError}</p>}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={busy}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              Создать
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

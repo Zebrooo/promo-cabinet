@@ -18,6 +18,20 @@ interface QueueEditorProps {
   poolPromos: Promo[];
 }
 
+/** Grip icon for drag handle (decorative) */
+function GripIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="5" cy="4" r="1.2" fill="currentColor"/>
+      <circle cx="5" cy="8" r="1.2" fill="currentColor"/>
+      <circle cx="5" cy="12" r="1.2" fill="currentColor"/>
+      <circle cx="11" cy="4" r="1.2" fill="currentColor"/>
+      <circle cx="11" cy="8" r="1.2" fill="currentColor"/>
+      <circle cx="11" cy="12" r="1.2" fill="currentColor"/>
+    </svg>
+  );
+}
+
 export function QueueEditor({ name, persist: initialPersist, promos: initialPromos, poolPromos }: QueueEditorProps) {
   const router = useRouter();
   const [order, setOrder] = useState<Promo[]>(initialPromos);
@@ -93,68 +107,152 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
     }
   }
 
+  const activeCount = order.filter((p) => isActive(p)).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <span className={`pill ${persist ? 'pill--on' : 'pill--off'}`}>
-          {persist ? 'persist вкл' : 'persist выкл'}
-        </span>
-        <button disabled={busy} onClick={togglePersist}>
-          {persist ? 'Выключить persist' : 'Включить persist'}
-        </button>
+      <div className="page-header">
+        <div className="left">
+          <div className="eyebrow">ОЧЕРЕДЬ</div>
+          <h1 style={{ fontFamily: 'var(--font-mono)' }}>{name}</h1>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span className={`badge ${persist ? 'badge-persist' : 'badge-no-persist'}`}>
+            {persist ? 'persist' : 'не persist'}
+          </span>
+          <button
+            className="btn btn-secondary btn-sm"
+            disabled={busy}
+            onClick={togglePersist}
+          >
+            {persist ? 'Выключить persist' : 'Включить persist'}
+          </button>
+        </div>
       </div>
 
-      {order.length === 0 ? (
-        <div className="empty">Очередь пуста — добавьте промо из пула ниже.</div>
-      ) : (
-        <ol className="queue">
-          {order.map((p, i) => (
-            <li className="qrow" key={p.id}>
-              <span className="qrow__pos">{i + 1}</span>
-              <div className="qrow__main">
-                <span className="qrow__title">{p.title}</span>
-                <span className="qrow__id">{p.id}</span>
-              </div>
-              <span className={`pill ${isActive(p) ? 'pill--on' : 'pill--off'}`}>
-                {isActive(p) ? 'активен' : 'не активен'}
-              </span>
-              <span className="tag">{p.format}</span>
-              <div className="qrow__move">
-                <button className="iconbtn" aria-label="Выше" disabled={busy || i === 0} onClick={() => move(i, -1)}>↑</button>
-                <button className="iconbtn" aria-label="Ниже" disabled={busy || i === order.length - 1} onClick={() => move(i, 1)}>↓</button>
-                <button className="iconbtn" aria-label="Убрать из очереди" disabled={busy} onClick={() => dequeue(p.id)}>✕</button>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
+      <div className="queue-detail-grid">
+        {/* LEFT — queue items */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--app-fg2)' }}>
+              Промо в очереди · кнопки для сортировки
+            </div>
+          </div>
 
-      {available.length > 0 && (
-        <div className="form-card" style={{ maxWidth: '520px' }}>
-          <h2 style={{ fontSize: '1.05rem', marginBottom: '1rem' }}>Добавить промо</h2>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <select
-              style={{ flex: 1 }}
-              value={effectiveAddId}
-              onChange={(e) => setAddId(e.target.value)}
-            >
-              {available.map((p) => (
-                <option key={p.id} value={p.id}>{p.title} ({p.id})</option>
+          {order.length === 0 ? (
+            <div className="empty">Очередь пуста — добавьте промо из пула ниже.</div>
+          ) : (
+            <div className="queue-items">
+              {order.map((p, i) => (
+                <div className="queue-promo-item" key={p.id}>
+                  <span className="drag-handle">
+                    <GripIcon />
+                  </span>
+                  <div className="qi-order">{i + 1}</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="qi-title">{p.title}</div>
+                    <div className="qi-slug">{p.id}</div>
+                  </div>
+                  <span className={`badge ${isActive(p) ? 'badge-active' : 'badge-inactive'}`}>
+                    {isActive(p) ? 'активен' : 'не активен'}
+                  </span>
+                  <button
+                    className="btn btn-ghost btn-icon btn-sm"
+                    aria-label="Выше"
+                    disabled={busy || i === 0}
+                    onClick={() => move(i, -1)}
+                    title="Выше"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-icon btn-sm"
+                    aria-label="Ниже"
+                    disabled={busy || i === order.length - 1}
+                    onClick={() => move(i, 1)}
+                    title="Ниже"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-icon btn-sm"
+                    aria-label="Убрать из очереди"
+                    disabled={busy}
+                    onClick={() => dequeue(p.id)}
+                    title="Убрать из очереди"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
-            </select>
-            <button className="primary" disabled={busy || !effectiveAddId} onClick={addToQueue}>
-              Добавить
-            </button>
+            </div>
+          )}
+
+          {available.length > 0 && (
+            <div className="form-panel" style={{ maxWidth: 520, marginTop: 16 }}>
+              <div className="panel-head"><h3>Добавить промо</h3></div>
+              <div className="panel-body">
+                <div className="field">
+                  <label>Промо из пула</label>
+                  <select
+                    className="select"
+                    value={effectiveAddId}
+                    onChange={(e) => setAddId(e.target.value)}
+                  >
+                    {available.map((p) => (
+                      <option key={p.id} value={p.id}>{p.title} ({p.id})</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ alignSelf: 'flex-start' }}
+                  disabled={busy || !effectiveAddId}
+                  onClick={addToQueue}
+                >
+                  Добавить
+                </button>
+              </div>
+            </div>
+          )}
+
+          {available.length === 0 && order.length > 0 && (
+            <p style={{ fontSize: 12, color: 'var(--app-fg3)', marginTop: 12 }}>
+              Все промо из пула уже в этой очереди.
+            </p>
+          )}
+
+          <div style={{ marginTop: 16 }}>
+            <Link href="/cabinet/queues" className="btn btn-secondary btn-sm">
+              ← Все очереди
+            </Link>
           </div>
         </div>
-      )}
 
-      {available.length === 0 && order.length > 0 && (
-        <p className="subnote">Все промо из пула уже в этой очереди.</p>
-      )}
-
-      <div>
-        <Link href="/cabinet/queues" className="btn">← Все очереди</Link>
+        {/* RIGHT — stats panel */}
+        <div className="queue-stats" style={{ position: 'sticky', top: 64 }}>
+          <div className="qs-head">
+            <h3>Сводка</h3>
+          </div>
+          <div className="qs-body">
+            <div className="stat-row">
+              <span className="sr-label">Промо в очереди</span>
+              <span className="sr-val">{order.length}</span>
+            </div>
+            <div className="stat-row">
+              <span className="sr-label">Активных</span>
+              <span className="sr-val">{activeCount}</span>
+            </div>
+            <div className="stat-row">
+              <span className="sr-label">Persist</span>
+              <span className="sr-val">{persist ? 'да' : 'нет'}</span>
+            </div>
+            <div className="stat-row">
+              <span className="sr-label">Доступно в пуле</span>
+              <span className="sr-val">{available.length}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
