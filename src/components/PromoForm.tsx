@@ -3,6 +3,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Promo } from '@/lib/schema';
 import { PromoPreview } from './PromoPreview';
+import { AiEnhanceButton } from './AiEnhanceButton';
+import { EnhanceDiff, type EnhancePatch } from './EnhanceDiff';
+import type { AiSuggestions } from '@/lib/ai-client';
 
 const FORMATS = ['topline', 'inline', 'popup', 'fullscreen'] as const;
 
@@ -92,6 +95,21 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
     set({ targeting: { ...p.targeting, ...patch } });
   const caps = CAPS[p.format];
 
+  // AI suggestions state — null when no diff is open.
+  const [aiResult, setAiResult] = useState<{ suggestions: AiSuggestions; cacheHit: boolean; model: string } | null>(null);
+
+  function applyEnhancePatch(patch: EnhancePatch) {
+    setP((cur) => {
+      let next: Promo = { ...cur };
+      if (patch.title !== undefined) next.title = patch.title;
+      if (patch.description !== undefined) next.description = patch.description;
+      if (patch.actionLabel !== undefined) {
+        next = { ...next, action: cur.action?.href ? { href: cur.action.href, label: patch.actionLabel } : cur.action };
+      }
+      return next;
+    });
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -115,12 +133,31 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
   return (
     <div className="page-body">
       {/* ── Page header ─────────────────────────────────────────── */}
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div className="left">
           <div className="eyebrow">ПРОМО</div>
           <h1>{mode === 'create' ? 'Новое промо' : 'Редактирование'}</h1>
         </div>
+        <AiEnhanceButton
+          getDraft={() => ({
+            title: p.title,
+            description: p.description,
+            action: p.action,
+          })}
+          onSuggestions={setAiResult}
+        />
       </div>
+
+      {aiResult && (
+        <EnhanceDiff
+          current={{ title: p.title, description: p.description, action: p.action }}
+          suggestions={aiResult.suggestions}
+          cacheHit={aiResult.cacheHit}
+          model={aiResult.model}
+          onAccept={applyEnhancePatch}
+          onClose={() => setAiResult(null)}
+        />
+      )}
 
       <form onSubmit={submit}>
         {/* ── Two-column grid ──────────────────────────────────── */}
