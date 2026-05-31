@@ -16,6 +16,11 @@ interface QueueEditorProps {
   promos: Promo[];
   /** All pool promos (for the add-picker) */
   poolPromos: Promo[];
+  /** Ids the queue file references but the pool no longer contains. Shown
+   *  as a yellow warning + one-click cleanup so dead links don't sit silently
+   *  in the queue forever (which previously made the storefront return empty
+   *  selections with no in-cabinet signal). */
+  danglingIds?: string[];
 }
 
 /** Grip icon for drag handle (decorative) */
@@ -32,12 +37,32 @@ function GripIcon() {
   );
 }
 
-export function QueueEditor({ name, persist: initialPersist, promos: initialPromos, poolPromos }: QueueEditorProps) {
+export function QueueEditor({ name, persist: initialPersist, promos: initialPromos, poolPromos, danglingIds = [] }: QueueEditorProps) {
   const router = useRouter();
   const [order, setOrder] = useState<Promo[]>(initialPromos);
   const [persist, setPersist] = useState(initialPersist);
   const [busy, setBusy] = useState(false);
   const [addId, setAddId] = useState('');
+  const [dangling, setDangling] = useState<string[]>(danglingIds);
+
+  /** Remove every dangling id from the queue file via DELETE /[name]/[id].
+   *  One round-trip per id (the API is per-id and idempotent); usually 0–3
+   *  ids in practice, so a single click is fine. */
+  async function cleanupDangling() {
+    if (dangling.length === 0) return;
+    setBusy(true);
+    try {
+      for (const id of dangling) {
+        await fetch(`/api/queues/${encodeURIComponent(name)}/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+      }
+      setDangling([]);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const inQueueIds = new Set(order.map((p) => p.id));
   const available = poolPromos.filter((p) => !inQueueIds.has(p.id));
@@ -133,6 +158,45 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
       <div className="queue-detail-grid">
         {/* LEFT — queue items */}
         <div>
+          {dangling.length > 0 && (
+            <div
+              role="alert"
+              style={{
+                background: '#fff8e1',
+                border: '1px solid #f0c674',
+                borderLeft: '3px solid #d4a017',
+                borderRadius: 6,
+                padding: '10px 12px',
+                marginBottom: 12,
+                fontSize: 13,
+                lineHeight: 1.4,
+                color: '#7a5a00',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <b>В очереди есть «висящие» ссылки</b> на промо, которых нет в пуле:{' '}
+                <code style={{ background: 'rgba(0,0,0,.06)', padding: '1px 5px', borderRadius: 3 }}>
+                  {dangling.join(', ')}
+                </code>
+                . Сайт их пропускает молча — рекомендуем убрать.
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={busy}
+                onClick={cleanupDangling}
+                title="Удалить эти id из очереди (промо из пула не трогает)"
+              >
+                Очистить
+              </button>
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--app-fg2)' }}>
               Промо в очереди · кнопки для сортировки

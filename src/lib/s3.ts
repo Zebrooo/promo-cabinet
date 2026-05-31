@@ -19,24 +19,56 @@ export function getS3Client(): S3Client {
   return client;
 }
 
+/**
+ * Test-mode guardrail.
+ *
+ * The integration tests connect to the REAL bucket.ru bucket (.env at repo
+ * root holds the same credentials prod uses), and they isolate themselves
+ * by setting `process.env.PROMO_KEY_PREFIX = "test/<scope>/<uuid>/"` in
+ * beforeEach. The afterEach then DELETEs `promosKey()` / `queuesIndexKey()` /
+ * `queueKey(...)` — relying on the same prefix being present at delete time.
+ *
+ * On 2026-05-31 a vitest run wiped production promos.json / queues.json /
+ * queue-main.json because some test's beforeEach didn't fire (or the env var
+ * was cleared between hooks); afterEach then computed UNPREFIXED keys and
+ * deleted the ROOT objects.
+ *
+ * This guard fails fast instead: under vitest, if the caller asks for a key
+ * without a PROMO_KEY_PREFIX, we throw. The test errors loudly; production
+ * data is untouched. Production code paths set NODE_ENV=production (or no
+ * VITEST env var) and never trigger this check.
+ */
+const IN_TESTS = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test';
+function guardKey(key: string): string {
+  if (IN_TESTS && !env.promoKeyPrefix) {
+    throw new Error(
+      `[s3] refusing to compute unprefixed key "${key}" while running under vitest — ` +
+      `set PROMO_KEY_PREFIX in beforeEach (e.g. "test/<scope>/<uuid>/") so cleanup ` +
+      `never targets the production bucket root. This guard exists because a missing ` +
+      `prefix during afterEach has wiped real promos.json before.`,
+    );
+  }
+  return key;
+}
+
 /** Pool object key (all promos), honouring the optional key prefix. */
 export function promosKey(): string {
-  return `${env.promoKeyPrefix}promos.json`;
+  return guardKey(`${env.promoKeyPrefix}promos.json`);
 }
 
 /** Named-queues index key, honouring the optional key prefix. */
 export function queuesIndexKey(): string {
-  return `${env.promoKeyPrefix}queues.json`;
+  return guardKey(`${env.promoKeyPrefix}queues.json`);
 }
 
 /** Per-queue object key for a named queue, honouring the optional key prefix. */
 export function queueKey(name: string): string {
-  return `${env.promoKeyPrefix}queue-${name}.json`;
+  return guardKey(`${env.promoKeyPrefix}queue-${name}.json`);
 }
 
 /** Legacy single-queue key — used ONLY for one-time migration. */
 export function legacyQueueKey(): string {
-  return `${env.promoKeyPrefix}queue.json`;
+  return guardKey(`${env.promoKeyPrefix}queue.json`);
 }
 
 /** Test seam: drop the memoized client. */
