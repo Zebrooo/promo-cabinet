@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Промо-кабинет favicon: красный rounded square с белой буквой П
+       (Manrope ExtraBold-стиль). Читаемо на 16px. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E13343"/>
+      <stop offset="1" stop-color="#9B1B1B"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- П: top bar + two legs. Outer 14..50 (width 36), top bar 10 thick,
+       legs 10 wide. Внутреннее отверстие через subtract-path с even-odd. -->
+  <path fill="#FFFFFF" fill-rule="evenodd"
+        d="M14 14 h36 v36 h-10 v-26 h-16 v26 h-10 z"/>
+</svg>
