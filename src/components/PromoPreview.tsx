@@ -12,7 +12,10 @@ const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen']);
  *  Правило фона: image ⊃ gradient ⊃ color. Если есть более «сильный»
  *  источник — слабые игнорируются, иначе preview покажет цвет которого
  *  на проде не будет видно (image его перекроет). Это даёт parity
- *  с abkhaz-auto где та же нормализация в lib/promo.ts. */
+ *  с abkhaz-auto где та же нормализация в lib/promo.ts.
+ *
+ *  DivKit: пробрасываем divkitJson (inline) ИЛИ divkitUrl. Renderer
+ *  сам разберётся (inline → используется сразу, иначе fetch'ит URL). */
 function toAd(p: Promo): Advertisement {
   const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
@@ -26,6 +29,8 @@ function toAd(p: Promo): Advertisement {
     backgroundColor: hasImage ? undefined : p.backgroundColor,
     textColor: p.textColor,
     backgroundImage: p.backgroundImage,
+    divkitUrl: p.divkitUrl,
+    divkitJson: p.divkitJson,
   };
 }
 
@@ -33,7 +38,13 @@ export function PromoPreview({ promo }: { promo: Promo }) {
   // Bumping the key remounts the overlay so it can be reopened after being closed.
   const [openKey, setOpenKey] = useState(0);
 
-  if (!promo.title) {
+  // DivKit: визуал диктуется JSON-tree'ом, наш title/desc не используются.
+  // Если JSON не вставлен — подсказка, иначе renderer всё нарисует сам.
+  if (promo.format === 'divkit') {
+    if (!promo.divkitJson && !promo.divkitUrl) {
+      return <div className="preview-hint">Вставьте DivKit JSON в форму — превью покажется здесь.</div>;
+    }
+  } else if (!promo.title) {
     return <div className="preview-hint">Заполните заголовок, чтобы увидеть превью.</div>;
   }
 

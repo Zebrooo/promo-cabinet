@@ -17,7 +17,10 @@ import { getS3Client } from '@/lib/s3';
 
 export const runtime = 'nodejs';
 
-const ALLOWED_PREFIX = 'promo-uploads/';
+// Разрешённые префиксы — расширяемый список. promo-uploads/ — картинки,
+// promo-divkit/ — DivKit JSON-верстки. Не пускаем «голые» ключи каталога
+// типа promos.json / queue-*.json — они приватные.
+const ALLOWED_PREFIXES = ['promo-uploads/', 'promo-divkit/'];
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
@@ -28,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pat
   const relKey = key.startsWith(env.promoKeyPrefix ?? '')
     ? key.slice((env.promoKeyPrefix ?? '').length)
     : key;
-  if (!relKey.startsWith(ALLOWED_PREFIX)) {
+  if (!ALLOWED_PREFIXES.some((p) => relKey.startsWith(p))) {
     return new NextResponse('not_found', { status: 404 });
   }
 

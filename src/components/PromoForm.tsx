@@ -91,6 +91,9 @@ const CAPS: Record<Promo['format'], Caps> = {
   inline:     { image: true,  description: true,  actionLabel: true,  dismissible: false, colors: false, bgImage: false, gradient: true,  textAlign: true,  variants: false, bullets: false },
   popup:      { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: true,  gradient: true,  textAlign: true,  variants: true,  bullets: true  },
   fullscreen: { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: true,  gradient: true,  textAlign: true,  variants: false, bullets: true  },
+  // DivKit — server-driven UI, всё описано в JSON. Никаких title/colors
+  // через нашу форму не имеют значения — JSON диктует визуал сам.
+  divkit:     { image: false, description: false, actionLabel: false, dismissible: false, colors: false, bgImage: false, gradient: false, textAlign: false, variants: false, bullets: false },
 };
 
 const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
@@ -98,6 +101,7 @@ const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
   topline:    { name: 'Topline',    sub: 'Над шапкой' },
   popup:      { name: 'Popup',      sub: 'Поверх' },
   fullscreen: { name: 'Fullscreen', sub: 'На весь экран' },
+  divkit:     { name: 'DivKit',     sub: 'JSON-верстка' },
 };
 
 const empty: Promo = {
@@ -132,6 +136,7 @@ function slugListToText(arr?: string[]): string {
 
 function sanitize(p: Promo): Promo {
   const c = CAPS[p.format];
+  const isDivkit = p.format === 'divkit';
   return {
     ...p,
     imageUrl:           c.image       ? p.imageUrl           : undefined,
@@ -145,11 +150,14 @@ function sanitize(p: Promo): Promo {
     popupVariant:       c.variants    ? p.popupVariant       : undefined,
     bullets:            c.bullets     ? p.bullets            : undefined,
     // ctaColor/ctaTextColor имеют смысл только когда есть action
-    ctaColor:     p.action ? p.ctaColor     : undefined,
-    ctaTextColor: p.action ? p.ctaTextColor : undefined,
-    action: p.action
+    ctaColor:     p.action && !isDivkit ? p.ctaColor     : undefined,
+    ctaTextColor: p.action && !isDivkit ? p.ctaTextColor : undefined,
+    action: !isDivkit && p.action
       ? (c.actionLabel ? p.action : { href: p.action.href })
       : undefined,
+    // DivKit поля — keep только для divkit формата.
+    divkitUrl:  isDivkit ? p.divkitUrl  : undefined,
+    divkitJson: isDivkit ? p.divkitJson : undefined,
   };
 }
 
@@ -229,8 +237,36 @@ export function PromoForm({
     setError('');
     const localError = clientValidate(p);
     if (localError) { setError(localError); return; }
+
+    // Если divkit и есть inline JSON — улетаем им в S3, получаем URL,
+    // только потом сохраняем промо. Это ровно тот flow что договаривались:
+    // S3 пишется только при «Сохранить промо», иначе кабинет держит JSON
+    // в state и показывает в preview.
+    let toSave: Promo = p;
+    if (p.format === 'divkit' && p.divkitJson && !p.divkitUrl) {
+      setSaving(true);
+      try {
+        const r = await fetch('/api/upload-divkit', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ json: p.divkitJson, promoId: p.id }),
+        });
+        const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string };
+        if (!r.ok || !j.url) {
+          setSaving(false);
+          setError(`Не удалось залить DivKit JSON в S3: ${j.error ?? r.status}`);
+          return;
+        }
+        toSave = { ...p, divkitUrl: j.url };
+      } catch {
+        setSaving(false);
+        setError('Сеть недоступна — DivKit JSON не залит в S3.');
+        return;
+      }
+    }
+
     setSaving(true);
-    const body = sanitize(p);
+    const body = sanitize(toSave);
     const url    = mode === 'create' ? '/api/promos' : `/api/promos/${encodeURIComponent(p.id)}`;
     const method = mode === 'create' ? 'POST' : 'PUT';
     let res: Response;
@@ -683,6 +719,56 @@ export function PromoForm({
                   </div>
                 </div>
 
+                {/* DivKit JSON paste — отдельный блок только для format=divkit */}
+                {p.format === 'divkit' && (
+                  <>
+                    <div className="ef-divider" />
+                    <div className="ef-field" style={{ gridColumn: '1 / -1' }}>
+                      <label>
+                        DivKit JSON
+                        <span className="ef-hint">
+                          {p.divkitUrl
+                            ? ' (загружено в S3, можно отредактировать и пересохранить)'
+                            : ' (улетит в S3 при «Сохранить промо»)'}
+                        </span>
+                      </label>
+                      <textarea
+                        className="ef-input"
+                        rows={12}
+                        placeholder={'{\n  "card": {\n    "log_id": "promo_001",\n    "states": [\n      {\n        "state_id": 0,\n        "div": {\n          "type": "container",\n          "items": [\n            { "type": "text", "text": "Заголовок", "font_size": 24 }\n          ]\n        }\n      }\n    ]\n  }\n}'}
+                        value={p.divkitJson
+                          ? JSON.stringify(p.divkitJson, null, 2)
+                          : ''}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (!raw.trim()) {
+                            set({ divkitJson: undefined });
+                            return;
+                          }
+                          try {
+                            const parsed = JSON.parse(raw);
+                            set({ divkitJson: parsed, divkitUrl: undefined });
+                          } catch {
+                            // Невалидный JSON — игнорируем save в state,
+                            // юзер увидит подсказку ниже и поправит.
+                          }
+                        }}
+                        style={{ fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.5 }}
+                      />
+                      {!p.divkitJson && !p.divkitUrl && (
+                        <span className="ef-hint" style={{ color: 'var(--app-fg2)' }}>
+                          Вставьте корректный DivKit JSON-tree. После сохранения промо файл уедет в S3.
+                        </span>
+                      )}
+                      {p.divkitUrl && (
+                        <span className="ef-hint">
+                          URL: <a href={p.divkitUrl} target="_blank" rel="noreferrer">{p.divkitUrl}</a>
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+
                 {/* Visual */}
                 {(caps.colors || caps.bgImage || caps.dismissible || caps.gradient ||
                   caps.textAlign || caps.variants || caps.bullets) && (
@@ -945,6 +1031,7 @@ function estimateReach(fmt: Promo['format']): number {
     case 'inline':     return 2800;
     case 'popup':      return 1600;
     case 'fullscreen': return 900;
+    case 'divkit':     return 1600;  // примерно как popup — JSON может рендериться где угодно
   }
 }
 

@@ -11,9 +11,12 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.600.0
         version: 3.1062.0
+      '@divkitframework/divkit':
+        specifier: ^32.52.0
+        version: 32.52.0
       '@zebrooo/promo-renderer':
-        specifier: ^0.5.0
-        version: 0.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^0.6.1
+        version: 0.6.1(@divkitframework/divkit@32.52.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next:
         specifier: ^14.2.5
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -150,6 +153,9 @@ packages:
   '@aws/lambda-invoke-store@0.2.4':
     resolution: {integrity: sha512-iY8yvjE0y651BixKNPgmv1WrQc+GZ142sb0z4gYnChDDY2YqI4P/jsSopBWrKfAt7LOJAkOXt7rC/hms+WclQQ==}
     engines: {node: '>=18.0.0'}
+
+  '@divkitframework/divkit@32.52.0':
+    resolution: {integrity: sha512-5BFotHrTsTvwcV878RS4gYTJGrlL1OHfFQ5+LmqVSBS1Rht6LLhPPHcR1wQ7jZBO34gYJ90XfG9YAQvYNCuxAg==}
 
   '@esbuild/aix-ppc64@0.27.7':
     resolution: {integrity: sha512-EKX3Qwmhz1eMdEJokhALr0YiD0lhQNwDqkPYyPhiSwKrh7/4KRjQc04sZ8db+5DVVnZ1LmbNDI1uAMPEUBnQPg==}
@@ -607,11 +613,15 @@ packages:
   '@vitest/utils@3.2.6':
     resolution: {integrity: sha512-lI23nIs4bnT3T8NIoh+vFaz5s2/DdP0Jgt2jxwgWljvwn82cLJtyi/If+fjFyoLMGIOz0U/fKvWE0d4jsNQEfg==}
 
-  '@zebrooo/promo-renderer@0.5.0':
-    resolution: {integrity: sha512-BdpdSMvGPRXVewDciULgVEecZ+mbNnXjYQ91lMJYDfQjHwmOudq8/qg6uyUi8iGD+xy+CcNHqtlVHkuVwOvdvQ==, tarball: https://npm.pkg.github.com/download/@zebrooo/promo-renderer/0.5.0/5d7e3c3e53d56d6ce937d3c46e974691c52b880a}
+  '@zebrooo/promo-renderer@0.6.1':
+    resolution: {integrity: sha512-k3s7GDZWjp0Z6UyxwIADmAJIdNbA0PzAs88zTqOZB8lk9te5vBiqgxtBZZ+FPYid2pGmfG9hpfic/4Vldj2nHA==, tarball: https://npm.pkg.github.com/download/@zebrooo/promo-renderer/0.6.1/31902ee4343a0b690c0c96440e67a78159fcb0c7}
     peerDependencies:
+      '@divkitframework/divkit': '>=30'
       react: '>=18'
       react-dom: '>=18'
+    peerDependenciesMeta:
+      '@divkitframework/divkit':
+        optional: true
 
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
@@ -1203,6 +1213,8 @@ snapshots:
 
   '@aws/lambda-invoke-store@0.2.4': {}
 
+  '@divkitframework/divkit@32.52.0': {}
+
   '@esbuild/aix-ppc64@0.27.7':
     optional: true
 
@@ -1533,10 +1545,12 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
-  '@zebrooo/promo-renderer@0.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@zebrooo/promo-renderer@0.6.1(@divkitframework/divkit@32.52.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
+    optionalDependencies:
+      '@divkitframework/divkit': 32.52.0
 
   assertion-error@2.0.1: {}
 
