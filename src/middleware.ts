@@ -10,6 +10,11 @@ import { SESSION_COOKIE } from '@/lib/session-cookie';
 export function middleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
   if (pathname === '/api/login') return NextResponse.next();
+  // /api/img/* — публичный proxy для картинок промо. Бакет config приватный,
+  // прямого CDN URL нет; abkhaz-auto и любой консьюмер каталога должны
+  // загружать <img src="/api/img/promo-uploads/..."> без сессии cabinet'а.
+  // Route handler сам guards на разрешённый префикс (promo-uploads/).
+  if (pathname.startsWith('/api/img/')) return NextResponse.next();
 
   const hasCookie = Boolean(req.cookies.get(SESSION_COOKIE)?.value);
   if (hasCookie) return NextResponse.next();

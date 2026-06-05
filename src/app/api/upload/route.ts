@@ -78,15 +78,18 @@ function extFor(mime: string): string | null {
 }
 
 function publicUrlFor(key: string): string {
-  // Допускаем PROMO_PUBLIC_BASE override (CDN), иначе деривируем из endpoint.
+  // Bucket `config` приватный — отдаём картинки через cabinet'овский img-proxy
+  // (см. /api/img/[...path]). Если есть явный PROMO_PUBLIC_BASE (CDN) — он
+  // имеет приоритет.
   const publicBase = process.env.PROMO_PUBLIC_BASE;
   if (publicBase) return `${stripSlash(publicBase)}/${key}`;
-  // bucket.ru: https://<bucket>.s3.buckets.ru/<key>
-  if (env.s3Endpoint) {
-    const host = env.s3Endpoint.replace(/^https?:\/\//, '');
-    return `https://${env.promoBucket}.${host}/${key}`;
-  }
-  // AWS-style fallback
-  return `https://${env.promoBucket}.s3.${env.awsRegion}.amazonaws.com/${key}`;
+  // Cabinet-relative URL. Браузер автоматически отдаёт по тому же origin'у,
+  // что и форма; abkhaz-auto + другие сайты используют https://promo.eremin.site/api/img/...
+  const base = process.env.PROMO_CABINET_PUBLIC_BASE || '';
+  const rel  = `/api/img/${stripPrefix(key, env.promoKeyPrefix ?? '')}`;
+  return base ? `${stripSlash(base)}${rel}` : rel;
 }
 function stripSlash(s: string): string { return s.endsWith('/') ? s.slice(0, -1) : s; }
+function stripPrefix(s: string, prefix: string): string {
+  return prefix && s.startsWith(prefix) ? s.slice(prefix.length) : s;
+}
