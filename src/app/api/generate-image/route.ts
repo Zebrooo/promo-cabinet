@@ -17,6 +17,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { isAuthed } from '@/lib/api-auth';
 import { env } from '@/env';
 import { getS3Client } from '@/lib/s3';
+import { resolvePublicUploadUrl } from '@/lib/upload-url';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // image-gen может занимать 20-40сек
@@ -127,11 +128,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 's3_unavailable' }, { status: 502 });
   }
 
-  const relKey = key.startsWith(env.promoKeyPrefix ?? '')
-    ? key.slice((env.promoKeyPrefix ?? '').length)
-    : key;
+  // Был relative `/api/img/...` — потребители очереди (abkhaz-auto) грузили
+  // его относительно СВОЕГО origin'а и получали 404. Теперь absolute через
+  // тот же helper, что в /api/upload.
   return NextResponse.json({
-    url: `/api/img/${relKey}`,
+    url: resolvePublicUploadUrl(key, req),
     model: json.data?.model,
   }, { status: 200 });
 }

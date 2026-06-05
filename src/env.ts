@@ -18,4 +18,13 @@ export const env = {
   get promoBffUrl() { return process.env.PROMO_BFF_URL ?? ''; },
   /** Optional bearer token for BFF /enhance-promo until service-ticket lands here too. */
   get promoBffAuthBearer() { return process.env.PROMO_BFF_AUTH_BEARER ?? ''; },
+  /** Прямой публичный base для S3-объектов (CDN/CloudFront/bucket-домен).
+   *  Если задан — uploaded-картинки url'ятся в `${PROMO_PUBLIC_BASE}/${key}`
+   *  и обходят cabinet-прокси. Для bucket.ru это может быть
+   *  `https://config.s3.buckets.ru` (когда bucket public). */
+  get promoPublicBase() { return process.env.PROMO_PUBLIC_BASE ?? ''; },
+  /** Публичный URL самого кабинета (без trailing /). Используется для
+   *  построения absolute URL на загруженные через cabinet картинки —
+   *  ВНЕШНИЕ потребители очереди (abkhaz-auto и т.д.) их грузят отсюда. */
+  get promoCabinetPublicBase() { return process.env.PROMO_CABINET_PUBLIC_BASE ?? ''; },
 };
