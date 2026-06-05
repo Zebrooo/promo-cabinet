@@ -8,8 +8,13 @@ const noop = (_href: string) => {};
 /** Formats that render as a full-viewport portal overlay (and lock page scroll). */
 const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen']);
 
-/** Map an in-progress promo to the renderer's Advertisement subset. */
+/** Map an in-progress promo to the renderer's Advertisement subset.
+ *  Правило фона: image ⊃ gradient ⊃ color. Если есть более «сильный»
+ *  источник — слабые игнорируются, иначе preview покажет цвет которого
+ *  на проде не будет видно (image его перекроет). Это даёт parity
+ *  с abkhaz-auto где та же нормализация в lib/promo.ts. */
 function toAd(p: Promo): Advertisement {
+  const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
     id: p.id || 'preview',
     format: p.format,
@@ -18,7 +23,7 @@ function toAd(p: Promo): Advertisement {
     imageUrl: p.imageUrl,
     action: p.action,
     dismissible: p.dismissible,
-    backgroundColor: p.backgroundColor,
+    backgroundColor: hasImage ? undefined : p.backgroundColor,
     textColor: p.textColor,
     backgroundImage: p.backgroundImage,
   };
