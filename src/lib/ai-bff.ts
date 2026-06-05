@@ -4,7 +4,31 @@
  * mock in tests (pass `fetchImpl`). Bearer auth today; replace with a service-
  * ticket header once the cabinet ships a signing key (see TODO below).
  */
+import { createPrivateKey, sign as edSign } from 'node:crypto';
 import { env } from '@/env';
+
+// Service-ticket signing — same pattern as bff-client.ts so we reuse the same
+// PROMO_TICKET_* env vars and the BFF accepts both endpoints identically.
+const TICKET_PREFIX = 'st1';
+function loadPrivate(b64: string) {
+  return createPrivateKey({ key: Buffer.from(b64, 'base64'), format: 'der', type: 'pkcs8' });
+}
+function issueServiceTicket(): string | null {
+  const privateKey = process.env.PROMO_TICKET_PRIVATE_KEY ?? '';
+  if (!privateKey) return null;
+  const iat = Math.floor(Date.now() / 1000);
+  const exp = iat + 60;
+  const payload = {
+    src: process.env.PROMO_TICKET_SRC ?? 'promo-cabinet',
+    dst: process.env.PROMO_TICKET_DST ?? 'promo-bff',
+    iat,
+    exp,
+  };
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signingInput = `${TICKET_PREFIX}.${body}`;
+  const sig = edSign(null, Buffer.from(signingInput), loadPrivate(privateKey)).toString('base64url');
+  return `${signingInput}.${sig}`;
+}
 
 export interface EnhanceRequest {
   advertiserId: string;
@@ -52,10 +76,12 @@ export async function callEnhanceBff(req: EnhanceRequest, opts: AiBffOptions = {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  // TODO(prod auth): when the cabinet ships an Ed25519 signing key, replace this
-  // with `X-Service-Ticket: <issueServiceTicket(...)>`. The BFF already supports
-  // either (stub or ticket) depending on its own PROMO_TICKET_PUBLIC_KEY env.
-  if (env.promoBffAuthBearer) headers['Authorization'] = `Bearer ${env.promoBffAuthBearer}`;
+  // Production BFF (eremin.site) requires Ed25519 service-ticket auth — same
+  // signing setup as bff-client.ts. Fall back to bearer for environments that
+  // haven't shipped the signing key yet (local dev without ticket support).
+  const ticket = issueServiceTicket();
+  if (ticket) headers['x-service-ticket'] = ticket;
+  else if (env.promoBffAuthBearer) headers['Authorization'] = `Bearer ${env.promoBffAuthBearer}`;
 
   let resp: Response;
   try {

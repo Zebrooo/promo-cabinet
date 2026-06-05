@@ -36,7 +36,7 @@ export default function LoginPage() {
           </div>
         </div>
         <div className="stripes">
-          <div className="s" style={{ background: '#2BA293', width: '72%' }} />
+          <div className="s" style={{ background: '#E11D2A', width: '72%' }} />
           <div className="s" style={{ background: '#B89673', width: '48%' }} />
           <div className="s" style={{ background: '#DF5530', width: '84%' }} />
         </div>

@@ -1,13 +1,19 @@
 'use client';
+// «✨ Улучшить с AI» — кнопка-аксент в action-bar редактора. Берёт черновик
+// (title + description + action.label) → POST /api/enhance → BFF /enhance-promo
+// → OpenRouter gpt-4o-mini. Возвращает suggestions родителю (PromoForm), тот
+// показывает <EnhanceDiff/> с per-field accept/reject.
+//
+// Скоп AI: только тексты — title, description, action.label.
+// Всё остальное (формат, очереди, даты, таргетинг, картинка, ссылка) НЕ
+// отправляется и НЕ переписывается. Кнопка визуально подчёркнута coral
+// градиентом, чтобы не теряться рядом с «Сохранить» / «Опубликовать».
+
 import { useState } from 'react';
 import { describeAiReason, enhancePromo, type AiClientDraft, type AiSuggestions } from '@/lib/ai-client';
 
-/**
- * Click-to-improve button. Pulls the current text fields from the form (via
- * `getDraft`), calls `/api/enhance`, and hands the suggestions back to the
- * parent so it can show the diff. Disabled while a request is in flight or
- * when the draft has no improvable text yet.
- */
+const HINT = 'AI прочитает заголовок и описание, перепишет их и предложит CTA-надпись. Другие поля не используются.';
+
 export function AiEnhanceButton({
   getDraft,
   onSuggestions,
@@ -32,7 +38,7 @@ export function AiEnhanceButton({
     setError('');
     const draft = getDraft();
     if (!hasAnyText(draft)) {
-      setError('Заполните заголовок, описание или CTA, чтобы было что улучшать.');
+      setError('Сначала напиши черновой заголовок — AI его перепишет.');
       return;
     }
     setBusy(true);
@@ -49,17 +55,19 @@ export function AiEnhanceButton({
   }
 
   return (
-    <div className={className} style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
+    <div className={className} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
       <button
         type="button"
-        className="btn btn-secondary"
+        className="ebtn ebtn-ai"
         disabled={busy}
         onClick={onClick}
-        title="AI перепишет заголовок / описание / CTA и покажет дифф"
+        title={HINT}
+        aria-label="Улучшить тексты с помощью AI"
       >
-        {busy ? 'Улучшаем…' : '✨ Улучшить с AI'}
+        <span className="ebtn-ai-spark" aria-hidden>✨</span>
+        <span>{busy ? 'Улучшаем…' : 'Улучшить с AI'}</span>
       </button>
-      {error && <span className="hint" style={{ color: '#b91c1c' }}>{error}</span>}
+      {error && <span className="ebtn-ai-error">{error}</span>}
     </div>
   );
 }

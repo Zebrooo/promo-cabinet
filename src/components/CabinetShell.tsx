@@ -1,155 +1,134 @@
 'use client';
 
-import React, { useState } from 'react';
+// Top strip + fixed 200px nav rail + main column.
+// Layout matches Figma "01 · Analytics dashboard" exactly:
+//   ┌─ 64px top strip ──────────────────────────────────────────┐
+//   │ ABKHAZ · PROMO   / breadcrumb …            [user pill]    │
+//   ├──────────┬─────────────────────────────────────────────────┤
+//   │ 200px    │                                                 │
+//   │ nav rail │  main content (page body)                       │
+//   │          │                                                 │
+//   └──────────┴─────────────────────────────────────────────────┘
+//
+// The rail is static (no hover-to-expand), matching the design's
+// always-visible labels. Active state: warm pink bg + coral accent strip
+// on the left + red square icon + ink text.
+
+import React from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LogoutButton } from '@/components/LogoutButton';
 
-// ── Tiny inline SVG icons (Lucide-style, stroke 1.75, 18×18) ──────────────
-
-function IconGrid() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7"/>
-      <rect x="14" y="3" width="7" height="7"/>
-      <rect x="14" y="14" width="7" height="7"/>
-      <rect x="3" y="14" width="7" height="7"/>
-    </svg>
-  );
-}
-
-function IconLayers() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12h18M3 6h18M3 18h12"/>
-    </svg>
-  );
-}
-
-function IconSparkle() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-    </svg>
-  );
-}
-
-function IconChevronRight() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m9 18 6-6-6-6"/>
-    </svg>
-  );
-}
-
-// ── Nav rail items config ──────────────────────────────────────────────────
-
 interface NavItem {
   href: string;
   label: string;
-  icon: React.ReactNode;
   matchExact: boolean;
 }
 
+// Только маршруты, которые нужны юзеру каждый день. «Кампании» / «Настройки»
+// из Figma пока 404. «Стайлгайд» — dev-инструмент, не показываем в nav,
+// доступен по прямому /cabinet/styleguide.
 const NAV_ITEMS: NavItem[] = [
-  { href: '/cabinet',        label: 'Все промо',  icon: <IconGrid />,   matchExact: true  },
-  { href: '/cabinet/queues', label: 'Очереди',    icon: <IconLayers />, matchExact: false },
+  { href: '/cabinet/analytics', label: 'Аналитика', matchExact: false },
+  { href: '/cabinet',           label: 'Все промо', matchExact: true  },
+  { href: '/cabinet/queues',    label: 'Очереди',   matchExact: false },
 ];
 
-// ── CabinetNav (uses pathname, rendered inside CabinetShell) ──────────────
+// Map first matching nav item → breadcrumb tail text.
+function breadcrumbFor(path: string): string {
+  if (path.startsWith('/cabinet/analytics')) return '/ analytics';
+  if (path.startsWith('/cabinet/queues'))    return '/ очереди';
+  if (path === '/cabinet/new')               return '/ новое промо';
+  if (path.startsWith('/cabinet/') && path !== '/cabinet') return '/ редактирование';
+  return '/ все промо';
+}
 
-function CabinetNav() {
+function TopStrip({ user }: { user: string }) {
   const path = usePathname();
+  return (
+    <div className="topstrip">
+      <Link href="/cabinet/analytics" className="topstrip-brand" title="К аналитике">
+        ABKHAZ · PROMO
+      </Link>
+      <span className="topstrip-crumb">{breadcrumbFor(path)}</span>
+      <div className="topstrip-spacer" />
+      <div className="topstrip-user" title={user}>
+        <div className="topstrip-avatar">{(user[0] ?? 'A').toUpperCase()}</div>
+        <span className="topstrip-name">{user}</span>
+      </div>
+      <LogoutButton />
+    </div>
+  );
+}
 
+function NavRail() {
+  const path = usePathname();
   return (
     <nav className="nav-rail">
-      {/* Logo / wordmark */}
-      <div className="nav-logo" style={{ pointerEvents: 'none' }}>
-        <div className="mark">
-          <IconSparkle />
-        </div>
-        <span className="wordmark">Промо · Абхаз Авто</span>
-      </div>
-
-      {/* Nav items */}
       <div className="nav-items">
-        <div className="nav-section-label">КАТАЛОГ</div>
-        {NAV_ITEMS.map(({ href, label, icon, matchExact }) => {
-          const isActive = matchExact
-            ? path === href
-            : path.startsWith(href);
+        {NAV_ITEMS.map(({ href, label, matchExact }) => {
+          const isActive = matchExact ? path === href : path.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
               className={`nav-item${isActive ? ' active' : ''}`}
-              title={label}
+              aria-current={isActive ? 'page' : undefined}
             >
-              {icon}
-              <span className="label">{label}</span>
+              <span className="nav-item-icon" aria-hidden />
+              <span className="nav-item-label">{label}</span>
             </Link>
           );
         })}
       </div>
-
-      {/* Bottom: user + logout */}
-      <div className="nav-bottom">
-        <div className="nav-user" title="admin">
-          <div className="avatar">A</div>
-          <span className="uname">admin</span>
-        </div>
-        <LogoutButton />
+      <div className="nav-version">
+        <div className="nav-version-overline">ВЕРСИЯ</div>
+        <div className="nav-version-num">v2.4.1</div>
       </div>
     </nav>
   );
 }
 
-// ── Topbar ────────────────────────────────────────────────────────────────
+// Mobile bottom-tab nav (≤720px). Mirrors Figma "04 · Mobile analytics" foot:
+// 4 tabs with a small square glyph + label, the active one in coral.
+const MOBILE_TABS: NavItem[] = [
+  { href: '/cabinet/analytics', label: 'Аналитика', matchExact: false },
+  { href: '/cabinet',           label: 'Промо',     matchExact: true  },
+  { href: '/cabinet/queues',    label: 'Очереди',   matchExact: false },
+];
 
-function Topbar() {
+function MobileTabs() {
   const path = usePathname();
-
-  // Derive current section label from route
-  let section = 'Все промо';
-  if (path.startsWith('/cabinet/queues')) section = 'Очереди';
-  else if (path.startsWith('/cabinet/new'))   section = 'Новое промо';
-  else if (path.startsWith('/cabinet/'))      section = 'Промо';
-
   return (
-    <div className="topbar">
-      <div className="breadcrumb">
-        <span>Промо-кабинет</span>
-        <IconChevronRight />
-        <span className="cur">{section}</span>
-      </div>
-      <div className="spacer" />
-    </div>
+    <nav className="mobile-tabs" aria-label="Навигация">
+      {MOBILE_TABS.map(({ href, label, matchExact }) => {
+        const isActive = matchExact ? path === href : path.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={`mtab${isActive ? ' active' : ''}`}
+            aria-current={isActive ? 'page' : undefined}
+          >
+            <span className="mtab-glyph" aria-hidden />
+            <span className="mtab-label">{label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
-// ── CabinetShell (client shell: hover-to-expand) ──────────────────────────
-
-export function CabinetShell({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-
+export function CabinetShell({ children, user = 'admin' }: { children: ReactNode; user?: string }) {
   return (
-    <div
-      className={`shell${open ? ' nav-open' : ''}`}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <CabinetNav />
+    <div className="shell">
+      <TopStrip user={user} />
+      <NavRail />
       <main className="main">
-        <Topbar />
-        <div className="page-body">
-          {children}
-        </div>
+        <div className="page-body">{children}</div>
       </main>
+      <MobileTabs />
     </div>
   );
 }

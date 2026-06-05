@@ -1,8 +1,12 @@
 'use client';
+// Per-field diff между текущим черновиком и предложениями AI. Stateless: всё
+// решение «принять / отклонить» прокидывается наверх в PromoForm.applyEnhancePatch.
+// Каждая строка показывает «Сейчас» слева, «AI предлагает» справа + 2 кнопки.
+// Когда все строки обработаны — onClose() закрывает панель автоматически.
+
 import { useMemo, useState } from 'react';
 import type { AiSuggestions } from '@/lib/ai-client';
 
-/** Patch the editor applies when the user accepts a suggestion. */
 export interface EnhancePatch {
   title?: string;
   description?: string;
@@ -17,11 +21,6 @@ interface DiffRow {
   suggested: string;
 }
 
-/**
- * Side-by-side diff of the current draft against the AI's suggestions, with
- * per-field Принять / Отклонить. Stateless about the form values themselves
- * — accept/reject are reported to the parent so it owns the source of truth.
- */
 export function EnhanceDiff({
   current,
   suggestions,
@@ -37,7 +36,6 @@ export function EnhanceDiff({
   onAccept: (patch: EnhancePatch) => void;
   onClose: () => void;
 }) {
-  // Build the candidate rows: only fields the model actually changed.
   const initialRows = useMemo<DiffRow[]>(() => {
     const out: DiffRow[] = [];
     if (suggestions.title !== undefined && suggestions.title !== (current.title ?? '')) {
@@ -48,21 +46,17 @@ export function EnhanceDiff({
     }
     const suggestedLabel = suggestions.action?.label;
     if (suggestedLabel !== undefined && suggestedLabel !== (current.action?.label ?? '')) {
-      out.push({ field: 'actionLabel', label: 'CTA', current: current.action?.label ?? '', suggested: suggestedLabel });
+      out.push({ field: 'actionLabel', label: 'CTA-надпись', current: current.action?.label ?? '', suggested: suggestedLabel });
     }
     return out;
   }, [current, suggestions]);
 
-  // Rows still pending a decision. Removing one closes the panel when empty.
   const [pending, setPending] = useState<DiffRow[]>(initialRows);
 
   function accept(row: DiffRow) {
     onAccept(row.field === 'actionLabel'
       ? { actionLabel: row.suggested }
       : { [row.field]: row.suggested });
-    drop(row);
-  }
-  function reject(row: DiffRow) {
     drop(row);
   }
   function drop(row: DiffRow) {
@@ -74,38 +68,43 @@ export function EnhanceDiff({
   }
 
   return (
-    <div className="form-panel" data-testid="enhance-diff">
-      <div className="panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0 }}>
-          ✨ Предложения AI
-          {cacheHit && <span className="hint" style={{ marginLeft: 8 }}>из кэша</span>}
-          {model && <span className="hint" style={{ marginLeft: 8 }}>· {model}</span>}
-        </h3>
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Закрыть</button>
+    <div className="ai-diff" data-testid="enhance-diff">
+      <div className="ai-diff-head">
+        <div>
+          <div className="ai-diff-title">
+            <span aria-hidden>✨</span> AI улучшил тексты
+          </div>
+          <div className="ai-diff-meta mono">
+            {model && <span>{model}</span>}
+            {cacheHit && <span className="ai-diff-cache">из кэша</span>}
+          </div>
+        </div>
+        <button type="button" className="ebtn ebtn-ghost" onClick={onClose}>Закрыть</button>
       </div>
-      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      <div className="ai-diff-body">
         {initialRows.length === 0 ? (
-          <p className="hint">AI не нашёл, что улучшить — всё хорошо.</p>
+          <p className="ai-diff-empty">AI не нашёл что улучшить — всё уже хорошо.</p>
         ) : pending.length === 0 ? (
-          <p className="hint">Все предложения обработаны.</p>
+          <p className="ai-diff-empty">Все предложения обработаны.</p>
         ) : pending.map((row) => (
-          <div key={row.field} className="ai-diff-row" style={{ display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--app-fg2, #555)' }}>
-              {row.label}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div style={{ padding: '8px 10px', background: '#f6f6f7', borderRadius: 6, fontSize: 13 }}>
-                <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>Сейчас</div>
-                {row.current || <em style={{ color: '#999' }}>(пусто)</em>}
+          <div key={row.field} className="ai-diff-row">
+            <div className="ai-diff-fieldname">{row.label}</div>
+            <div className="ai-diff-grid">
+              <div className="ai-diff-cell ai-diff-cur">
+                <div className="ai-diff-celllabel">Сейчас</div>
+                <div className="ai-diff-celltext">
+                  {row.current || <em className="ai-diff-empty-inline">(пусто)</em>}
+                </div>
               </div>
-              <div style={{ padding: '8px 10px', background: '#ecfdf5', borderRadius: 6, fontSize: 13 }}>
-                <div style={{ fontSize: 11, color: '#047857', marginBottom: 2 }}>Предлагается</div>
-                {row.suggested}
+              <div className="ai-diff-cell ai-diff-new">
+                <div className="ai-diff-celllabel">AI предлагает</div>
+                <div className="ai-diff-celltext">{row.suggested}</div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn btn-primary" onClick={() => accept(row)}>Принять</button>
-              <button type="button" className="btn btn-secondary" onClick={() => reject(row)}>Отклонить</button>
+            <div className="ai-diff-actions">
+              <button type="button" className="ebtn ebtn-primary" onClick={() => accept(row)}>Принять</button>
+              <button type="button" className="ebtn ebtn-ghost" onClick={() => drop(row)}>Отклонить</button>
             </div>
           </div>
         ))}

@@ -1,13 +1,54 @@
 'use client';
-import { useState } from 'react';
+// Promo editor — Figma "03 · Promo editor" port.
+//
+// Layout:
+//   ┌─ sticky page-bar ───────────────────────────────────────┐
+//   │ ← Вернуться к списку       [Сохранить] [Опубликовать]   │
+//   ├─────────────────────────────────────────────────────────┤
+//   │ H1 «Редактирование промо»                                │
+//   │ mono caption «ID xxx · обновлено HH:MM»                  │
+//   │                                                          │
+//   │ ┌─ main editor column ────────┬─ live preview rail ─┐    │
+//   │ │ ТИП ПРОМО                   │ ЖИВОЙ ПРЕВЬЮ        │    │
+//   │ │ [Inline][Topline][Popup][FS]│ Desktop · Tablet · M │    │
+//   │ │                             │ ┌──────────┐         │    │
+//   │ │ ЗАГОЛОВОК            28/60  │ │ phone    │         │    │
+//   │ │ [....................]      │ │  mock    │         │    │
+//   │ │                             │ │          │         │    │
+//   │ │ ОПИСАНИЕ                    │ └──────────┘         │    │
+//   │ │ [....................]      │                       │    │
+//   │ │                             │ СЛОТ                  │    │
+//   │ │ ИЗОБРАЖЕНИЕ                 │ topline · feed-top    │    │
+//   │ │ [URL]                       │ ОЦЕНКА ОХВАТА         │    │
+//   │ │                             │ ~ 4 200 / день        │    │
+//   │ │ CTA: [label]  [href]        │                       │    │
+//   │ │                             │                       │    │
+//   │ │ ОЧЕРЕДИ ПОКАЗА              │                       │    │
+//   │ │ [chip][chip][chip][chip]    │                       │    │
+//   │ │                             │                       │    │
+//   │ │ Расширенные настройки ▾     │                       │    │
+//   │ └─────────────────────────────┴───────────────────────┘    │
+//   └─────────────────────────────────────────────────────────┘
+//
+// The right rail is sticky and houses the existing <PromoPreview/>; the
+// device switcher above it is decorative for now (the preview always renders
+// in mobile-ish layout because that's how the renderer behaves at narrow
+// widths). Bottom of the rail shows slot/reach hints once we wire them up.
+//
+// Advanced settings (ID, internal name, dates, targeting, audience, sections,
+// categories, sellerStatus, dismissible, colors, bg image) collapse behind a
+// disclosure to keep the primary editing surface uncluttered.
+
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { PromoPreview } from './PromoPreview';
 import { AiEnhanceButton } from './AiEnhanceButton';
 import { EnhanceDiff, type EnhancePatch } from './EnhanceDiff';
 import type { AiSuggestions } from '@/lib/ai-client';
 
-const FORMATS = ['topline', 'inline', 'popup', 'fullscreen'] as const;
+const FORMATS = ['inline', 'topline', 'popup', 'fullscreen'] as const;
 
 type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean; colors: boolean; bgImage: boolean };
 const CAPS: Record<Promo['format'], Caps> = {
@@ -17,13 +58,21 @@ const CAPS: Record<Promo['format'], Caps> = {
   fullscreen: { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: true  },
 };
 
+const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
+  inline:     { name: 'Inline',     sub: 'В ленте' },
+  topline:    { name: 'Topline',    sub: 'Над шапкой' },
+  popup:      { name: 'Popup',      sub: 'Поверх' },
+  fullscreen: { name: 'Fullscreen', sub: 'На весь экран' },
+};
+
 const empty: Promo = {
   id: '', name: '', startsAt: '', endsAt: '', targeting: {},
   cooldownHours: 0, format: 'inline', title: '',
   audience: 'all',
 };
 
-/** Stored value is ISO-8601 (UTC). The native picker works in local wall-clock. */
+const TITLE_MAX = 60;
+
 function isoToLocalInput(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -37,8 +86,6 @@ function localInputToIso(local: string): string {
   if (Number.isNaN(d.getTime())) return '';
   return d.toISOString();
 }
-
-/** Comma/space-separated slugs <-> string[]. Empty → undefined. */
 function parseSlugList(s: string): string[] | undefined {
   const arr = s.split(',').map((x) => x.trim()).filter(Boolean);
   return arr.length ? arr : undefined;
@@ -47,7 +94,6 @@ function slugListToText(arr?: string[]): string {
   return (arr ?? []).join(', ');
 }
 
-/** Reduce a promo to the fields its format uses, so stored data matches the format. */
 function sanitize(p: Promo): Promo {
   const c = CAPS[p.format];
   return {
@@ -64,7 +110,6 @@ function sanitize(p: Promo): Promo {
   };
 }
 
-/** Maps server error codes to readable Russian messages. */
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_promo:        'Проверьте поля: ID, название и заголовок обязательны, а начало показа должно быть раньше окончания.',
   duplicate_id:         'Промо с таким ID уже существует — выберите другой ID.',
@@ -74,7 +119,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   catalogue_unavailable:'Хранилище недоступно (S3). Попробуйте ещё раз.',
 };
 
-/** Quick client-side check so the user gets a clear message before hitting the API. */
 function clientValidate(p: Promo): string | null {
   if (!p.id.trim())    return 'Укажите ID (slug).';
   if (!p.name.trim())  return 'Укажите внутреннее название.';
@@ -86,17 +130,30 @@ function clientValidate(p: Promo): string | null {
   return null;
 }
 
-export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' | 'edit' }) {
+export function PromoForm({
+  initial, mode, queueNames = [], membership = [],
+}: {
+  initial?: Promo;
+  mode: 'create' | 'edit';
+  /** All available queues (for the queue-membership chip row). */
+  queueNames?: string[];
+  /** Names of the queues this promo is currently in. Server-fetched. */
+  membership?: string[];
+}) {
   const router = useRouter();
-  const [p, setP]       = useState<Promo>(initial ?? empty);
+  const [p, setP] = useState<Promo>(initial ?? empty);
   const [error, setError] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [aiResult, setAiResult] = useState<{ suggestions: AiSuggestions; cacheHit: boolean; model: string } | null>(null);
+  const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('mobile');
+  const [memberSet, setMemberSet] = useState<Set<string>>(() => new Set(membership));
+  const [queueBusy, startQueueTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
+
   const set = (patch: Partial<Promo>) => setP((cur) => ({ ...cur, ...patch }));
   const setTargeting = (patch: Partial<Promo['targeting']>) =>
     set({ targeting: { ...p.targeting, ...patch } });
   const caps = CAPS[p.format];
-
-  // AI suggestions state — null when no diff is open.
-  const [aiResult, setAiResult] = useState<{ suggestions: AiSuggestions; cacheHit: boolean; model: string } | null>(null);
 
   function applyEnhancePatch(patch: EnhancePatch) {
     setP((cur) => {
@@ -104,7 +161,12 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
       if (patch.title !== undefined) next.title = patch.title;
       if (patch.description !== undefined) next.description = patch.description;
       if (patch.actionLabel !== undefined) {
-        next = { ...next, action: cur.action?.href ? { href: cur.action.href, label: patch.actionLabel } : cur.action };
+        next = {
+          ...next,
+          action: cur.action?.href
+            ? { href: cur.action.href, label: patch.actionLabel }
+            : cur.action,
+        };
       }
       return next;
     });
@@ -115,6 +177,7 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
     setError('');
     const localError = clientValidate(p);
     if (localError) { setError(localError); return; }
+    setSaving(true);
     const body = sanitize(p);
     const url    = mode === 'create' ? '/api/promos' : `/api/promos/${encodeURIComponent(p.id)}`;
     const method = mode === 'create' ? 'POST' : 'PUT';
@@ -122,149 +185,300 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
     try {
       res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     } catch {
+      setSaving(false);
       setError('Сеть недоступна — проверьте соединение и повторите.');
       return;
     }
     if (res.ok) { router.push('/cabinet'); router.refresh(); return; }
+    setSaving(false);
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     setError(ERROR_MESSAGES[data.error ?? ''] ?? `Не удалось сохранить (ошибка ${res.status}).`);
   }
 
+  function toggleQueue(name: string) {
+    if (mode === 'create' || !p.id) return; // can't toggle before save
+    const wasIn = memberSet.has(name);
+    // Optimistic toggle
+    setMemberSet((cur) => {
+      const next = new Set(cur);
+      if (wasIn) next.delete(name); else next.add(name);
+      return next;
+    });
+    startQueueTransition(async () => {
+      try {
+        const url = `/api/queues/${encodeURIComponent(name)}/${encodeURIComponent(p.id)}`;
+        const r = await fetch(url, { method: wasIn ? 'DELETE' : 'POST' });
+        if (!r.ok) throw new Error('queue toggle failed');
+      } catch {
+        // Roll back on error
+        setMemberSet((cur) => {
+          const next = new Set(cur);
+          if (wasIn) next.add(name); else next.delete(name);
+          return next;
+        });
+      }
+    });
+  }
+
+  const titleLen = p.title.length;
+  const titleOver = titleLen > TITLE_MAX;
+  const updatedNow = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
   return (
-    <div className="page-body">
-      {/* ── Page header ─────────────────────────────────────────── */}
-      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="left">
-          <div className="eyebrow">ПРОМО</div>
-          <h1>{mode === 'create' ? 'Новое промо' : 'Редактирование'}</h1>
+    <form onSubmit={submit} className="editor">
+      {/* ── Sticky action bar ──────────────────────────────────── */}
+      <div className="editor-bar">
+        <Link href="/cabinet" className="editor-back">← Вернуться к списку</Link>
+        <div className="editor-actions">
+          <AiEnhanceButton
+            getDraft={() => ({ title: p.title, description: p.description, action: p.action })}
+            onSuggestions={setAiResult}
+          />
+          <button
+            type="submit"
+            className="ebtn ebtn-ghost"
+            disabled={saving}
+            title="Сохранить как черновик"
+          >
+            {saving ? 'Сохраняю…' : 'Сохранить'}
+          </button>
+          <button
+            type="submit"
+            className="ebtn ebtn-primary"
+            disabled={saving}
+            onClick={() => set({ /* publish is just save for now */ })}
+          >
+            Опубликовать
+          </button>
         </div>
-        <AiEnhanceButton
-          getDraft={() => ({
-            title: p.title,
-            description: p.description,
-            action: p.action,
-          })}
-          onSuggestions={setAiResult}
-        />
       </div>
 
+      {/* ── Page heading ───────────────────────────────────────── */}
+      <header className="editor-head">
+        <h1>{mode === 'create' ? 'Новое промо' : 'Редактирование промо'}</h1>
+        <div className="editor-meta mono">
+          {mode === 'edit'
+            ? `ID ${p.id} · обновлено ${updatedNow}`
+            : 'Заполните поля и сохраните'}
+        </div>
+      </header>
+
       {aiResult && (
-        <EnhanceDiff
-          current={{ title: p.title, description: p.description, action: p.action }}
-          suggestions={aiResult.suggestions}
-          cacheHit={aiResult.cacheHit}
-          model={aiResult.model}
-          onAccept={applyEnhancePatch}
-          onClose={() => setAiResult(null)}
-        />
+        <div className="editor-ai">
+          <EnhanceDiff
+            current={{ title: p.title, description: p.description, action: p.action }}
+            suggestions={aiResult.suggestions}
+            cacheHit={aiResult.cacheHit}
+            model={aiResult.model}
+            onAccept={applyEnhancePatch}
+            onClose={() => setAiResult(null)}
+          />
+        </div>
       )}
 
-      <form onSubmit={submit}>
-        {/* ── Two-column grid ──────────────────────────────────── */}
-        <div className="form-grid">
+      {/* ── Main editor + preview rail ─────────────────────────── */}
+      <div className="editor-grid">
+        <div className="editor-main">
 
-          {/* ════ LEFT COLUMN ════════════════════════════════════ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Format tiles */}
+          <section className="ef-block">
+            <div className="ef-label">ТИП ПРОМО</div>
+            <div className="format-tiles">
+              {FORMATS.map((f) => {
+                const active = p.format === f;
+                const meta = FORMAT_LABEL[f];
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`fmt-tile${active ? ' active' : ''}`}
+                    onClick={() => set({ format: f })}
+                    disabled={mode === 'edit'}
+                    aria-pressed={active}
+                  >
+                    <span className="fmt-tile-glyph" aria-hidden />
+                    <span className="fmt-tile-name">{meta.name}</span>
+                    <span className="fmt-tile-sub">{meta.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {mode === 'edit' && <div className="hint">Формат нельзя изменить после создания.</div>}
+          </section>
 
-            {/* Panel: Основное */}
-            <div className="form-panel">
-              <div className="panel-head"><h3>Основное</h3></div>
-              <div className="panel-body">
+          {/* Title */}
+          <section className="ef-block">
+            <div className="ef-label-row">
+              <div className="ef-label">ЗАГОЛОВОК</div>
+              <div className={`ef-counter mono${titleOver ? ' over' : ''}`}>{titleLen} / {TITLE_MAX}</div>
+            </div>
+            <input
+              className="ef-input title"
+              value={p.title}
+              onChange={(e) => set({ title: e.target.value })}
+              placeholder="Что увидит пользователь"
+              maxLength={TITLE_MAX + 20}
+            />
+          </section>
 
-                <div className="form-row">
-                  <div className="field">
+          {/* Description */}
+          {caps.description && (
+            <section className="ef-block">
+              <div className="ef-label">ОПИСАНИЕ</div>
+              <textarea
+                className="ef-input ef-textarea"
+                rows={3}
+                value={p.description ?? ''}
+                onChange={(e) => set({ description: e.target.value || undefined })}
+                placeholder="Дополнительный текст под заголовком"
+              />
+            </section>
+          )}
+
+          {/* Image */}
+          {caps.image && (
+            <section className="ef-block">
+              <div className="ef-label">ИЗОБРАЖЕНИЕ</div>
+              <input
+                className="ef-input mono"
+                value={p.imageUrl ?? ''}
+                onChange={(e) => set({ imageUrl: e.target.value || undefined })}
+                placeholder="https://… (URL картинки)"
+              />
+              {p.imageUrl && (
+                <div className="ef-image-preview">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.imageUrl} alt="" className="ef-image-thumb" />
+                  <span className="mono ef-image-meta">{shortUrl(p.imageUrl)}</span>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* CTA */}
+          <section className="ef-block">
+            <div className="ef-label">CTA</div>
+            <div className="ef-cta-row">
+              {caps.actionLabel && (
+                <input
+                  className="ef-input"
+                  value={p.action?.label ?? ''}
+                  disabled={!p.action?.href}
+                  onChange={(e) =>
+                    set({
+                      action: p.action?.href
+                        ? { href: p.action.href, label: e.target.value || undefined }
+                        : undefined,
+                    })
+                  }
+                  placeholder="Подробнее"
+                />
+              )}
+              <input
+                className="ef-input mono"
+                value={p.action?.href ?? ''}
+                onChange={(e) =>
+                  set({
+                    action: e.target.value
+                      ? { href: e.target.value, label: caps.actionLabel ? p.action?.label : undefined }
+                      : undefined,
+                  })
+                }
+                placeholder="https://abkhaz-auto.ru/…"
+              />
+            </div>
+          </section>
+
+          {/* Queue chips */}
+          {queueNames.length > 0 && (
+            <section className="ef-block">
+              <div className="ef-label">ОЧЕРЕДИ ПОКАЗА</div>
+              <div className="ef-queues">
+                {queueNames.map((qn) => {
+                  const inQ = memberSet.has(qn);
+                  return (
+                    <button
+                      key={qn}
+                      type="button"
+                      className={`qchip${inQ ? ' on' : ''}`}
+                      onClick={() => toggleQueue(qn)}
+                      disabled={mode === 'create' || queueBusy}
+                      aria-pressed={inQ}
+                    >
+                      {qn}
+                    </button>
+                  );
+                })}
+              </div>
+              {mode === 'create' && <div className="hint">Сначала сохрани промо, потом добавляй в очереди.</div>}
+            </section>
+          )}
+
+          {/* Advanced disclosure */}
+          <section className="ef-advanced">
+            <button
+              type="button"
+              className="ef-advanced-toggle"
+              onClick={() => setAdvancedOpen((v) => !v)}
+              aria-expanded={advancedOpen}
+            >
+              <span>Расширенные настройки</span>
+              <span className="ef-advanced-chev" aria-hidden>{advancedOpen ? '▴' : '▾'}</span>
+            </button>
+
+            {advancedOpen && (
+              <div className="ef-advanced-body">
+                {/* Identification */}
+                <div className="ef-row">
+                  <div className="ef-field">
                     <label>ID (slug)</label>
                     <input
-                      className="input mono-input"
+                      className="ef-input mono"
                       value={p.id}
                       disabled={mode === 'edit'}
                       onChange={(e) => set({ id: e.target.value })}
                       placeholder="summer-sale"
                     />
                   </div>
-                  <div className="field">
-                    <label>Формат{mode === 'edit' ? ' (нельзя изменить)' : ''}</label>
-                    <select
-                      className="select"
-                      value={p.format}
-                      disabled={mode === 'edit'}
-                      onChange={(e) => set({ format: e.target.value as Promo['format'] })}
-                    >
-                      {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="field">
-                  <label>Название (внутреннее)</label>
-                  <input
-                    className="input"
-                    value={p.name}
-                    onChange={(e) => set({ name: e.target.value })}
-                    placeholder="Например: Летняя акция 2025"
-                  />
-                </div>
-
-                <div className="field">
-                  <label>Заголовок</label>
-                  <input
-                    className="input"
-                    value={p.title}
-                    onChange={(e) => set({ title: e.target.value })}
-                    placeholder="Текст, который увидит пользователь"
-                  />
-                </div>
-
-                {caps.description && (
-                  <div className="field">
-                    <label>Описание</label>
-                    <textarea
-                      className="input"
-                      rows={3}
-                      value={p.description ?? ''}
-                      onChange={(e) => set({ description: e.target.value || undefined })}
-                      placeholder="Дополнительный текст под заголовком…"
+                  <div className="ef-field">
+                    <label>Внутреннее название</label>
+                    <input
+                      className="ef-input"
+                      value={p.name}
+                      onChange={(e) => set({ name: e.target.value })}
+                      placeholder="Летняя акция 2025"
                     />
                   </div>
-                )}
+                </div>
 
-              </div>
-            </div>
-
-            {/* Panel: Показ */}
-            <div className="form-panel">
-              <div className="panel-head"><h3>Показ</h3></div>
-              <div className="panel-body">
-
-                <div className="form-row">
-                  <div className="field">
+                {/* Schedule */}
+                <div className="ef-row">
+                  <div className="ef-field">
                     <label>Начало показа</label>
                     <input
                       type="datetime-local"
-                      className="input"
-                      lang="ru"
+                      className="ef-input"
                       value={isoToLocalInput(p.startsAt)}
                       onChange={(e) => set({ startsAt: localInputToIso(e.target.value) })}
                     />
                   </div>
-                  <div className="field">
+                  <div className="ef-field">
                     <label>Окончание показа</label>
                     <input
                       type="datetime-local"
-                      className="input"
-                      lang="ru"
+                      className="ef-input"
                       value={isoToLocalInput(p.endsAt)}
                       onChange={(e) => set({ endsAt: localInputToIso(e.target.value) })}
                     />
                   </div>
                 </div>
 
-                <div className="form-row">
-                  <div className="field">
-                    <label>Макс. показов на пользователя</label>
+                <div className="ef-row">
+                  <div className="ef-field">
+                    <label>Лимит показов на пользователя</label>
                     <input
                       type="number"
-                      className="input mono-input"
+                      className="ef-input mono"
                       min={1}
                       value={p.maxImpressionsPerUser ?? ''}
                       onChange={(e) =>
@@ -272,84 +486,71 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
                       }
                       placeholder="∞"
                     />
-                    <span className="hint">Пусто = без лимита</span>
                   </div>
-                  <div className="field">
-                    <label>Кулдаун, часов</label>
+                  <div className="ef-field">
+                    <label>Кулдаун (часов)</label>
                     <input
                       type="number"
-                      className="input mono-input"
+                      className="ef-input mono"
                       min={0}
                       value={p.cooldownHours}
                       onChange={(e) => set({ cooldownHours: Number(e.target.value) })}
-                      placeholder="0"
                     />
-                    <span className="hint">0 = без кулдауна</span>
+                  </div>
+                  <div className="ef-field">
+                    <label>Аудитория</label>
+                    <select
+                      className="ef-input"
+                      value={p.audience ?? 'all'}
+                      onChange={(e) => set({ audience: e.target.value as Promo['audience'] })}
+                    >
+                      <option value="all">Все</option>
+                      <option value="authenticated">Только залогиненные</option>
+                      <option value="anonymous">Только гости</option>
+                    </select>
                   </div>
                 </div>
 
-                <div className="field">
-                  <label>Аудитория</label>
-                  <select
-                    className="select"
-                    value={p.audience ?? 'all'}
-                    onChange={(e) => set({ audience: e.target.value as Promo['audience'] })}
-                  >
-                    <option value="all">Все</option>
-                    <option value="authenticated">Только залогиненные</option>
-                    <option value="anonymous">Только гости</option>
-                  </select>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Panel: Таргетинг */}
-            <div className="form-panel">
-              <div className="panel-head"><h3>Таргетинг</h3></div>
-              <div className="panel-body">
-
-                <div className="form-row">
-                  <div className="field">
+                {/* Targeting */}
+                <div className="ef-row">
+                  <div className="ef-field">
                     <label>Возраст от</label>
                     <input
                       type="number"
-                      className="input mono-input"
+                      className="ef-input mono"
                       min={0}
                       value={p.targeting.minAge ?? ''}
                       onChange={(e) => setTargeting({ minAge: e.target.value === '' ? undefined : Number(e.target.value) })}
                       placeholder="—"
                     />
                   </div>
-                  <div className="field">
+                  <div className="ef-field">
                     <label>Возраст до</label>
                     <input
                       type="number"
-                      className="input mono-input"
+                      className="ef-input mono"
                       min={0}
                       value={p.targeting.maxAge ?? ''}
                       onChange={(e) => setTargeting({ maxAge: e.target.value === '' ? undefined : Number(e.target.value) })}
                       placeholder="—"
                     />
                   </div>
+                  <div className="ef-field">
+                    <label>Регионы</label>
+                    <input
+                      className="ef-input mono"
+                      value={slugListToText(p.targeting.regions)}
+                      onChange={(e) => setTargeting({ regions: parseSlugList(e.target.value) })}
+                      placeholder="sukhum, gagra"
+                    />
+                  </div>
                 </div>
 
-                <div className="field">
-                  <label>Регионы</label>
-                  <input
-                    className="input mono-input"
-                    value={slugListToText(p.targeting.regions)}
-                    placeholder="sukhum, gagra"
-                    onChange={(e) => setTargeting({ regions: parseSlugList(e.target.value) })}
-                  />
-                  <span className="hint">Через запятую; пусто = все регионы</span>
-                </div>
-
-                <div className="field">
+                <div className="ef-field">
                   <label>Уровни подписки</label>
-                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: 2 }}>
+                  <div className="ef-checkbox-row">
                     {(['none', 'plus', 'premium'] as const).map((lvl) => (
-                      <label key={lvl} style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', fontWeight: 400, fontSize: 13, color: 'var(--app-fg1)' }}>
+                      <label key={lvl} className="ef-checkbox">
                         <input
                           type="checkbox"
                           checked={p.targeting.subscriptionLevels?.includes(lvl) ?? false}
@@ -363,182 +564,458 @@ export function PromoForm({ initial, mode }: { initial?: Promo; mode: 'create' |
                       </label>
                     ))}
                   </div>
-                  <span className="hint">Пусто = любой уровень</span>
                 </div>
 
-                <div className="form-row">
-                  <div className="field">
+                <div className="ef-row">
+                  <div className="ef-field">
                     <label>Разделы</label>
                     <input
-                      className="input mono-input"
+                      className="ef-input mono"
                       value={slugListToText(p.sections)}
-                      placeholder="avto, realty"
                       onChange={(e) => set({ sections: parseSlugList(e.target.value) })}
+                      placeholder="avto, realty"
                     />
-                    <span className="hint">Через запятую; пусто = все</span>
                   </div>
-                  <div className="field">
+                  <div className="ef-field">
                     <label>Категории</label>
                     <input
-                      className="input mono-input"
+                      className="ef-input mono"
                       value={slugListToText(p.categories)}
-                      placeholder="kvartiry"
                       onChange={(e) => set({ categories: parseSlugList(e.target.value) })}
-                    />
-                    <span className="hint">Через запятую; пусто = все</span>
-                  </div>
-                </div>
-
-                <div className="field">
-                  <label>Кому показывать (по объявлениям)</label>
-                  <select
-                    className="select"
-                    value={p.sellerStatus ?? ''}
-                    onChange={(e) =>
-                      set({ sellerStatus: e.target.value === '' ? undefined : (e.target.value as 'seller' | 'buyer') })
-                    }
-                  >
-                    <option value="">Всем</option>
-                    <option value="seller">Только продавцам (есть объявления)</option>
-                    <option value="buyer">Только покупателям (нет объявлений)</option>
-                  </select>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Panel: Оформление */}
-            <div className="form-panel">
-              <div className="panel-head"><h3>Оформление</h3></div>
-              <div className="panel-body">
-
-                {caps.image && (
-                  <div className="field">
-                    <label>Картинка (URL)</label>
-                    <input
-                      className="input mono-input"
-                      value={p.imageUrl ?? ''}
-                      onChange={(e) => set({ imageUrl: e.target.value || undefined })}
-                      placeholder="https://…"
+                      placeholder="kvartiry"
                     />
                   </div>
-                )}
-
-                <div className="field">
-                  <label>{caps.actionLabel ? 'CTA href' : 'Ссылка баннера'}</label>
-                  <input
-                    className="input mono-input"
-                    value={p.action?.href ?? ''}
-                    onChange={(e) =>
-                      set({
-                        action: e.target.value
-                          ? { href: e.target.value, label: caps.actionLabel ? p.action?.label : undefined }
-                          : undefined,
-                      })
-                    }
-                    placeholder="/sale/summer"
-                  />
-                  <span className="hint">Необязательно</span>
-                </div>
-
-                {caps.actionLabel && (
-                  <div className="field">
-                    <label>CTA label</label>
-                    <input
-                      className="input"
-                      value={p.action?.label ?? ''}
-                      disabled={!p.action?.href}
+                  <div className="ef-field">
+                    <label>По объявлениям</label>
+                    <select
+                      className="ef-input"
+                      value={p.sellerStatus ?? ''}
                       onChange={(e) =>
-                        set({
-                          action: p.action?.href
-                            ? { href: p.action.href, label: e.target.value || undefined }
-                            : undefined,
-                        })
+                        set({ sellerStatus: e.target.value === '' ? undefined : (e.target.value as 'seller' | 'buyer') })
                       }
-                      placeholder="Узнать больше"
-                    />
-                    <span className="hint">Необязательно; активно только при заполненном href</span>
+                    >
+                      <option value="">Всем</option>
+                      <option value="seller">Продавцам</option>
+                      <option value="buyer">Покупателям</option>
+                    </select>
                   </div>
-                )}
+                </div>
 
-                {caps.dismissible && (
-                  <div className="toggle-row">
-                    <div>
-                      <div className="toggle-label">Можно закрыть (×)</div>
-                      <div className="toggle-sub">Показывать кнопку закрытия</div>
-                    </div>
-                    <button
-                      type="button"
-                      className={`switch${(p.dismissible ?? true) ? ' on' : ''}`}
-                      onClick={() => set({ dismissible: !(p.dismissible ?? true) })}
-                    />
-                  </div>
+                {/* Visual */}
+                {(caps.colors || caps.bgImage || caps.dismissible) && (
+                  <>
+                    <div className="ef-divider" />
+                    {caps.colors && (
+                      <div className="ef-row">
+                        <div className="ef-field">
+                          <label>Цвет фона</label>
+                          <input
+                            type="color"
+                            className="ef-input ef-color"
+                            value={p.backgroundColor ?? '#E11D2A'}
+                            onChange={(e) => set({ backgroundColor: e.target.value })}
+                          />
+                        </div>
+                        <div className="ef-field">
+                          <label>Цвет текста</label>
+                          <input
+                            type="color"
+                            className="ef-input ef-color"
+                            value={p.textColor ?? '#ffffff'}
+                            onChange={(e) => set({ textColor: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {caps.bgImage && (
+                      <div className="ef-field">
+                        <label>Фон-картинка (URL)</label>
+                        <input
+                          className="ef-input mono"
+                          value={p.backgroundImage ?? ''}
+                          onChange={(e) => set({ backgroundImage: e.target.value || undefined })}
+                          placeholder="https://…"
+                        />
+                      </div>
+                    )}
+                    {caps.dismissible && (
+                      <label className="ef-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={p.dismissible ?? true}
+                          onChange={(e) => set({ dismissible: e.target.checked })}
+                        />
+                        Можно закрыть кнопкой «×»
+                      </label>
+                    )}
+                  </>
                 )}
-
-                {caps.colors && (
-                  <div className="form-row">
-                    <div className="field">
-                      <label>Цвет фона</label>
-                      <input
-                        type="color"
-                        className="input"
-                        style={{ padding: '2px 4px', height: 36, cursor: 'pointer' }}
-                        value={p.backgroundColor ?? '#2563eb'}
-                        onChange={(e) => set({ backgroundColor: e.target.value })}
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Цвет текста</label>
-                      <input
-                        type="color"
-                        className="input"
-                        style={{ padding: '2px 4px', height: 36, cursor: 'pointer' }}
-                        value={p.textColor ?? '#ffffff'}
-                        onChange={(e) => set({ textColor: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {caps.bgImage && (
-                  <div className="field">
-                    <label>Фон-картинка (URL)</label>
-                    <input
-                      className="input mono-input"
-                      value={p.backgroundImage ?? ''}
-                      onChange={(e) => set({ backgroundImage: e.target.value || undefined })}
-                      placeholder="https://…"
-                    />
-                    <span className="hint">Необязательно</span>
-                  </div>
-                )}
-
               </div>
+            )}
+          </section>
 
-              {/* Error + actions inside the last left panel's footer */}
-              {error && <div style={{ padding: '0 16px 12px' }}><p className="error">{error}</p></div>}
-              <div className="form-actions">
-                <button type="submit" className="btn btn-primary">Сохранить</button>
-                <button type="button" className="btn btn-secondary" onClick={() => router.push('/cabinet')}>
-                  Отмена
+          {error && <div className="ef-error">{error}</div>}
+        </div>
+
+        {/* ── Preview rail ─────────────────────────────────────── */}
+        <aside className="editor-rail">
+          <div className="prev-panel">
+            <div className="prev-overline">ЖИВОЙ ПРЕВЬЮ</div>
+            <div className="prev-devices" role="tablist" aria-label="Устройство">
+              {(['desktop', 'tablet', 'mobile'] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  role="tab"
+                  aria-selected={device === d}
+                  className={`prev-device${device === d ? ' on' : ''}`}
+                  onClick={() => setDevice(d)}
+                >
+                  {d === 'desktop' ? 'Desktop' : d === 'tablet' ? 'Tablet' : 'Mobile'}
                 </button>
-              </div>
+              ))}
             </div>
-
-          </div>{/* end LEFT */}
-
-          {/* ════ RIGHT COLUMN — Preview ════════════════════════ */}
-          <div style={{ position: 'sticky', top: 64 }}>
-            <div className="form-panel">
-              <div className="panel-head"><h3>Превью</h3></div>
-              <div className="panel-body">
-                <PromoPreview promo={sanitize(p)} />
-              </div>
+            <div className={`prev-frame device-${device}`}>
+              <PromoPreview promo={sanitize(p)} />
+            </div>
+            <div className="prev-foot">
+              <div className="prev-overline">СЛОТ</div>
+              <div className="mono prev-slot">{p.format} · feed-top</div>
+              <div className="prev-overline" style={{ marginTop: 14 }}>ОЦЕНКА ОХВАТА</div>
+              <div className="prev-reach">~ {estimateReach(p.format).toLocaleString('ru-RU')} / день</div>
+              <div className="prev-reach-sub">на основе 30-дневного трафика</div>
             </div>
           </div>
+        </aside>
+      </div>
 
-        </div>{/* end form-grid */}
-      </form>
-    </div>
+      <style>{EDITOR_CSS}</style>
+    </form>
   );
 }
+
+// Quick reach guess so the preview rail has a number to show. Replace with
+// real per-format CTRs once promo_analytics_funnel_by_format has enough data.
+function estimateReach(fmt: Promo['format']): number {
+  switch (fmt) {
+    case 'topline':    return 4200;
+    case 'inline':     return 2800;
+    case 'popup':      return 1600;
+    case 'fullscreen': return 900;
+  }
+}
+
+function shortUrl(u: string): string {
+  return u.length > 56 ? u.slice(0, 28) + '…' + u.slice(-26) : u;
+}
+
+const EDITOR_CSS = `
+.editor { display: flex; flex-direction: column; gap: 24px; padding: 0 0 80px; font-family: var(--font-sans); }
+.editor .mono { font-family: var(--font-mono); }
+.editor .hint { font-size: 12px; color: var(--app-fg4); margin-top: 6px; }
+
+.editor-bar {
+  position: sticky; top: 0; z-index: 9;
+  background: var(--app-bg);
+  margin: -24px -32px 0;
+  padding: 16px 32px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border-bottom: 1px solid var(--app-border);
+}
+.editor-back {
+  font-size: 13px; font-weight: 600; color: var(--app-fg3);
+  text-decoration: none;
+}
+.editor-back:hover { color: var(--app-fg1); text-decoration: none; }
+.editor-actions { display: flex; align-items: center; gap: 10px; }
+
+.ebtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 36px; padding: 0 18px; border-radius: 10px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  border: 1px solid transparent; cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.ebtn:disabled { opacity: .55; cursor: wait; }
+.ebtn-ghost   { background: #fff; border-color: var(--app-border); color: var(--app-fg2); }
+.ebtn-ghost:hover:not(:disabled) { border-color: var(--app-border2); }
+.ebtn-primary { background: var(--brand-coral-600); color: #fff; }
+.ebtn-primary:hover:not(:disabled) { background: var(--brand-coral-700); }
+
+/* ── AI accent button ──────────────────────────────────────── */
+/* Distinct from save/publish so the action's intent is obvious. */
+.ebtn-ai {
+  background: linear-gradient(180deg, #16181D 0%, #3A3F48 100%);
+  color: #fff;
+  padding: 0 18px 0 14px;
+  gap: 8px;
+  box-shadow: 0 0 0 1px rgba(225,29,42,0.2), 0 1px 2px rgba(0,0,0,0.04);
+}
+.ebtn-ai:hover:not(:disabled) {
+  background: linear-gradient(180deg, #1f2329 0%, #45495520 100%);
+  box-shadow: 0 4px 12px rgba(225,29,42,0.20);
+}
+.ebtn-ai-spark { font-size: 14px; line-height: 1; filter: drop-shadow(0 0 4px rgba(225,29,42,0.6)); }
+.ebtn-ai-error {
+  background: var(--status-danger-bg); color: var(--status-danger);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px; font-weight: 600;
+  max-width: 260px; line-height: 1.3;
+}
+
+/* ── AI diff panel ─────────────────────────────────────────── */
+.ai-diff {
+  background: #fff;
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(16,18,22,0.04), 0 4px 16px rgba(16,18,22,0.06);
+}
+.ai-diff-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--app-border);
+  background: linear-gradient(180deg, #FBF2EF 0%, #FFFFFF 100%);
+}
+.ai-diff-title {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--app-fg1);
+}
+.ai-diff-meta {
+  display: flex; gap: 10px; align-items: center;
+  margin-top: 4px;
+  font-size: 11px; color: var(--app-fg4);
+}
+.ai-diff-cache {
+  background: var(--app-surface2);
+  border-radius: 999px; padding: 2px 8px;
+  font-size: 10px; font-weight: 600;
+}
+.ai-diff-body {
+  padding: 18px 20px 20px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.ai-diff-empty {
+  font-size: 13px; color: var(--app-fg3); margin: 0;
+}
+.ai-diff-row { display: flex; flex-direction: column; gap: 10px; }
+.ai-diff-fieldname {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--app-fg3);
+}
+.ai-diff-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.ai-diff-cell {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px; line-height: 1.45;
+  color: var(--app-fg1);
+}
+.ai-diff-cur { background: var(--app-bg);   border: 1px solid var(--app-border);  }
+.ai-diff-new { background: var(--status-success-bg); border: 1px solid #BFE0CC; }
+.ai-diff-celllabel {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--app-fg4);
+  margin-bottom: 4px;
+}
+.ai-diff-new .ai-diff-celllabel { color: var(--status-success); }
+.ai-diff-celltext { white-space: pre-wrap; word-break: break-word; }
+.ai-diff-empty-inline { color: var(--app-fg4); font-style: italic; }
+.ai-diff-actions { display: flex; gap: 10px; }
+
+@media (max-width: 720px) {
+  .ai-diff-grid { grid-template-columns: 1fr; }
+}
+
+.editor-head h1 {
+  font-size: 36px; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--app-fg1); margin: 0 0 6px;
+}
+.editor-meta { font-size: 13px; color: var(--app-fg4); }
+
+.editor-ai { background: #fff; border: 1px solid var(--app-border); border-radius: 14px; padding: 16px; }
+
+.editor-grid {
+  display: grid; grid-template-columns: minmax(0, 720px) 416px;
+  gap: 40px;
+  align-items: start;
+}
+.editor-main { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.editor-rail { position: sticky; top: 96px; }
+
+/* Block primitives */
+.ef-block { display: flex; flex-direction: column; gap: 10px; }
+.ef-label, .ef-label-row .ef-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--app-fg3);
+}
+.ef-label-row { display: flex; align-items: baseline; justify-content: space-between; }
+.ef-counter { font-size: 11px; color: var(--app-fg4); }
+.ef-counter.over { color: var(--status-danger); font-weight: 700; }
+
+.ef-input {
+  width: 100%; background: #fff;
+  border: 1px solid var(--app-border); border-radius: 12px;
+  height: 52px; padding: 0 16px;
+  font-family: var(--font-sans); font-size: 15px; font-weight: 500;
+  color: var(--app-fg1);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.ef-input.mono { font-family: var(--font-mono); font-size: 13px; }
+.ef-input.title { font-weight: 700; font-size: 18px; }
+.ef-input:focus { outline: 0; border-color: var(--brand-sea-600); box-shadow: 0 0 0 3px var(--input-focus-ring); }
+.ef-input:disabled { background: var(--app-bg); color: var(--app-fg3); cursor: not-allowed; }
+.ef-textarea { height: auto; min-height: 92px; padding: 14px 16px; line-height: 1.45; resize: vertical; }
+.ef-color { height: 44px; padding: 4px 6px; cursor: pointer; }
+
+/* Format tiles */
+.format-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.fmt-tile {
+  background: #fff; border: 1px solid var(--app-border);
+  border-radius: 12px; padding: 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 96px;
+  cursor: pointer; text-align: left;
+  font-family: inherit;
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+}
+.fmt-tile:hover:not(:disabled) { border-color: var(--app-border2); }
+.fmt-tile:disabled { opacity: 1; cursor: not-allowed; }
+.fmt-tile-glyph { width: 28px; height: 18px; border-radius: 4px; background: var(--app-border2); transition: background var(--dur-fast); }
+.fmt-tile-name { font-size: 15px; font-weight: 700; color: var(--app-fg2); }
+.fmt-tile-sub  { font-size: 12px; font-weight: 500; color: var(--app-fg4); }
+.fmt-tile.active {
+  background: #FDEFF0;
+  border: 2px solid var(--brand-sea-700);
+  padding: 13px;  /* compensate for the extra 1px border */
+}
+.fmt-tile.active .fmt-tile-glyph { background: var(--brand-sea-700); }
+.fmt-tile.active .fmt-tile-name  { color: var(--app-fg1); }
+.fmt-tile.active .fmt-tile-sub   { color: var(--brand-sea-700); font-weight: 600; }
+
+/* CTA row */
+.ef-cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* Image preview */
+.ef-image-preview {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--app-surface2);
+  border: 1px solid var(--app-border); border-radius: 12px;
+}
+.ef-image-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: var(--app-border); }
+.ef-image-meta { font-size: 12px; color: var(--app-fg3); word-break: break-all; }
+
+/* Queue chips */
+.ef-queues { display: flex; flex-wrap: wrap; gap: 8px; }
+.qchip {
+  display: inline-flex; align-items: center;
+  height: 32px; padding: 0 16px; border-radius: 999px;
+  background: #fff; border: 1px solid var(--app-border);
+  color: var(--app-fg2);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+.qchip:hover:not(:disabled) { border-color: var(--app-border2); }
+.qchip:disabled { opacity: .6; cursor: not-allowed; }
+.qchip.on {
+  background: var(--brand-sea-700); border-color: var(--brand-sea-700);
+  color: #fff;
+}
+
+/* Advanced disclosure */
+.ef-advanced {
+  background: #fff; border: 1px solid var(--app-border);
+  border-radius: 14px; overflow: hidden;
+}
+.ef-advanced-toggle {
+  width: 100%; background: none; border: 0;
+  padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--app-fg1);
+  cursor: pointer;
+}
+.ef-advanced-toggle:hover { background: var(--app-surface2); }
+.ef-advanced-chev { color: var(--app-fg4); font-size: 12px; }
+.ef-advanced-body {
+  padding: 18px 20px 22px;
+  border-top: 1px solid var(--app-border);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.ef-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.ef-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ef-field label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--app-fg3);
+}
+.ef-field .ef-input { height: 40px; font-size: 13px; }
+.ef-field .ef-input.mono { font-size: 12px; }
+.ef-checkbox-row { display: flex; gap: 18px; flex-wrap: wrap; }
+.ef-checkbox {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; color: var(--app-fg2);
+  cursor: pointer;
+}
+.ef-divider { height: 1px; background: var(--app-border); margin: 4px 0; }
+
+.ef-error {
+  background: var(--status-danger-bg); color: var(--status-danger);
+  border-radius: 10px; padding: 12px 16px;
+  font-size: 13px; font-weight: 600;
+}
+
+/* Preview rail */
+.prev-panel {
+  background: #16181D; border-radius: 20px;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+  min-height: 740px;
+}
+.prev-overline {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  color: var(--app-fg4);
+}
+.prev-devices {
+  display: inline-flex; background: var(--app-fg2);
+  border-radius: 999px; padding: 4px; gap: 4px;
+  align-self: flex-start;
+}
+.prev-device {
+  height: 24px; padding: 0 12px; border-radius: 999px;
+  background: transparent; border: 0;
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  color: var(--app-fg4); cursor: pointer;
+}
+.prev-device.on { background: #fff; color: var(--app-fg1); }
+.prev-frame {
+  flex: 1; min-height: 480px;
+  background: var(--app-bg); border: 4px solid var(--app-fg2);
+  border-radius: 28px;
+  overflow: auto;
+  padding: 20px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+.prev-frame.device-mobile  { max-width: 280px; align-self: center; }
+.prev-frame.device-tablet  { max-width: 560px; align-self: center; }
+.prev-frame.device-desktop { max-width: 100%;  align-self: stretch; }
+.prev-foot { display: flex; flex-direction: column; gap: 4px; }
+.prev-slot { font-size: 13px; color: #fff; }
+.prev-reach { font-size: 18px; font-weight: 700; color: var(--brand-coral-300); margin-top: 4px; }
+.prev-reach-sub { font-size: 11px; color: var(--app-fg4); margin-top: 4px; }
+
+/* Responsive */
+@media (max-width: 1080px) {
+  .editor-grid { grid-template-columns: 1fr; }
+  .editor-rail { position: static; }
+}
+@media (max-width: 720px) {
+  .format-tiles { grid-template-columns: repeat(2, 1fr); }
+  .ef-cta-row { grid-template-columns: 1fr; }
+  .editor-head h1 { font-size: 28px; }
+}
+`;
