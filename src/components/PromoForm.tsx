@@ -44,6 +44,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { PromoPreview } from './PromoPreview';
+import { PromoImageUpload } from './PromoImageUpload';
 import { AiEnhanceButton } from './AiEnhanceButton';
 import { EnhanceDiff, type EnhancePatch } from './EnhanceDiff';
 import type { AiSuggestions } from '@/lib/ai-client';
@@ -51,15 +52,22 @@ import { FORMATS_BY_DEVICE, type DeviceClass } from '@zebrooo/promo-renderer';
 
 const FORMATS = ['inline', 'topline', 'popup', 'fullscreen'] as const;
 
-// Какие форматы реально показываются для каждого варианта targeting.
-// Источник правды — FORMATS_BY_DEVICE из @zebrooo/promo-renderer. Если
-// добавим новый формат там — здесь автоматом подхватится.
+// Какие форматы доступны для каждого варианта targeting.
+// Union (а не intersection): на 'both' оставляем все 4 формата — topline
+// просто отфильтруется на тач-юзерах в renderer'е (fail-safe null), но
+// desktop-юзеры его увидят. Юзер сам осознанно выбирает.
 function allowedFormatsFor(target: NonNullable<Promo['deviceTarget']>): readonly Promo['format'][] {
-  if (target === 'both') {
-    // Пересечение: формат показывается ТОЛЬКО если поддержан и desktop, и touch.
-    return FORMATS_BY_DEVICE.desktop.filter((f) => FORMATS_BY_DEVICE.touch.includes(f));
-  }
+  if (target === 'desktop' || target === 'both') return FORMATS_BY_DEVICE.desktop;
   return FORMATS_BY_DEVICE[target as DeviceClass];
+}
+
+// Покажем ли warn у конкретного формата для текущего target. Пока единственный
+// случай — topline на target='both' не дойдёт до тач-юзеров.
+function formatCaveatFor(format: Promo['format'], target: NonNullable<Promo['deviceTarget']>): string | null {
+  if (format === 'topline' && target === 'both') {
+    return 'Topline не покажется на мобильных пользователях';
+  }
+  return null;
 }
 
 type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean; colors: boolean; bgImage: boolean };
@@ -357,10 +365,10 @@ export function PromoForm({
             </div>
             {mode === 'edit' && <div className="hint">Формат нельзя изменить после создания.</div>}
             {currentTarget === 'touch' && (
-              <div className="hint">На мобиле popup открывается шторкой снизу, а topline не показывается.</div>
+              <div className="hint">На мобиле popup открывается шторкой снизу.</div>
             )}
-            {currentTarget === 'both' && (
-              <div className="hint">Доступны только форматы, работающие и на десктопе, и на мобиле.</div>
+            {formatCaveatFor(p.format, currentTarget) && (
+              <div className="hint hint-warn">{formatCaveatFor(p.format, currentTarget)}</div>
             )}
           </section>
 
@@ -397,19 +405,12 @@ export function PromoForm({
           {caps.image && (
             <section className="ef-block">
               <div className="ef-label">ИЗОБРАЖЕНИЕ</div>
-              <input
-                className="ef-input mono"
+              <PromoImageUpload
                 value={p.imageUrl ?? ''}
-                onChange={(e) => set({ imageUrl: e.target.value || undefined })}
-                placeholder="https://… (URL картинки)"
+                onChange={(url) => set({ imageUrl: url || undefined })}
+                label="Картинка карточки"
+                recommend={recommendForFormat(p.format)}
               />
-              {p.imageUrl && (
-                <div className="ef-image-preview">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.imageUrl} alt="" className="ef-image-thumb" />
-                  <span className="mono ef-image-meta">{shortUrl(p.imageUrl)}</span>
-                </div>
-              )}
             </section>
           )}
 
@@ -686,13 +687,13 @@ export function PromoForm({
                       </div>
                     )}
                     {caps.bgImage && (
-                      <div className="ef-field">
-                        <label>Фон-картинка (URL)</label>
-                        <input
-                          className="ef-input mono"
+                      <div className="ef-field" style={{ gridColumn: '1 / -1' }}>
+                        <label>Фон-картинка попапа</label>
+                        <PromoImageUpload
                           value={p.backgroundImage ?? ''}
-                          onChange={(e) => set({ backgroundImage: e.target.value || undefined })}
-                          placeholder="https://…"
+                          onChange={(url) => set({ backgroundImage: url || undefined })}
+                          label="Фон попапа"
+                          recommend="1200×1600"
                         />
                       </div>
                     )}
@@ -767,10 +768,19 @@ function shortUrl(u: string): string {
   return u.length > 56 ? u.slice(0, 28) + '…' + u.slice(-26) : u;
 }
 
+function recommendForFormat(f: Promo['format']): string {
+  if (f === 'topline')    return '1200×120';
+  if (f === 'inline')     return '600×400';
+  if (f === 'popup')      return '600×400';
+  if (f === 'fullscreen') return '1200×1600';
+  return '';
+}
+
 const EDITOR_CSS = `
 .editor { display: flex; flex-direction: column; gap: 24px; padding: 0 0 80px; font-family: var(--font-sans); }
 .editor .mono { font-family: var(--font-mono); }
 .editor .hint { font-size: 12px; color: var(--app-fg4); margin-top: 6px; }
+.editor .hint-warn { color: var(--brand-coral-700); font-weight: 600; }
 
 .editor-bar {
   position: sticky; top: 0; z-index: 9;
