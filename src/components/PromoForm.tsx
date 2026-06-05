@@ -70,12 +70,27 @@ function formatCaveatFor(format: Promo['format'], target: NonNullable<Promo['dev
   return null;
 }
 
-type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean; colors: boolean; bgImage: boolean };
+type Caps = {
+  image:       boolean;
+  description: boolean;
+  actionLabel: boolean;
+  dismissible: boolean;
+  colors:      boolean;
+  bgImage:     boolean;
+  /** Поддерживает ли формат backgroundGradient. По просьбе — для всех. */
+  gradient:    boolean;
+  /** Поддерживает ли формат textAlign (горизонтальное выравнивание). */
+  textAlign:   boolean;
+  /** Поддерживает ли popupVariant (только popup). */
+  variants:    boolean;
+  /** Поддерживает ли bullets (split-popup и fullscreen). */
+  bullets:     boolean;
+};
 const CAPS: Record<Promo['format'], Caps> = {
-  topline:    { image: false, description: true,  actionLabel: false, dismissible: false, colors: true,  bgImage: false },
-  inline:     { image: true,  description: true,  actionLabel: true,  dismissible: false, colors: false, bgImage: false },
-  popup:      { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: true  },
-  fullscreen: { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: true  },
+  topline:    { image: false, description: true,  actionLabel: false, dismissible: false, colors: true,  bgImage: false, gradient: true,  textAlign: true,  variants: false, bullets: false },
+  inline:     { image: true,  description: true,  actionLabel: true,  dismissible: false, colors: false, bgImage: false, gradient: true,  textAlign: true,  variants: false, bullets: false },
+  popup:      { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: true,  gradient: true,  textAlign: true,  variants: true,  bullets: true  },
+  fullscreen: { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: true,  gradient: true,  textAlign: true,  variants: false, bullets: true  },
 };
 
 const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
@@ -119,12 +134,19 @@ function sanitize(p: Promo): Promo {
   const c = CAPS[p.format];
   return {
     ...p,
-    imageUrl:        c.image       ? p.imageUrl        : undefined,
-    description:     c.description ? p.description     : undefined,
-    dismissible:     c.dismissible ? p.dismissible     : undefined,
-    backgroundColor: c.colors      ? p.backgroundColor : undefined,
-    textColor:       c.colors      ? p.textColor       : undefined,
-    backgroundImage: c.bgImage     ? p.backgroundImage : undefined,
+    imageUrl:           c.image       ? p.imageUrl           : undefined,
+    description:        c.description ? p.description        : undefined,
+    dismissible:        c.dismissible ? p.dismissible        : undefined,
+    backgroundColor:    c.colors      ? p.backgroundColor    : undefined,
+    textColor:          c.colors      ? p.textColor          : undefined,
+    backgroundImage:    c.bgImage     ? p.backgroundImage    : undefined,
+    backgroundGradient: c.gradient    ? p.backgroundGradient : undefined,
+    textAlign:          c.textAlign   ? p.textAlign          : undefined,
+    popupVariant:       c.variants    ? p.popupVariant       : undefined,
+    bullets:            c.bullets     ? p.bullets            : undefined,
+    // ctaColor/ctaTextColor имеют смысл только когда есть action
+    ctaColor:     p.action ? p.ctaColor     : undefined,
+    ctaTextColor: p.action ? p.ctaTextColor : undefined,
     action: p.action
       ? (c.actionLabel ? p.action : { href: p.action.href })
       : undefined,
@@ -662,9 +684,37 @@ export function PromoForm({
                 </div>
 
                 {/* Visual */}
-                {(caps.colors || caps.bgImage || caps.dismissible) && (
+                {(caps.colors || caps.bgImage || caps.dismissible || caps.gradient ||
+                  caps.textAlign || caps.variants || caps.bullets) && (
                   <>
                     <div className="ef-divider" />
+
+                    {/* Popup variant — только для popup */}
+                    {caps.variants && (
+                      <div className="ef-field">
+                        <label>Шаблон попапа</label>
+                        <div className="ef-segment">
+                          {([
+                            { v: 'classic', name: 'Classic', sub: 'image сверху → текст → CTA внизу' },
+                            { v: 'split',   name: 'Split',   sub: 'image hero + content + bullets + CTA' },
+                          ] as const).map(({ v, name, sub }) => {
+                            const active = (p.popupVariant ?? 'classic') === v;
+                            return (
+                              <button
+                                type="button"
+                                key={v}
+                                className={`ef-segment-btn${active ? ' is-active' : ''}`}
+                                onClick={() => set({ popupVariant: v })}
+                              >
+                                <span className="ef-segment-name">{name}</span>
+                                <span className="ef-segment-sub">{sub}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {caps.colors && (
                       <div className="ef-row">
                         <div className="ef-field">
@@ -687,6 +737,64 @@ export function PromoForm({
                         </div>
                       </div>
                     )}
+
+                    {/* Gradient — для всех форматов по просьбе. Если from
+                        пустой — gradient считается выключенным; и backgroundImage,
+                        и backgroundColor работают как обычно. */}
+                    {caps.gradient && (
+                      <div className="ef-field" style={{ gridColumn: '1 / -1' }}>
+                        <label>Градиент фона <span className="ef-hint">(перекрывает «цвет фона», если задан)</span></label>
+                        <div className="ef-gradient-row">
+                          <input
+                            type="color"
+                            className="ef-input ef-color"
+                            value={p.backgroundGradient?.from ?? '#E11D2A'}
+                            onChange={(e) => set({
+                              backgroundGradient: {
+                                ...(p.backgroundGradient ?? {}),
+                                from: e.target.value,
+                              },
+                            })}
+                            title="Начало градиента"
+                          />
+                          <input
+                            type="color"
+                            className="ef-input ef-color"
+                            value={p.backgroundGradient?.to ?? '#9B1B1B'}
+                            onChange={(e) => set({
+                              backgroundGradient: {
+                                ...(p.backgroundGradient ?? { from: '#E11D2A' }),
+                                to: e.target.value,
+                              },
+                            })}
+                            title="Конец градиента"
+                          />
+                          <input
+                            type="number"
+                            className="ef-input"
+                            min={0} max={360} step={5}
+                            placeholder="135°"
+                            value={p.backgroundGradient?.angle ?? ''}
+                            onChange={(e) => {
+                              const angle = e.target.value === '' ? undefined : Number(e.target.value);
+                              set({
+                                backgroundGradient: {
+                                  ...(p.backgroundGradient ?? { from: '#E11D2A' }),
+                                  angle,
+                                },
+                              });
+                            }}
+                            style={{ maxWidth: 100 }}
+                          />
+                          <button
+                            type="button"
+                            className="ef-link-btn"
+                            onClick={() => set({ backgroundGradient: undefined })}
+                          >Убрать градиент</button>
+                        </div>
+                      </div>
+                    )}
+
                     {caps.bgImage && (
                       <div className="ef-field" style={{ gridColumn: '1 / -1' }}>
                         <label>Фон-картинка попапа</label>
@@ -699,6 +807,80 @@ export function PromoForm({
                         />
                       </div>
                     )}
+
+                    {/* Text alignment — все форматы с контентом */}
+                    {caps.textAlign && (
+                      <div className="ef-field">
+                        <label>Выравнивание текста</label>
+                        <div className="ef-segment">
+                          {(['left', 'center', 'right'] as const).map((a) => {
+                            const active = (p.textAlign ?? 'left') === a;
+                            return (
+                              <button
+                                type="button"
+                                key={a}
+                                className={`ef-segment-btn${active ? ' is-active' : ''}`}
+                                onClick={() => set({ textAlign: a })}
+                                style={{ flex: 1 }}
+                              >
+                                <span className="ef-segment-name">
+                                  {a === 'left' ? '⇤' : a === 'center' ? '↔' : '⇥'}
+                                </span>
+                                <span className="ef-segment-sub">
+                                  {a === 'left' ? 'Слева' : a === 'center' ? 'По центру' : 'Справа'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* CTA colors — когда есть action */}
+                    {p.action && (
+                      <div className="ef-row">
+                        <div className="ef-field">
+                          <label>Цвет кнопки</label>
+                          <input
+                            type="color"
+                            className="ef-input ef-color"
+                            value={p.ctaColor ?? '#E11D2A'}
+                            onChange={(e) => set({ ctaColor: e.target.value })}
+                          />
+                        </div>
+                        <div className="ef-field">
+                          <label>Цвет текста на кнопке</label>
+                          <input
+                            type="color"
+                            className="ef-input ef-color"
+                            value={p.ctaTextColor ?? '#ffffff'}
+                            onChange={(e) => set({ ctaTextColor: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bullets — split popup и fullscreen */}
+                    {caps.bullets && (p.popupVariant === 'split' || p.format === 'fullscreen') && (
+                      <div className="ef-field" style={{ gridColumn: '1 / -1' }}>
+                        <label>Список преимуществ <span className="ef-hint">(каждая строка — отдельный пункт, до 6)</span></label>
+                        <textarea
+                          className="ef-input"
+                          rows={4}
+                          placeholder={"3 варианта под бюджет\nПроверка юридической чистоты\nПомощь со страховкой"}
+                          value={(p.bullets ?? []).join('\n')}
+                          onChange={(e) => {
+                            const arr = e.target.value
+                              .split('\n')
+                              .map((s) => s.trim())
+                              .filter(Boolean)
+                              .slice(0, 6);
+                            set({ bullets: arr.length ? arr : undefined });
+                          }}
+                        />
+                      </div>
+                    )}
+
                     {caps.dismissible && (
                       <label className="ef-checkbox">
                         <input
@@ -1056,6 +1238,50 @@ const EDITOR_CSS = `
   cursor: pointer;
 }
 .ef-divider { height: 1px; background: var(--app-border); margin: 4px 0; }
+
+/* Segmented control — popup variant + textAlign */
+.ef-segment {
+  display: flex; gap: 8px;
+  flex-wrap: wrap;
+}
+.ef-segment-btn {
+  display: inline-flex; flex-direction: column; gap: 2px;
+  padding: 10px 14px;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .12s, background .12s;
+  min-width: 120px;
+}
+.ef-segment-btn:hover { background: var(--app-bg-elev); }
+.ef-segment-btn.is-active {
+  border-color: var(--app-accent);
+  background: var(--app-accent-soft, rgba(225,29,42,0.06));
+}
+.ef-segment-name {
+  font-size: 13px; font-weight: 700; color: var(--app-fg);
+}
+.ef-segment-sub {
+  font-size: 11px; font-weight: 500; color: var(--app-fg2);
+}
+
+/* Gradient picker row */
+.ef-gradient-row {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+.ef-gradient-row .ef-color { width: 60px; height: 44px; flex-shrink: 0; }
+.ef-hint {
+  font-weight: 500; color: var(--app-fg2); font-size: 11.5px;
+}
+.ef-link-btn {
+  background: none; border: 0; padding: 4px 0;
+  color: var(--app-fg2); font: 600 12px var(--font-sans);
+  cursor: pointer; text-decoration: underline;
+}
+.ef-link-btn:hover { color: var(--app-accent); }
 
 .ef-error {
   background: var(--status-danger-bg); color: var(--status-danger);

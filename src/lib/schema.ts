@@ -12,6 +12,18 @@ export const backgroundGradientSchema = z.object({
   angle: z.number().min(0).max(360).optional(),
 });
 
+/** Вариант шаблона popup'а. `classic` — стандартный из @zebrooo/promo-renderer
+ *  (image сверху → title → description → CTA внизу). `split` — наш кастом-
+ *  layout: image hero ~40% высоты с «АВТОПОДБОР»-pill бейджем и красной
+ *  divider-линией, ниже белая зона с title + description + bullets + CTA
+ *  по всю ширину. Рендерится в abkhaz-auto/components/promo/SplitPopup.tsx
+ *  ДО передачи в PromoRenderer (intercept по `popupVariant`). */
+export const popupVariantSchema = z.enum(['classic', 'split']);
+
+/** Выравнивание текста в overlay-форматах. Только горизонтальное — для
+ *  вертикального renderer уже сам центрирует через flex. */
+export const textAlignSchema = z.enum(['left', 'center', 'right']);
+
 /**
  * Validation source of truth for a promo. MUST match abhPromo's catalogue-schema.ts.
  * The `startsAt < endsAt` rule is enforced with a refinement.
@@ -45,6 +57,18 @@ export const promoSchema = z
     backgroundGradient: backgroundGradientSchema.optional(),
     textColor: z.string().optional(),
     backgroundImage: z.string().optional(),
+    /** Цвет CTA-кнопки (background). Если пусто — дефолт renderer'а
+     *  (тёмно-красный). textColor отдельно — для контента, не кнопки. */
+    ctaColor: z.string().optional(),
+    /** Цвет текста на CTA-кнопке. Если пусто — белый. */
+    ctaTextColor: z.string().optional(),
+    /** Горизонтальное выравнивание контента (title + description + bullets). */
+    textAlign: textAlignSchema.optional(),
+    /** Шаблон popup'а — classic (renderer) или split (наш кастом). */
+    popupVariant: popupVariantSchema.optional(),
+    /** Маркированный список под description (для split-варианта,
+     *  но рендерим везде если задан). Каждый buleted item — короткая фраза. */
+    bullets: z.array(z.string().min(1).max(80)).max(6).optional(),
     audience: audienceSchema.optional(),
     sections: z.array(z.string().min(1)).optional(),
     categories: z.array(z.string().min(1)).optional(),
