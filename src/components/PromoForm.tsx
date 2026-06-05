@@ -410,6 +410,7 @@ export function PromoForm({
                 onChange={(url) => set({ imageUrl: url || undefined })}
                 label="Картинка карточки"
                 recommend={recommendForFormat(p.format)}
+                format={p.format}
               />
             </section>
           )}
@@ -694,6 +695,7 @@ export function PromoForm({
                           onChange={(url) => set({ backgroundImage: url || undefined })}
                           label="Фон попапа"
                           recommend="1200×1600"
+                          format={p.format}
                         />
                       </div>
                     )}
