@@ -3,6 +3,14 @@ import { z } from 'zod';
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
 export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline']);
 export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
+export const deviceTargetSchema = z.enum(['desktop', 'touch', 'both']);
+/** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
+ *  (см. composeOverlayBackground в @zebrooo/promo-renderer). */
+export const backgroundGradientSchema = z.object({
+  from:  z.string().min(1),
+  to:    z.string().min(1).optional(),
+  angle: z.number().min(0).max(360).optional(),
+});
 
 /**
  * Validation source of truth for a promo. MUST match abhPromo's catalogue-schema.ts.
@@ -34,12 +42,21 @@ export const promoSchema = z
     action: z.object({ href: z.string().min(1), label: z.string().optional() }).optional(),
     dismissible: z.boolean().optional(),
     backgroundColor: z.string().optional(),
+    backgroundGradient: backgroundGradientSchema.optional(),
     textColor: z.string().optional(),
     backgroundImage: z.string().optional(),
     audience: audienceSchema.optional(),
     sections: z.array(z.string().min(1)).optional(),
     categories: z.array(z.string().min(1)).optional(),
     sellerStatus: z.enum(['seller', 'buyer']).optional(),
+    /**
+     * Где промо должно показываться. По умолчанию `'both'`. BFF
+     * select-promo фильтрует кандидатов: если deviceTarget = 'touch',
+     * промо не вернётся desktop-юзеру и наоборот. Кабинет дополнительно
+     * скрывает формат `topline` если выбран touch (рендерер его не
+     * поддерживает на тач-устройствах, см. FORMATS_BY_DEVICE).
+     */
+    deviceTarget: deviceTargetSchema.optional(),
   })
   .refine((p) => new Date(p.startsAt).getTime() < new Date(p.endsAt).getTime(), {
     message: 'startsAt must be before endsAt',

@@ -39,7 +39,7 @@
 // categories, sellerStatus, dismissible, colors, bg image) collapse behind a
 // disclosure to keep the primary editing surface uncluttered.
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
@@ -47,8 +47,20 @@ import { PromoPreview } from './PromoPreview';
 import { AiEnhanceButton } from './AiEnhanceButton';
 import { EnhanceDiff, type EnhancePatch } from './EnhanceDiff';
 import type { AiSuggestions } from '@/lib/ai-client';
+import { FORMATS_BY_DEVICE, type DeviceClass } from '@zebrooo/promo-renderer';
 
 const FORMATS = ['inline', 'topline', 'popup', 'fullscreen'] as const;
+
+// Какие форматы реально показываются для каждого варианта targeting.
+// Источник правды — FORMATS_BY_DEVICE из @zebrooo/promo-renderer. Если
+// добавим новый формат там — здесь автоматом подхватится.
+function allowedFormatsFor(target: NonNullable<Promo['deviceTarget']>): readonly Promo['format'][] {
+  if (target === 'both') {
+    // Пересечение: формат показывается ТОЛЬКО если поддержан и desktop, и touch.
+    return FORMATS_BY_DEVICE.desktop.filter((f) => FORMATS_BY_DEVICE.touch.includes(f));
+  }
+  return FORMATS_BY_DEVICE[target as DeviceClass];
+}
 
 type Caps = { image: boolean; description: boolean; actionLabel: boolean; dismissible: boolean; colors: boolean; bgImage: boolean };
 const CAPS: Record<Promo['format'], Caps> = {
@@ -69,6 +81,7 @@ const empty: Promo = {
   id: '', name: '', startsAt: '', endsAt: '', targeting: {},
   cooldownHours: 0, format: 'inline', title: '',
   audience: 'all',
+  deviceTarget: 'both',
 };
 
 const TITLE_MAX = 60;
@@ -154,6 +167,15 @@ export function PromoForm({
   const setTargeting = (patch: Partial<Promo['targeting']>) =>
     set({ targeting: { ...p.targeting, ...patch } });
   const caps = CAPS[p.format];
+
+  // Текущий deviceTarget (по умолчанию 'both' для старых промо без поля).
+  const currentTarget: NonNullable<Promo['deviceTarget']> = p.deviceTarget ?? 'both';
+  const allowedFormats = useMemo(() => allowedFormatsFor(currentTarget), [currentTarget]);
+  // Если юзер переключил deviceTarget и текущий выбранный формат больше не
+  // доступен — авто-перекидываем на первый доступный.
+  if (!allowedFormats.includes(p.format) && allowedFormats.length > 0) {
+    queueMicrotask(() => set({ format: allowedFormats[0] }));
+  }
 
   function applyEnhancePatch(patch: EnhancePatch) {
     setP((cur) => {
@@ -280,11 +302,41 @@ export function PromoForm({
       <div className="editor-grid">
         <div className="editor-main">
 
-          {/* Format tiles */}
+          {/* Device target — выбирается ПЕРВЫМ, потому что определяет, какие
+              форматы доступны ниже. На touch popup рендерится как bottom-sheet,
+              topline вообще не показывается. */}
+          <section className="ef-block">
+            <div className="ef-label">ГДЕ ПОКАЗЫВАТЬ</div>
+            <div className="device-target">
+              {([
+                { v: 'both',    label: 'Везде',        sub: 'десктоп + мобиль' },
+                { v: 'desktop', label: 'Только десктоп', sub: 'все 4 формата' },
+                { v: 'touch',   label: 'Только мобиль',  sub: 'без topline' },
+              ] as const).map((opt) => {
+                const active = currentTarget === opt.v;
+                return (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    className={`dt-pill${active ? ' active' : ''}`}
+                    onClick={() => set({ deviceTarget: opt.v })}
+                    aria-pressed={active}
+                    disabled={mode === 'edit'}
+                  >
+                    <span className="dt-pill-name">{opt.label}</span>
+                    <span className="dt-pill-sub">{opt.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {mode === 'edit' && <div className="hint">Целевое устройство нельзя изменить после создания.</div>}
+          </section>
+
+          {/* Format tiles — фильтруются по deviceTarget */}
           <section className="ef-block">
             <div className="ef-label">ТИП ПРОМО</div>
             <div className="format-tiles">
-              {FORMATS.map((f) => {
+              {allowedFormats.map((f) => {
                 const active = p.format === f;
                 const meta = FORMAT_LABEL[f];
                 return (
@@ -304,6 +356,12 @@ export function PromoForm({
               })}
             </div>
             {mode === 'edit' && <div className="hint">Формат нельзя изменить после создания.</div>}
+            {currentTarget === 'touch' && (
+              <div className="hint">На мобиле popup открывается шторкой снизу, а topline не показывается.</div>
+            )}
+            {currentTarget === 'both' && (
+              <div className="hint">Доступны только форматы, работающие и на десктопе, и на мобиле.</div>
+            )}
           </section>
 
           {/* Title */}
@@ -872,8 +930,32 @@ const EDITOR_CSS = `
 .ef-textarea { height: auto; min-height: 92px; padding: 14px 16px; line-height: 1.45; resize: vertical; }
 .ef-color { height: 44px; padding: 4px 6px; cursor: pointer; }
 
-/* Format tiles */
-.format-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+/* Device target — segmented pill row, выбирается первым */
+.device-target {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.dt-pill {
+  background: #fff; border: 1px solid var(--app-border);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  text-align: left; cursor: pointer;
+  font-family: inherit;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.dt-pill:hover:not(:disabled) { border-color: var(--app-border2); }
+.dt-pill:disabled { opacity: 1; cursor: not-allowed; }
+.dt-pill-name { font-size: 14px; font-weight: 700; color: var(--app-fg2); }
+.dt-pill-sub  { font-size: 12px; font-weight: 500; color: var(--app-fg4); }
+.dt-pill.active {
+  background: #FDEFF0;
+  border: 2px solid var(--brand-sea-700);
+  padding: 13px 15px;
+}
+.dt-pill.active .dt-pill-name { color: var(--app-fg1); }
+.dt-pill.active .dt-pill-sub  { color: var(--brand-sea-700); font-weight: 600; }
+
+/* Format tiles — теперь auto-fit потому что количество переменное (3 или 4) */
+.format-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
 .fmt-tile {
   background: #fff; border: 1px solid var(--app-border);
   border-radius: 12px; padding: 14px;
@@ -1015,6 +1097,7 @@ const EDITOR_CSS = `
 }
 @media (max-width: 720px) {
   .format-tiles { grid-template-columns: repeat(2, 1fr); }
+  .device-target { grid-template-columns: 1fr; }
   .ef-cta-row { grid-template-columns: 1fr; }
   .editor-head h1 { font-size: 28px; }
 }
