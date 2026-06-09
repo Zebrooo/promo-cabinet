@@ -74,6 +74,7 @@ export async function mutateQueue(name: string, apply: (q: QueueObject) => Queue
 export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   { name: 'home-banner', persist: true  }, // abkhaz-auto topline (cookie-pinned banner)
   { name: 'home-popup',  persist: false }, // abkhaz-auto popup (rotates per visit)
+  { name: 'tooltip',     persist: false }, // abkhaz-auto tooltip (anchored bubble; site requests this queue)
 ];
 
 /**
