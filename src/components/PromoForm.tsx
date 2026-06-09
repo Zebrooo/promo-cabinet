@@ -67,6 +67,9 @@ function formatCaveatFor(format: Promo['format'], target: NonNullable<Promo['dev
   if (format === 'topline' && target === 'both') {
     return 'Topline не покажется на мобильных пользователях';
   }
+  if (format === 'tooltip' && target === 'both') {
+    return 'Tooltip не покажется на мобильных пользователях';
+  }
   return null;
 }
 
@@ -94,6 +97,10 @@ const CAPS: Record<Promo['format'], Caps> = {
   // DivKit — server-driven UI, всё описано в JSON. Никаких title/colors
   // через нашу форму не имеют значения — JSON диктует визуал сам.
   divkit:     { image: false, description: false, actionLabel: false, dismissible: false, colors: false, bgImage: false, gradient: false, textAlign: false, variants: false, bullets: false },
+  // Tooltip — anchored bubble. Supports a thumbnail, description, CTA, ×-close,
+  // colours/textAlign. No bg-image/gradient/variants/bullets. The anchor is a
+  // separate required field (dropdown), not a CAPS boolean.
+  tooltip:    { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: false, gradient: false, textAlign: true,  variants: false, bullets: false },
 };
 
 const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
@@ -102,6 +109,7 @@ const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
   popup:      { name: 'Popup',      sub: 'Поверх' },
   fullscreen: { name: 'Fullscreen', sub: 'На весь экран' },
   divkit:     { name: 'DivKit',     sub: 'JSON-верстка' },
+  tooltip:    { name: 'Tooltip',    sub: 'Подсказка у элемента' },
 };
 
 const empty: Promo = {
@@ -149,6 +157,7 @@ function sanitize(p: Promo): Promo {
     textAlign:          c.textAlign   ? p.textAlign          : undefined,
     popupVariant:       c.variants    ? p.popupVariant       : undefined,
     bullets:            c.bullets     ? p.bullets            : undefined,
+    anchor: p.format === 'tooltip' ? p.anchor : undefined,
     // ctaColor/ctaTextColor имеют смысл только когда есть action
     ctaColor:     p.action && !isDivkit ? p.ctaColor     : undefined,
     ctaTextColor: p.action && !isDivkit ? p.ctaTextColor : undefined,
@@ -1032,6 +1041,7 @@ function estimateReach(fmt: Promo['format']): number {
     case 'popup':      return 1600;
     case 'fullscreen': return 900;
     case 'divkit':     return 1600;  // примерно как popup — JSON может рендериться где угодно
+    case 'tooltip':    return 1200;  // anchored bubble, desktop-only
   }
 }
 
