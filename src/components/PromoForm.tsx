@@ -43,6 +43,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
+import { CANONICAL_ANCHORS } from '@/lib/catalogue';
 import { PromoPreview } from './PromoPreview';
 import { PromoImageUpload } from './PromoImageUpload';
 import { AiEnhanceButton } from './AiEnhanceButton';
@@ -438,6 +439,26 @@ export function PromoForm({
               <div className="hint hint-warn">{formatCaveatFor(p.format, currentTarget)}</div>
             )}
           </section>
+
+          {/* Tooltip anchor — required when format=tooltip */}
+          {p.format === 'tooltip' && (
+            <section className="ef-block">
+              <div className="ef-label">ЯКОРЬ</div>
+              <select
+                className="ef-input"
+                value={p.anchor ?? ''}
+                onChange={(e) => set({ anchor: e.target.value || undefined })}
+              >
+                <option value="">Выберите якорь…</option>
+                {CANONICAL_ANCHORS.map((a) => (
+                  <option key={a.id} value={a.id}>{a.label}</option>
+                ))}
+              </select>
+              {!p.anchor && (
+                <div className="hint hint-warn">Выберите элемент, у которого появится тултип.</div>
+              )}
+            </section>
+          )}
 
           {/* Title */}
           <section className="ef-block">
