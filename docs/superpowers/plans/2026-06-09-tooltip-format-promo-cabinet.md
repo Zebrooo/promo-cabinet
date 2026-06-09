@@ -237,6 +237,12 @@ Expected: FAIL — `CAPS` and `FORMAT_LABEL` are missing the `tooltip` key (TS27
     anchor: p.format === 'tooltip' ? p.anchor : undefined,
 ```
 
+- [ ] **Step 5b: Add a `tooltip` case to `estimateReach`** — the `switch (fmt)` in `estimateReach(fmt: Promo['format'])` (near the bottom of the file) has no `default`, so adding `'tooltip'` to the enum makes it non-exhaustive ("function lacks ending return"). Add after the `case 'divkit':` line:
+
+```ts
+    case 'tooltip':    return 1200;  // anchored bubble, desktop-only
+```
+
 - [ ] **Step 6: Run typecheck**
 
 Run: `pnpm typecheck`
