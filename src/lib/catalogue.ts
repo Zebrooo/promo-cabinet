@@ -77,6 +77,19 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
 ];
 
 /**
+ * Named tooltip anchors the storefront sites mark with data-promo-anchor="<id>".
+ * Page-scoped: `pages` lists the page contexts where the anchor element exists,
+ * so the BFF only serves a tooltip where its anchor is present (mirrors the
+ * AD_PAGES/page-targeting model). The advertiser picks an id from this list in
+ * the cabinet. Keep in sync with the consumer's data-promo-anchor markup.
+ */
+export const CANONICAL_ANCHORS: { id: string; label: string; pages: string[] }[] = [
+  { id: 'home-search',     label: 'Поиск на главной',       pages: ['home'] },
+  { id: 'listing-cta',     label: 'Кнопка на карточке',     pages: ['listing'] },
+  { id: 'catalog-filters', label: 'Фильтры каталога',       pages: ['catalog'] },
+];
+
+/**
  * Ensure the cabinet has every queue the storefront expects.
  *
  * On a fresh bucket: migrates the legacy single `queue.json` into `main`

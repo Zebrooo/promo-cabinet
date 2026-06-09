@@ -102,6 +102,28 @@ describe('promoSchema', () => {
     const parsed = promoSchema.parse({ ...valid, targeting: { minAge: 18, maxAge: 35, regions: ['sukhum'], subscriptionLevels: ['plus'] } });
     expect(parsed.targeting).toEqual({ minAge: 18, maxAge: 35, regions: ['sukhum'], subscriptionLevels: ['plus'] });
   });
+
+  it('accepts a tooltip promo with an anchor', () => {
+    expect(() =>
+      promoSchema.parse({
+        id: 'tt', name: 'TT', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
+        targeting: {}, cooldownHours: 0, format: 'tooltip', title: 'T', anchor: 'home-search',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects a tooltip promo without an anchor', () => {
+    expect(() =>
+      promoSchema.parse({
+        id: 'tt', name: 'TT', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
+        targeting: {}, cooldownHours: 0, format: 'tooltip', title: 'T',
+      }),
+    ).toThrow();
+  });
+
+  it('does not require anchor for non-tooltip formats', () => {
+    expect(() => promoSchema.parse({ ...valid, anchor: undefined })).not.toThrow();
+  });
 });
 
 describe('audience field', () => {

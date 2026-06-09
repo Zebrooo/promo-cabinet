@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
-export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline', 'divkit']);
+export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip']);
 export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
 export const deviceTargetSchema = z.enum(['desktop', 'touch', 'both']);
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
@@ -75,6 +75,10 @@ export const promoSchema = z
      *  При save кабинет улетит ею в S3, заполнит divkitUrl, обнулит это
      *  поле. В prod-S3 промо НЕ содержит divkitJson. */
     divkitJson: z.unknown().optional(),
+    /** Tooltip-формат: id якоря из CANONICAL_ANCHORS, к элементу которого
+     *  привязан пузырёк (хост помечает элемент data-promo-anchor="<id>").
+     *  Обязателен когда format==='tooltip' (см. refine ниже). */
+    anchor: z.string().min(1).optional(),
     audience: audienceSchema.optional(),
     sections: z.array(z.string().min(1)).optional(),
     categories: z.array(z.string().min(1)).optional(),
@@ -91,6 +95,10 @@ export const promoSchema = z
   .refine((p) => new Date(p.startsAt).getTime() < new Date(p.endsAt).getTime(), {
     message: 'startsAt must be before endsAt',
     path: ['endsAt'],
+  })
+  .refine((p) => p.format !== 'tooltip' || (typeof p.anchor === 'string' && p.anchor.length > 0), {
+    message: 'anchor is required for the tooltip format',
+    path: ['anchor'],
   });
 
 export const catalogueSchema = z.array(promoSchema);

@@ -31,6 +31,7 @@ function toAd(p: Promo): Advertisement {
     backgroundImage: p.backgroundImage,
     divkitUrl: p.divkitUrl,
     divkitJson: p.divkitJson,
+    anchor: p.anchor,
   };
 }
 
@@ -67,6 +68,30 @@ export function PromoPreview({ promo }: { promo: Promo }) {
             <PromoRenderer ad={ad} />
           </PromoProvider>
         )}
+      </div>
+    );
+  }
+
+  // Tooltip points at a host element via data-promo-anchor. The storefront has
+  // such an element; in the cabinet we render a sample one so the bubble has an
+  // anchor to attach to. Renders in flow (non-blocking, desktop only).
+  if (promo.format === 'tooltip') {
+    return (
+      <div className="preview-panel">
+        <p className="preview-note">
+          Тултип привязан к якорю «{promo.anchor || '—'}». Превью на образце элемента:
+        </p>
+        <button
+          type="button"
+          data-promo-anchor={promo.anchor}
+          className="btn"
+          style={{ display: 'block', margin: '48px auto' }}
+        >
+          Образец элемента
+        </button>
+        <PromoProvider config={{ navigate: noop }}>
+          <PromoRenderer ad={ad} />
+        </PromoProvider>
       </div>
     );
   }
