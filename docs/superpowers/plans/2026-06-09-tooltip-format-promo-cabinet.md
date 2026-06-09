@@ -355,21 +355,20 @@ git commit -m "feat(preview): tooltip preview with sample anchor element"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Full test suite**
+- [ ] **Step 1: Run the pure (non-S3) suites touched by this work**
 
-Run: `pnpm test`
-Expected: all suites PASS (existing + new schema/catalogue tests).
+Many route/catalogue tests hit a REAL S3 endpoint and need credentials not available locally — do NOT run the full `pnpm test`. Run the pure suites this plan affects:
+Run: `pnpm exec vitest run src/lib/schema.test.ts src/lib/catalogue.anchors.test.ts`
+Expected: all PASS (schema incl. the 3 tooltip tests; the 2 anchor-catalog tests).
 
-- [ ] **Step 2: Typecheck**
+- [ ] **Step 2: Typecheck (the primary gate for the UI changes)**
 
 Run: `pnpm typecheck`
-Expected: exit 0.
+Expected: exit 0 — this validates `CAPS`/`FORMAT_LABEL` completeness, the `sanitize`/`toAd` field additions, the anchor dropdown JSX, and the schema/`Promo` type.
 
-- [ ] **Step 3: API route covers tooltip (sanity, no new code)**
+- [ ] **Step 3: API-route validation is covered by the schema unit tests**
 
-The POST/PUT routes call `promoSchema.parse(...)`, so the tooltip+anchor validation is exercised through the schema. Confirm the existing route tests still pass:
-Run: `pnpm exec vitest run src/app/api/promos/route.test.ts`
-Expected: PASS. (No change required — the schema refinement is the validation.)
+The POST/PUT routes call `promoSchema.parse(...)`, so tooltip+anchor validation runs through the schema (unit-tested in Task 2). The S3-backed route tests (`route.test.ts`) need a live S3 endpoint + credentials and are NOT run here — note this rather than attempting them.
 
 - [ ] **Step 4: Build (best-effort)**
 
