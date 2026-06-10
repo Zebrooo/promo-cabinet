@@ -7,6 +7,7 @@
  * (KPI / top / funnel / daily). Поверх запускаются админские дашборды.
  */
 import { createPrivateKey, sign as edSign } from 'node:crypto';
+import type { OnboardingOverview, OnboardingFunnelRow } from './onboarding-metrics';
 
 const TICKET_PREFIX = 'st1';
 const SERVICE_TICKET_HEADER = 'x-service-ticket';
@@ -137,5 +138,16 @@ export async function getPromoFunnelByFormat(days = 30): Promise<PromoFunnelByFo
 }
 export async function getPromoTimeline(promoId: string, days = 30): Promise<PromoTimelineRow[]> {
   const { rows } = await bffPost<{ rows: PromoTimelineRow[] }>('/analytics/promos/timeline', { promo_id: promoId, days });
+  return rows ?? [];
+}
+
+// ── Onboarding analytics (migration 0067) ───────────────────────────────
+// overview returns the aggregate object directly; funnel returns { rows }.
+// Shapes live in onboarding-metrics.ts (the pure derivations consume them).
+export async function getOnboardingOverview(days = 30): Promise<OnboardingOverview> {
+  return bffPost<OnboardingOverview>('/analytics/onboarding/overview', { days });
+}
+export async function getOnboardingFunnel(days = 30): Promise<OnboardingFunnelRow[]> {
+  const { rows } = await bffPost<{ rows: OnboardingFunnelRow[] }>('/analytics/onboarding/funnel', { days });
   return rows ?? [];
 }

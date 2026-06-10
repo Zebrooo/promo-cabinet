@@ -44,6 +44,7 @@ export default async function AnalyticsPage() {
           <nav className="analytics-subnav" aria-label="Разделы аналитики">
             <a className="active" href="/cabinet/analytics">Все события</a>
             <a href="/cabinet/analytics/promos">Промо</a>
+            <a href="/cabinet/analytics/onboarding">Онбординг</a>
           </nav>
         </div>
         <div className="analytics-period">
