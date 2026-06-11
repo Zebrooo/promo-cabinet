@@ -21,6 +21,7 @@ import {
   getPromoZero,
   getPromoFunnelByFormat,
   type PromoTopRow,
+  type PromoZeroRow,
   type PromoFunnelByFormatRow,
 } from '@/lib/bff-client';
 
@@ -36,7 +37,7 @@ export default async function PromoAnalyticsPage() {
 
   const [top, zero, funnel] = await Promise.all([
     safe(() => getPromoTop(DAYS, 30), [] as PromoTopRow[]),
-    safe(() => getPromoZero(DAYS, 30), [] as ReturnType<typeof getPromoZero> extends Promise<infer R> ? R : never),
+    safe(() => getPromoZero(DAYS, 30), [] as PromoZeroRow[]),
     safe(() => getPromoFunnelByFormat(DAYS), [] as PromoFunnelByFormatRow[]),
   ]);
 

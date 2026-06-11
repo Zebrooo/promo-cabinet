@@ -51,10 +51,8 @@ import { EnhanceDiff, type EnhancePatch } from './EnhanceDiff';
 import type { AiSuggestions } from '@/lib/ai-client';
 import { FORMATS_BY_DEVICE, type DeviceClass } from '@zebrooo/promo-renderer';
 
-const FORMATS = ['inline', 'topline', 'popup', 'fullscreen'] as const;
-
 // Какие форматы доступны для каждого варианта targeting.
-// Union (а не intersection): на 'both' оставляем все 4 формата — topline
+// Union (а не intersection): на 'both' оставляем все desktop-форматы — topline
 // просто отфильтруется на тач-юзерах в renderer'е (fail-safe null), но
 // desktop-юзеры его увидят. Юзер сам осознанно выбирает.
 function allowedFormatsFor(target: NonNullable<Promo['deviceTarget']>): readonly Promo['format'][] {
@@ -386,7 +384,7 @@ export function PromoForm({
             <div className="device-target">
               {([
                 { v: 'both',    label: 'Везде',        sub: 'десктоп + мобиль' },
-                { v: 'desktop', label: 'Только десктоп', sub: 'все 4 формата' },
+                { v: 'desktop', label: 'Только десктоп', sub: 'все форматы' },
                 { v: 'touch',   label: 'Только мобиль',  sub: 'без topline' },
               ] as const).map((opt) => {
                 const active = currentTarget === opt.v;
@@ -1064,10 +1062,6 @@ function estimateReach(fmt: Promo['format']): number {
     case 'divkit':     return 1600;  // примерно как popup — JSON может рендериться где угодно
     case 'tooltip':    return 1200;  // anchored bubble, desktop-only
   }
-}
-
-function shortUrl(u: string): string {
-  return u.length > 56 ? u.slice(0, 28) + '…' + u.slice(-26) : u;
 }
 
 function recommendForFormat(f: Promo['format']): string {

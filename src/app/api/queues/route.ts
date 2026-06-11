@@ -13,8 +13,7 @@ const createQueueBody = z.object({
 export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
-    await ensureMainQueue();
-    const queues = await readQueuesIndex();
+    const queues = await ensureMainQueue();
     return NextResponse.json({ queues });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });

@@ -183,6 +183,9 @@ function SparklinePanel({
   lastLabel: string;
 }) {
   const max = Math.max(1, ...bars);
+  // Compute the peak bar once (O(n)) instead of bars.indexOf(Math.max(...bars))
+  // inside the map (which was O(n²)).
+  const peakIndex = bars.length ? bars.indexOf(Math.max(...bars)) : -1;
   return (
     <div className="spark-panel">
       <div className="spark-head">
@@ -202,7 +205,7 @@ function SparklinePanel({
         ) : bars.map((v, i) => (
           <span
             key={i}
-            className={`sbar${i === bars.indexOf(Math.max(...bars)) ? ' peak' : ''}`}
+            className={`sbar${i === peakIndex ? ' peak' : ''}`}
             style={{ height: `${4 + Math.round((v / max) * 96)}px` }}
             title={`${v.toLocaleString('ru-RU')}`}
           />

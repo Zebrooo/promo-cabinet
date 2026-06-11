@@ -98,8 +98,10 @@ export const CANONICAL_ANCHORS: { id: string; label: string; pages: string[] }[]
  * On an existing bucket: only fills in the canonical queues that aren't yet
  * registered in `queues.json` — already-present queues are left untouched
  * (no overwrite of their ids/persist). Safe to call on every page render.
+ *
+ * Returns the resulting index so callers don't re-read `queues.json` right after.
  */
-export async function ensureMainQueue(): Promise<void> {
+export async function ensureMainQueue(): Promise<QueuesIndex> {
   let index = await readQueuesIndex();
 
   // First-run migration: if no index exists at all, seed `main` from the
@@ -117,12 +119,14 @@ export async function ensureMainQueue(): Promise<void> {
   // and append to the index — the advertiser fills it from the cabinet UI.
   const known = new Set(index.map((q) => q.name));
   const toAdd = CANONICAL_QUEUES.filter((q) => !known.has(q.name));
-  if (toAdd.length === 0) return;
+  if (toAdd.length === 0) return index;
 
   for (const q of toAdd) {
     await writeQueue(q.name, { persist: q.persist, ids: [] });
   }
-  await writeQueuesIndex([...index, ...toAdd]);
+  const next = [...index, ...toAdd];
+  await writeQueuesIndex(next);
+  return next;
 }
 
 /** Both objects, for rendering pages. */

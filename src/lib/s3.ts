@@ -61,8 +61,16 @@ export function queuesIndexKey(): string {
   return guardKey(`${env.promoKeyPrefix}queues.json`);
 }
 
+/** Allowed queue-name shape (mirrors the create/rename slug rule). Enforced here
+ *  centrally so EVERY handler — not just create/rename — is protected against a
+ *  name with `/`, `..` or other characters escaping the key prefix. */
+const QUEUE_NAME_RE = /^[a-z0-9-_]+$/i;
+
 /** Per-queue object key for a named queue, honouring the optional key prefix. */
 export function queueKey(name: string): string {
+  if (!QUEUE_NAME_RE.test(name)) {
+    throw new Error(`[s3] invalid queue name "${name}" — must match ${QUEUE_NAME_RE}`);
+  }
   return guardKey(`${env.promoKeyPrefix}queue-${name}.json`);
 }
 

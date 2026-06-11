@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSessionToken, verifySessionToken, SESSION_COOKIE } from './auth';
+import { createSessionToken, verifySessionToken, SESSION_COOKIE, SESSION_MAX_AGE_MS } from './auth';
 
 const secret = 'test-secret-please-change';
 
@@ -26,6 +26,22 @@ describe('session tokens', () => {
 
   it('rejects a malformed token', () => {
     expect(verifySessionToken('garbage', secret)).toBe(false);
+  });
+
+  it('accepts a token within the max-age window', () => {
+    const token = createSessionToken(secret, Date.now() - 1000);
+    expect(verifySessionToken(token, secret)).toBe(true);
+  });
+
+  it('rejects a token older than the max age (even with a valid signature)', () => {
+    const token = createSessionToken(secret, Date.now() - (SESSION_MAX_AGE_MS + 1000));
+    expect(verifySessionToken(token, secret)).toBe(false);
+  });
+
+  it('fails closed on an empty secret', () => {
+    const token = createSessionToken(secret);
+    expect(verifySessionToken(token, '')).toBe(false);
+    expect(() => createSessionToken('')).toThrow();
   });
 
   it('exposes a stable cookie name', () => {
