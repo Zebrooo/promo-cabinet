@@ -83,9 +83,14 @@ export async function callEnhanceBff(req: EnhanceRequest, opts: AiBffOptions = {
   if (ticket) headers['x-service-ticket'] = ticket;
   else if (env.promoBffAuthBearer) headers['Authorization'] = `Bearer ${env.promoBffAuthBearer}`;
 
+  // Normalize the base so a trailing slash on PROMO_BFF_URL doesn't produce a
+  // double slash (e.g. http://bff.local//enhance-promo). Covers every BFF path
+  // assembled below.
+  const bffBase = env.promoBffUrl.replace(/\/+$/, '');
+
   let resp: Response;
   try {
-    resp = await fetchImpl(`${env.promoBffUrl}/enhance-promo`, {
+    resp = await fetchImpl(`${bffBase}/enhance-promo`, {
       method: 'POST',
       headers,
       body: JSON.stringify(req),
