@@ -163,3 +163,12 @@ export interface BffErrorPayload {
 export async function reportErrorToBff(payload: BffErrorPayload): Promise<void> {
   await bffPost('/errors', payload as unknown as Record<string, unknown>);
 }
+
+// ── Event recording ───────────────────────────────────────────────────────────
+export interface BffEventPayload {
+  eventName: string; props: Record<string, unknown>;
+  pagePath: string | null; sessionId: string | null; userId: string | null; userAgent: string | null;
+}
+export async function recordEventToBff(payload: BffEventPayload): Promise<void> {
+  await bffPost('/events', payload as unknown as Record<string, unknown>);
+}
