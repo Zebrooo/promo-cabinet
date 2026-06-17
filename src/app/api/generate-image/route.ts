@@ -18,6 +18,7 @@ import { isAuthed } from '@/lib/api-auth';
 import { env } from '@/env';
 import { getS3Client } from '@/lib/s3';
 import { resolvePublicUploadUrl } from '@/lib/upload-url';
+import { reportErrorToBff } from '@/lib/bff-client';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // image-gen может занимать 20-40сек
@@ -125,6 +126,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   } catch (err) {
     console.error('[generate-image] S3 put failed', err);
+    void reportErrorToBff({ service: 'promo-cabinet', source: 'server', message: err instanceof Error ? err.message : String(err), errorType: err instanceof Error ? err.name : null, stack: err instanceof Error ? (err.stack ?? null) : null, route: '/api/generate-image' }).catch(() => {});
     return NextResponse.json({ error: 's3_unavailable' }, { status: 502 });
   }
 
