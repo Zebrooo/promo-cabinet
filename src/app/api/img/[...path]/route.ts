@@ -14,6 +14,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '@/env';
 import { getS3Client } from '@/lib/s3';
+import { reportErrorToBff } from '@/lib/bff-client';
 
 export const runtime = 'nodejs';
 
@@ -62,6 +63,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pat
       return new NextResponse('not_found', { status: 404 });
     }
     console.error('[img proxy] S3 get failed', err);
+    void reportErrorToBff({ service: 'promo-cabinet', source: 'server', message: err instanceof Error ? err.message : String(err), errorType: err instanceof Error ? err.name : null, stack: err instanceof Error ? (err.stack ?? null) : null, route: '/api/img/[...path]' }).catch(() => {});
     return new NextResponse('s3_unavailable', { status: 502 });
   }
 }

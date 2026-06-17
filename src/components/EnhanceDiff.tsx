@@ -103,8 +103,8 @@ export function EnhanceDiff({
               </div>
             </div>
             <div className="ai-diff-actions">
-              <button type="button" className="ebtn ebtn-primary" onClick={() => accept(row)}>Принять</button>
-              <button type="button" className="ebtn ebtn-ghost" onClick={() => drop(row)}>Отклонить</button>
+              <button type="button" className="ebtn ebtn-primary" onClick={() => accept(row)} data-track="ai_enhance_accept" data-track-field={row.field}>Принять</button>
+              <button type="button" className="ebtn ebtn-ghost" onClick={() => drop(row)} data-track="ai_enhance_reject" data-track-field={row.field}>Отклонить</button>
             </div>
           </div>
         ))}

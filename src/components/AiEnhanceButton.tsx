@@ -63,6 +63,7 @@ export function AiEnhanceButton({
         onClick={onClick}
         title={HINT}
         aria-label="Улучшить тексты с помощью AI"
+        data-track="ai_enhance_click"
       >
         <span className="ebtn-ai-spark" aria-hidden>✨</span>
         <span>{busy ? 'Улучшаем…' : 'Улучшить с AI'}</span>

@@ -2,6 +2,7 @@ import './globals.css';
 import '@zebrooo/promo-renderer/styles.css';
 import type { ReactNode } from 'react';
 import { Manrope, JetBrains_Mono } from 'next/font/google';
+import { ErrorListeners } from '@/components/ErrorListeners';
 
 const sans = Manrope({
   subsets: ['latin', 'latin-ext', 'cyrillic'],
@@ -25,7 +26,10 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru" className={`${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ErrorListeners />
+        {children}
+      </body>
     </html>
   );
 }

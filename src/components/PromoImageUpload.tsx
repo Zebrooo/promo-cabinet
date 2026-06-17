@@ -8,6 +8,7 @@
 // «Заменить» сбрасывает state и открывает picker снова.
 
 import { useRef, useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
 
 type Props = {
   value: string;
@@ -64,9 +65,11 @@ export function PromoImageUpload({ value, onChange, label, recommend, format }: 
       });
       const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!res.ok || !json.url) {
+        trackEvent('promo_image_upload_failed', { kind: 'generate' });
         setError(ERROR_LABELS[json.error ?? ''] ?? `Не удалось сгенерировать (${res.status}).`);
         return;
       }
+      trackEvent('promo_image_upload_success', { kind: 'generate' });
       onChange(json.url);
       setAiOpen(false); setAiPrompt('');
     } finally {
@@ -83,9 +86,11 @@ export function PromoImageUpload({ value, onChange, label, recommend, format }: 
       const res = await fetch('/api/upload', { method: 'POST', body });
       const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string; detail?: string };
       if (!res.ok || !json.url) {
+        trackEvent('promo_image_upload_failed', { kind: 'upload' });
         setError(ERROR_LABELS[json.error ?? ''] ?? `Не удалось загрузить (${res.status}).`);
         return;
       }
+      trackEvent('promo_image_upload_success', { kind: 'upload' });
       onChange(json.url);
     } finally {
       setBusy(false);

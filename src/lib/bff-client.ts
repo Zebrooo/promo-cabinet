@@ -151,3 +151,24 @@ export async function getOnboardingFunnel(days = 30): Promise<OnboardingFunnelRo
   const { rows } = await bffPost<{ rows: OnboardingFunnelRow[] }>('/analytics/onboarding/funnel', { days });
   return rows ?? [];
 }
+
+// ── Error reporting ──────────────────────────────────────────────────────
+export interface BffErrorPayload {
+  service: string; source: string; message: string;
+  errorType?: string | null; stack?: string | null; release?: string | null;
+  route?: string | null; method?: string | null; statusCode?: number | null;
+  userId?: string | null; sessionId?: string | null; userAgent?: string | null;
+  context?: Record<string, unknown>;
+}
+export async function reportErrorToBff(payload: BffErrorPayload): Promise<void> {
+  await bffPost('/errors', payload as unknown as Record<string, unknown>);
+}
+
+// ── Event recording ───────────────────────────────────────────────────────────
+export interface BffEventPayload {
+  eventName: string; props: Record<string, unknown>;
+  pagePath: string | null; sessionId: string | null; userId: string | null; userAgent: string | null;
+}
+export async function recordEventToBff(payload: BffEventPayload): Promise<void> {
+  await bffPost('/events', payload as unknown as Record<string, unknown>);
+}
