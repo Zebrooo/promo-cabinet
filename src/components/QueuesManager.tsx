@@ -101,6 +101,8 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
                   disabled={busy}
                   onClick={() => togglePersist(q.name, q.persist)}
                   title={q.persist ? 'Снять флаг persist' : 'Включить persist'}
+                  data-track="queue_toggle_persist"
+                  data-track-name={q.name}
                 >
                   {q.persist ? 'Выкл persist' : 'Вкл persist'}
                 </button>
@@ -108,6 +110,8 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
                   className="btn btn-danger btn-sm"
                   disabled={busy}
                   onClick={() => deleteQueue(q.name)}
+                  data-track="queue_delete"
+                  data-track-name={q.name}
                 >
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M6 2h4a1 1 0 0 0-2 0H6a1 1 0 0 0-2 0H2v1h12V2h-2a1 1 0 0 0-2 0zM3 5l1 8h8l1-8H3z" fill="currentColor"/>
@@ -150,6 +154,7 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
               className="btn btn-primary"
               disabled={busy}
               style={{ alignSelf: 'flex-start' }}
+              data-track="queue_create"
             >
               Создать
             </button>

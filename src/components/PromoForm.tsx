@@ -41,6 +41,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { trackEvent } from '@/lib/analytics';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { CANONICAL_ANCHORS } from '@/lib/catalogue';
@@ -285,10 +286,15 @@ export function PromoForm({
       setError('Сеть недоступна — проверьте соединение и повторите.');
       return;
     }
-    if (res.ok) { router.push('/cabinet'); router.refresh(); return; }
+    if (res.ok) {
+      trackEvent('promo_save_success', { promo_id: p.id, format: p.format });
+      router.push('/cabinet'); router.refresh(); return;
+    }
     setSaving(false);
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    setError(ERROR_MESSAGES[data.error ?? ''] ?? `Не удалось сохранить (ошибка ${res.status}).`);
+    const errKey = data.error ?? '';
+    trackEvent('promo_save_failed', { reason: errKey.slice(0, 120) });
+    setError(ERROR_MESSAGES[errKey] ?? `Не удалось сохранить (ошибка ${res.status}).`);
   }
 
   function toggleQueue(name: string) {
