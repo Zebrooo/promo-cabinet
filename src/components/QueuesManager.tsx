@@ -11,6 +11,7 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
   const [newName, setNewName] = useState('');
   const [newPersist, setNewPersist] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [actionNotice, setActionNotice] = useState('');
 
   async function togglePersist(name: string, currentPersist: boolean) {
     setBusy(true);
@@ -29,11 +30,20 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
 
   async function deleteQueue(name: string) {
     if (!confirm(`Удалить очередь «${name}»? Промо из неё не удалятся, только ссылки из очереди.`)) return;
+    setActionNotice('');
     setBusy(true);
     try {
-      await fetch(`/api/queues/${encodeURIComponent(name)}`, { method: 'DELETE' });
-      setQueues((cur) => cur.filter((q) => q.name !== name));
-      router.refresh();
+      const res = await fetch(`/api/queues/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      const data = (await res.json().catch(() => ({}))) as { message?: string; warning?: string };
+      if (res.ok) {
+        setQueues((cur) => cur.filter((q) => q.name !== name));
+        if (data.warning) setActionNotice(data.warning);
+        router.refresh();
+      } else {
+        setActionNotice(data.message ?? `Не удалось удалить очередь (ошибка ${res.status}).`);
+      }
+    } catch {
+      setActionNotice('Сеть недоступна — проверьте соединение.');
     } finally {
       setBusy(false);
     }
@@ -78,6 +88,8 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
           <h1>Очереди</h1>
         </div>
       </div>
+
+      {actionNotice && <p className="error">{actionNotice}</p>}
 
       {queues.length === 0 ? (
         <div className="empty">Очередей пока нет.</div>

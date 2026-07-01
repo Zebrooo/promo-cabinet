@@ -92,6 +92,24 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
 ];
 
 /**
+ * Queue names production consumers request from the BFF RIGHT NOW (storefront
+ * slot wiring + ad-cabinet onboarding). Deleting or renaming one of these
+ * silently darks a live slot, so the queues API refuses with 409 until the
+ * consumer stops requesting the name.
+ *
+ * After the per-catalog cutover (step C) add the 8 catalog queues here; the
+ * legacy names move out only at the retire step D.
+ */
+export const PROD_SERVED_QUEUES: readonly string[] = [
+  'home-banner',
+  'home-popup',
+  'tooltip',
+  'cabinet-onboarding',
+  // + after step C (storefront cutover to per-catalog queues):
+  // 'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
+];
+
+/**
  * Named tooltip anchors the storefront sites mark with data-promo-anchor="<id>".
  * Page-scoped: `pages` lists the page contexts where the anchor element exists,
  * so the BFF only serves a tooltip where its anchor is present (mirrors the

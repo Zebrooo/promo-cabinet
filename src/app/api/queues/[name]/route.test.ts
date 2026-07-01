@@ -134,6 +134,28 @@ describe('PATCH /api/queues/[name]', () => {
     const res = await PATCH(authed('main', { method: 'PATCH', body: JSON.stringify({ rename: 'other' }) }), ctx('main'));
     expect(res.status).toBe(409);
   });
+
+  it('409 prod_served_queue when renaming a queue the storefront requests', async () => {
+    await seedIndex([{ name: 'home-banner', persist: true }]);
+    await seedQueue('home-banner', true, ['a']);
+    const res = await PATCH(authed('home-banner', { method: 'PATCH', body: JSON.stringify({ rename: 'renamed' }) }), ctx('home-banner'));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('prod_served_queue');
+    expect(body.message).toMatch(/обслуживает прод/);
+    // Nothing changed
+    const idx = await readQueuesIndex();
+    expect(idx.some((e) => e.name === 'home-banner')).toBe(true);
+    expect(idx.some((e) => e.name === 'renamed')).toBe(false);
+  });
+
+  it('persist toggle on a prod-served queue is still allowed', async () => {
+    await seedIndex([{ name: 'home-banner', persist: true }]);
+    await seedQueue('home-banner', true, []);
+    const res = await PATCH(authed('home-banner', { method: 'PATCH', body: JSON.stringify({ persist: false }) }), ctx('home-banner'));
+    expect(res.status).toBe(200);
+    expect((await readQueue('home-banner')).persist).toBe(false);
+  });
 });
 
 describe('DELETE /api/queues/[name]', () => {
@@ -145,6 +167,18 @@ describe('DELETE /api/queues/[name]', () => {
     const idx = await readQueuesIndex();
     expect(idx.some((e) => e.name === 'other')).toBe(false);
     expect(idx.some((e) => e.name === 'main')).toBe(true);
+  });
+
+  it('409 prod_served_queue when deleting a queue the storefront requests', async () => {
+    await seedIndex([{ name: 'main', persist: false }, { name: 'home-banner', persist: true }]);
+    await seedQueue('home-banner', true, ['a']);
+    const res = await DELETE(authed('home-banner', { method: 'DELETE' }), ctx('home-banner'));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('prod_served_queue');
+    expect(body.message).toMatch(/обслуживает прод/);
+    const idx = await readQueuesIndex();
+    expect(idx.some((e) => e.name === 'home-banner')).toBe(true);
   });
 
   it('404 when deleting an unknown queue name', async () => {
