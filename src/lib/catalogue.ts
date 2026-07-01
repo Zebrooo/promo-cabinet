@@ -75,6 +75,7 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   { name: 'home-banner', persist: true  }, // abkhaz-auto topline (cookie-pinned banner)
   { name: 'home-popup',  persist: false }, // abkhaz-auto popup (rotates per visit)
   { name: 'tooltip',     persist: false }, // abkhaz-auto tooltip (anchored bubble; site requests this queue)
+  { name: 'cabinet-onboarding', persist: false }, // ad-cabinet onboarding tooltips (editor lead-by-hand)
 ];
 
 /**
@@ -88,6 +89,10 @@ export const CANONICAL_ANCHORS: { id: string; label: string; pages: string[] }[]
   { id: 'home-search',     label: 'Поиск на главной',       pages: ['home'] },
   { id: 'listing-cta',     label: 'Кнопка на карточке',     pages: ['listing'] },
   { id: 'catalog-filters', label: 'Фильтры каталога',       pages: ['catalog'] },
+  { id: 'campaign-editor-where',  label: 'Кабинет · шаг «Где показывать»',  pages: ['campaign-editor'] },
+  { id: 'campaign-editor-what',   label: 'Кабинет · шаг «Что на баннере»',  pages: ['campaign-editor'] },
+  { id: 'campaign-editor-budget', label: 'Кабинет · шаг «Сколько платить»', pages: ['campaign-editor'] },
+  { id: 'campaign-editor-submit', label: 'Кабинет · кнопка «Отправить»',    pages: ['campaign-editor'] },
 ];
 
 /**
