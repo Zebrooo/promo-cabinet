@@ -125,6 +125,16 @@ describe('ensureMainQueue', () => {
     expect(q.ids).toEqual(['existing']);
   });
 
+  it('bootstraps 12 canonical queues + main on an empty store', async () => {
+    await ensureMainQueue();
+    const idx = await readQueuesIndex();
+    expect(idx).toHaveLength(13); // main + 12 canonical (4 legacy + 8 catalog)
+    const names = new Set(idx.map((q) => q.name));
+    for (const name of ['home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing']) {
+      expect(names.has(name), `catalog queue "${name}" must be bootstrapped`).toBe(true);
+    }
+  });
+
   it('is idempotent — a second call adds nothing', async () => {
     await ensureMainQueue();
     const first = await readQueuesIndex();

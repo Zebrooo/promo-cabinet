@@ -72,10 +72,23 @@ export async function mutateQueue(name: string, apply: (q: QueueObject) => Queue
  * the bootstrap will create the file + register it in queues.json idempotently).
  */
 export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
+  // Legacy pre-cutover queues. Kept until the storefront stops requesting
+  // them (retire = separate step D after the per-catalog cutover).
   { name: 'home-banner', persist: true  }, // abkhaz-auto topline (cookie-pinned banner)
   { name: 'home-popup',  persist: false }, // abkhaz-auto popup (rotates per visit)
   { name: 'tooltip',     persist: false }, // abkhaz-auto tooltip (anchored bubble; site requests this queue)
   { name: 'cabinet-onboarding', persist: false }, // ad-cabinet onboarding tooltips (editor lead-by-hand)
+  // Per-catalog queues (step B' of the per-catalog rollout,
+  // docs 2026-07-01-per-catalog-queues.md): one queue per storefront catalog
+  // page context; the BFF picks by format inside the queue.
+  { name: 'home',      persist: false },
+  { name: 'transport', persist: false },
+  { name: 'realty',    persist: false },
+  { name: 'goods',     persist: false },
+  { name: 'services',  persist: false },
+  { name: 'jobs',      persist: false },
+  { name: 'news',      persist: false },
+  { name: 'listing',   persist: false },
 ];
 
 /**
