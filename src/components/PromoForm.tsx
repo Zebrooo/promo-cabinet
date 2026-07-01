@@ -211,6 +211,7 @@ export function PromoForm({
   const [memberSet, setMemberSet] = useState<Set<string>>(() => new Set(membership));
   const [queueBusy, startQueueTransition] = useTransition();
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const set = (patch: Partial<Promo>) => setP((cur) => ({ ...cur, ...patch }));
   const setTargeting = (patch: Partial<Promo['targeting']>) =>
@@ -324,6 +325,30 @@ export function PromoForm({
     });
   }
 
+  /** DELETE /api/promos/[id] — the handler also removes the id from every
+   *  queue, so no separate queue cleanup is needed here. */
+  async function deletePromo() {
+    if (mode !== 'edit' || !p.id) return;
+    if (!confirm(`Удалить промо «${p.title || p.id}»? Оно будет убрано из всех очередей.`)) return;
+    setError('');
+    setDeleting(true);
+    let res: Response;
+    try {
+      res = await fetch(`/api/promos/${encodeURIComponent(p.id)}`, { method: 'DELETE' });
+    } catch {
+      setDeleting(false);
+      setError('Сеть недоступна — проверьте соединение и повторите.');
+      return;
+    }
+    if (res.ok) {
+      trackEvent('promo_delete_success', { promo_id: p.id, format: p.format });
+      router.push('/cabinet'); router.refresh(); return;
+    }
+    setDeleting(false);
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    setError(ERROR_MESSAGES[data.error ?? ''] ?? `Не удалось удалить (ошибка ${res.status}).`);
+  }
+
   const titleLen = p.title.length;
   const titleOver = titleLen > TITLE_MAX;
   const updatedNow = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -334,6 +359,18 @@ export function PromoForm({
       <div className="editor-bar">
         <Link href="/cabinet" className="editor-back">← Вернуться к списку</Link>
         <div className="editor-actions">
+          {mode === 'edit' && (
+            <button
+              type="button"
+              className="ebtn ebtn-danger"
+              disabled={saving || deleting}
+              onClick={deletePromo}
+              data-track="promo_delete"
+              data-track-id={p.id}
+            >
+              {deleting ? 'Удаляю…' : 'Удалить промо'}
+            </button>
+          )}
           <AiEnhanceButton
             getDraft={() => ({ title: p.title, description: p.description, action: p.action })}
             onSuggestions={setAiResult}
@@ -1131,6 +1168,8 @@ const EDITOR_CSS = `
 .ebtn-ghost:hover:not(:disabled) { border-color: var(--app-border2); }
 .ebtn-primary { background: var(--brand-coral-600); color: #fff; }
 .ebtn-primary:hover:not(:disabled) { background: var(--brand-coral-700); }
+.ebtn-danger  { background: #fff; border-color: var(--brand-coral-600); color: var(--brand-coral-700); }
+.ebtn-danger:hover:not(:disabled) { background: var(--brand-coral-600); color: #fff; }
 
 /* ── AI accent button ──────────────────────────────────────── */
 /* Distinct from save/publish so the action's intent is obvious. */
