@@ -701,21 +701,36 @@ export function PromoForm({
                 <div className="ef-field">
                   <label>Уровни подписки</label>
                   <div className="ef-checkbox-row">
-                    {(['none', 'plus', 'premium'] as const).map((lvl) => (
-                      <label key={lvl} className="ef-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={p.targeting.subscriptionLevels?.includes(lvl) ?? false}
-                          onChange={(e) => {
-                            const cur  = p.targeting.subscriptionLevels ?? [];
-                            const next = e.target.checked ? [...cur, lvl] : cur.filter((x) => x !== lvl);
-                            setTargeting({ subscriptionLevels: next.length ? next : undefined });
-                          }}
-                        />
-                        {lvl}
-                      </label>
-                    ))}
+                    {(['none', 'plus', 'premium'] as const).map((lvl) => {
+                      const disabled = lvl === 'premium';
+                      const title =
+                        lvl === 'premium'
+                          ? 'Не поддерживается биллингом (billing-service отдаёт только plus/none)'
+                          : lvl === 'none'
+                            ? 'none = не-PRO, ВКЛЮЧАЯ гостей; для отсечения гостей добавьте аудиторию «Только залогиненные»'
+                            : undefined;
+                      return (
+                        <label key={lvl} className={`ef-checkbox${disabled ? ' is-disabled' : ''}`} title={title}>
+                          <input
+                            type="checkbox"
+                            disabled={disabled}
+                            checked={p.targeting.subscriptionLevels?.includes(lvl) ?? false}
+                            onChange={(e) => {
+                              const cur  = p.targeting.subscriptionLevels ?? [];
+                              const next = e.target.checked ? [...cur, lvl] : cur.filter((x) => x !== lvl);
+                              setTargeting({ subscriptionLevels: next.length ? next : undefined });
+                            }}
+                          />
+                          {lvl}
+                        </label>
+                      );
+                    })}
                   </div>
+                  {p.targeting.subscriptionLevels?.includes('none') && (
+                    <span className="ef-hint">
+                      none = не-PRO, включая гостей. Чтобы отсечь гостей, поставьте аудиторию «Только залогиненные».
+                    </span>
+                  )}
                 </div>
 
                 <div className="ef-row">
@@ -727,6 +742,9 @@ export function PromoForm({
                       onChange={(e) => set({ sections: parseSlugList(e.target.value) })}
                       placeholder="avto, realty"
                     />
+                    <span className="ef-hint">
+                      Работает только на overlay-поверхности; на topline/tooltip промо с разделами не показывается.
+                    </span>
                   </div>
                   <div className="ef-field">
                     <label>Категории</label>
@@ -1355,6 +1373,7 @@ const EDITOR_CSS = `
   font-size: 13px; font-weight: 500; color: var(--app-fg2);
   cursor: pointer;
 }
+.ef-checkbox.is-disabled { opacity: .45; cursor: not-allowed; }
 .ef-divider { height: 1px; background: var(--app-border); margin: 4px 0; }
 
 /* Segmented control — popup variant + textAlign */
