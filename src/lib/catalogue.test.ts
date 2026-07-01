@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
   readPool, writePool, readQueue, writeQueue, mutatePool, mutateQueue,
-  readQueuesIndex, writeQueuesIndex, ensureMainQueue, readState,
+  readQueuesIndex, writeQueuesIndex, ensureMainQueue, readState, CANONICAL_QUEUES,
 } from './catalogue';
 import { addPromo, enqueue } from './mutations';
 import { promosKey, queueKey, queuesIndexKey, legacyQueueKey, getS3Client, resetS3ClientForTests } from './s3';
@@ -27,13 +27,13 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  const c = getS3Client();
   await Promise.allSettled([
     del(promosKey()),
     del(queuesIndexKey()),
     del(queueKey('main')),
     del(queueKey('promo-test')),
     del(legacyQueueKey()),
+    ...CANONICAL_QUEUES.map((q) => del(queueKey(q.name))),
   ]);
 });
 
@@ -88,14 +88,14 @@ describe('named queue (queue-<name>.json)', () => {
 });
 
 describe('ensureMainQueue', () => {
-  it('creates queue-main.json + queues.json from legacy queue.json', async () => {
+  it('creates queue-main.json + queues.json from legacy queue.json (plus canonical queues)', async () => {
     // Seed legacy queue.json (bare id array)
     await put(legacyQueueKey(), JSON.stringify(['legacy-a', 'legacy-b']));
 
     await ensureMainQueue();
 
     const idx = await readQueuesIndex();
-    expect(idx).toEqual([{ name: 'main', persist: false }]);
+    expect(idx).toEqual([{ name: 'main', persist: false }, ...CANONICAL_QUEUES]);
 
     const q = await readQueue('main');
     expect(q.ids).toEqual(['legacy-a', 'legacy-b']);
@@ -106,22 +106,30 @@ describe('ensureMainQueue', () => {
     await ensureMainQueue();
 
     const idx = await readQueuesIndex();
-    expect(idx).toEqual([{ name: 'main', persist: false }]);
+    expect(idx).toEqual([{ name: 'main', persist: false }, ...CANONICAL_QUEUES]);
 
     const q = await readQueue('main');
     expect(q.ids).toEqual([]);
   });
 
-  it('is a no-op if queues.json already exists with entries', async () => {
+  it('leaves existing entries untouched, only filling in missing canonical queues', async () => {
     await writeQueuesIndex([{ name: 'main', persist: false }, { name: 'other', persist: true }]);
     await writeQueue('main', { persist: false, ids: ['existing'] });
 
     await ensureMainQueue();
 
     const idx = await readQueuesIndex();
-    expect(idx).toHaveLength(2);
+    expect(idx).toHaveLength(2 + CANONICAL_QUEUES.length);
+    expect(idx.slice(0, 2)).toEqual([{ name: 'main', persist: false }, { name: 'other', persist: true }]);
     const q = await readQueue('main');
     expect(q.ids).toEqual(['existing']);
+  });
+
+  it('is idempotent — a second call adds nothing', async () => {
+    await ensureMainQueue();
+    const first = await readQueuesIndex();
+    await ensureMainQueue();
+    expect(await readQueuesIndex()).toEqual(first);
   });
 });
 
