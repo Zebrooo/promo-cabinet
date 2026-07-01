@@ -3,7 +3,7 @@
 //
 // Layout:
 //   ┌─ sticky page-bar ───────────────────────────────────────┐
-//   │ ← Вернуться к списку       [Сохранить] [Опубликовать]   │
+//   │ ← Вернуться к списку     [Удалить промо] [Сохранить]    │
 //   ├─────────────────────────────────────────────────────────┤
 //   │ H1 «Редактирование промо»                                │
 //   │ mono caption «ID xxx · обновлено HH:MM»                  │
@@ -375,21 +375,15 @@ export function PromoForm({
             getDraft={() => ({ title: p.title, description: p.description, action: p.action })}
             onSuggestions={setAiResult}
           />
-          <button
-            type="submit"
-            className="ebtn ebtn-ghost"
-            disabled={saving}
-            title="Сохранить как черновик"
-          >
-            {saving ? 'Сохраняю…' : 'Сохранить'}
-          </button>
+          {/* Черновиков нет: каждый save уходит в S3 и попадает в прод в
+              пределах 15-секундного TTL BFF-кэша — поэтому одна честная
+              кнопка вместо пары «черновик/опубликовать». */}
           <button
             type="submit"
             className="ebtn ebtn-primary"
-            disabled={saving}
-            onClick={() => set({ /* publish is just save for now */ })}
+            disabled={saving || deleting}
           >
-            Опубликовать
+            {saving ? 'Сохраняю…' : 'Сохранить'}
           </button>
         </div>
       </div>
