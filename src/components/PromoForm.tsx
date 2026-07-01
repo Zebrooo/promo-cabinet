@@ -103,7 +103,9 @@ const CAPS: Record<Promo['format'], Caps> = {
   tooltip:    { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: false, gradient: false, textAlign: true,  variants: false, bullets: false },
 };
 
-const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
+/** Human labels per format. Exported as the single source for format naming
+ *  across the cabinet (PromoList filter chips reuse it). */
+export const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
   inline:     { name: 'Inline',     sub: 'В ленте' },
   topline:    { name: 'Topline',    sub: 'Над шапкой' },
   popup:      { name: 'Popup',      sub: 'Поверх' },
