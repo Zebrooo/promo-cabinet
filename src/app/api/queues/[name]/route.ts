@@ -53,6 +53,12 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
   }
 
   try {
+    // Reordering an unregistered name would silently create an orphan
+    // queue-<name>.json no UI lists — refuse instead.
+    const index = await readQueuesIndex();
+    if (!index.some((e) => e.name === params.name)) {
+      return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
+    }
     await mutateQueue(params.name, (q) => ({ ...q, ids: reorderQueue(q.ids, ids) }));
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -33,6 +33,11 @@ const seedQueue = (name: string, persist: boolean, ids: string[]) =>
     Bucket: env.promoBucket, Key: queueKey(name), Body: JSON.stringify({ persist, ids }), ContentType: 'application/json',
   }));
 
+const seedIndex = (entries: { name: string; persist: boolean }[]) =>
+  getS3Client().send(new PutObjectCommand({
+    Bucket: env.promoBucket, Key: queuesIndexKey(), Body: JSON.stringify(entries), ContentType: 'application/json',
+  }));
+
 beforeEach(() => {
   process.env.SESSION_SECRET = SECRET;
   process.env.PROMO_KEY_PREFIX = `test/api-queues-name-id/${randomUUID()}/`;
@@ -49,6 +54,7 @@ afterEach(async () => {
 
 describe('POST /api/queues/[name]/[id]', () => {
   it('enqueues a promo into the named queue (200)', async () => {
+    await seedIndex([{ name: 'main', persist: false }]);
     await seedPool([promo('a')]);
     const res = await POST(authed('main', 'a'), ctx('main', 'a'));
     expect(res.status).toBe(200);
@@ -57,6 +63,7 @@ describe('POST /api/queues/[name]/[id]', () => {
   });
 
   it('is idempotent (enqueueing again is still 200)', async () => {
+    await seedIndex([{ name: 'main', persist: false }]);
     await seedPool([promo('a')]);
     await seedQueue('main', false, ['a']);
     const res = await POST(authed('main', 'a'), ctx('main', 'a'));
@@ -66,8 +73,16 @@ describe('POST /api/queues/[name]/[id]', () => {
   });
 
   it('404 when promo not in pool', async () => {
+    await seedIndex([{ name: 'main', persist: false }]);
     const res = await POST(authed('main', 'unknown'), ctx('main', 'unknown'));
     expect(res.status).toBe(404);
+  });
+
+  it('404 queue_not_found when the queue name is not registered (no orphan file created)', async () => {
+    await seedPool([promo('a')]);
+    const res = await POST(authed('ghost', 'a'), ctx('ghost', 'a'));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: 'queue_not_found' });
   });
 
   it('401 without a valid session', async () => {

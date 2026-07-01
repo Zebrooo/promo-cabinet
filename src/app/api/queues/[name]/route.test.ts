@@ -84,6 +84,7 @@ describe('GET /api/queues/[name]', () => {
 
 describe('PUT /api/queues/[name]', () => {
   it('reorders the queue (200)', async () => {
+    await seedIndex([{ name: 'main', persist: false }]);
     await seedQueue('main', false, ['a', 'b']);
     const res = await PUT(authed('main', { method: 'PUT', body: JSON.stringify({ ids: ['b', 'a'] }) }), ctx('main'));
     expect(res.status).toBe(200);
@@ -92,10 +93,17 @@ describe('PUT /api/queues/[name]', () => {
   });
 
   it('400 reorder_mismatch when ids not a permutation', async () => {
+    await seedIndex([{ name: 'main', persist: false }]);
     await seedQueue('main', false, ['a', 'b']);
     const res = await PUT(authed('main', { method: 'PUT', body: JSON.stringify({ ids: ['a'] }) }), ctx('main'));
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ error: 'reorder_mismatch' });
+  });
+
+  it('404 queue_not_found when the queue name is not registered', async () => {
+    const res = await PUT(authed('ghost', { method: 'PUT', body: JSON.stringify({ ids: [] }) }), ctx('ghost'));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: 'queue_not_found' });
   });
 
   it('401 without a valid session', async () => {
