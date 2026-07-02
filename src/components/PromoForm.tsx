@@ -189,11 +189,15 @@ function clientValidate(p: Promo): string | null {
   if (new Date(p.startsAt).getTime() >= new Date(p.endsAt).getTime()) {
     return 'Начало показа должно быть раньше окончания.';
   }
+  // Санити цепочки: промо не может идти после самого себя (зеркалит refine в schema.ts).
+  if (p.afterPromoId && p.afterPromoId.trim() === p.id.trim()) {
+    return 'Промо не может показываться после самого себя — укажите id другого промо.';
+  }
   return null;
 }
 
 export function PromoForm({
-  initial, mode, queueNames = [], membership = [],
+  initial, mode, queueNames = [], membership = [], poolPromos = [],
 }: {
   initial?: Promo;
   mode: 'create' | 'edit';
@@ -201,6 +205,8 @@ export function PromoForm({
   queueNames?: string[];
   /** Names of the queues this promo is currently in. Server-fetched. */
   membership?: string[];
+  /** Every promo in the pool (id + title) — feeds the chain <datalist>. */
+  poolPromos?: { id: string; title: string }[];
 }) {
   const router = useRouter();
   const [p, setP] = useState<Promo>(initial ?? empty);
@@ -209,6 +215,8 @@ export function PromoForm({
   const [aiResult, setAiResult] = useState<{ suggestions: AiSuggestions; cacheHit: boolean; model: string } | null>(null);
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('mobile');
   const [memberSet, setMemberSet] = useState<Set<string>>(() => new Set(membership));
+  // Цепочка показов: чекбокс включён, если у промо уже задан предшественник.
+  const [chainOn, setChainOn] = useState<boolean>(Boolean(initial?.afterPromoId));
   const [queueBusy, startQueueTransition] = useTransition();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -598,6 +606,50 @@ export function PromoForm({
               {mode === 'create' && <div className="hint">Сначала сохрани промо, потом добавляй в очереди.</div>}
             </section>
           )}
+
+          {/* Chain — «показывать только после другого промо» (все форматы).
+              Чекбокс выключен → afterPromoId убирается из объекта. BFF
+              (ChainChecker) отдаст это промо только после зафиксированного
+              показа предшественника. */}
+          <section className="ef-block">
+            <div className="ef-label">ЦЕПОЧКА ПОКАЗОВ</div>
+            <label className="ef-checkbox">
+              <input
+                type="checkbox"
+                checked={chainOn}
+                onChange={(e) => {
+                  setChainOn(e.target.checked);
+                  if (!e.target.checked) set({ afterPromoId: undefined });
+                }}
+              />
+              Показывать только после другого промо
+            </label>
+            {chainOn && (
+              <>
+                <input
+                  className="ef-input mono"
+                  list="chain-promo-ids"
+                  value={p.afterPromoId ?? ''}
+                  onChange={(e) => set({ afterPromoId: e.target.value.trim() || undefined })}
+                  placeholder="id промо-предшественника"
+                  maxLength={64}
+                />
+                <datalist id="chain-promo-ids">
+                  {poolPromos
+                    .filter((pp) => pp.id !== p.id)
+                    .map((pp) => (
+                      <option key={pp.id} value={pp.id}>{`${pp.id} — ${pp.title}`}</option>
+                    ))}
+                </datalist>
+                {p.afterPromoId && p.afterPromoId !== p.id &&
+                  !poolPromos.some((pp) => pp.id === p.afterPromoId) && (
+                  <div className="hint hint-warn">
+                    Промо с таким id нет в пуле — это промо не будет показываться.
+                  </div>
+                )}
+              </>
+            )}
+          </section>
 
           {/* Advanced disclosure */}
           <section className="ef-advanced">

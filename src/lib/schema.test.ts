@@ -126,6 +126,30 @@ describe('promoSchema', () => {
   });
 });
 
+describe('afterPromoId (цепочка показов)', () => {
+  it('accepts a promo with afterPromoId', () => {
+    const parsed = promoSchema.parse({ ...valid, afterPromoId: 'intro-step-1' });
+    expect(parsed.afterPromoId).toBe('intro-step-1');
+  });
+
+  it('accepts a promo without afterPromoId (optional)', () => {
+    expect(promoSchema.parse(valid).afterPromoId).toBeUndefined();
+  });
+
+  it('rejects an empty afterPromoId', () => {
+    expect(() => promoSchema.parse({ ...valid, afterPromoId: '' })).toThrow();
+  });
+
+  it('rejects an afterPromoId longer than 64 chars', () => {
+    expect(() => promoSchema.parse({ ...valid, afterPromoId: 'x'.repeat(65) })).toThrow();
+    expect(() => promoSchema.parse({ ...valid, afterPromoId: 'x'.repeat(64) })).not.toThrow();
+  });
+
+  it('rejects a self-referencing afterPromoId (chain sanity)', () => {
+    expect(() => promoSchema.parse({ ...valid, afterPromoId: valid.id })).toThrow();
+  });
+});
+
 describe('audience field', () => {
   it('accepts a promo with audience: authenticated', () => {
     expect(() => promoSchema.parse({ ...valid, audience: 'authenticated' })).not.toThrow();

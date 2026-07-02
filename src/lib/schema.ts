@@ -47,6 +47,11 @@ export const promoSchema = z
       z.number().int().positive().optional(),
     ),
     cooldownHours: z.number().int().nonnegative(),
+    /** Цепочка показов: id промо-предшественника. Промо с этим полем BFF
+     *  отдаёт только после зафиксированного показа предшественника
+     *  (ChainChecker). Ограничения побайтово те же, что в catalogue-schema.ts
+     *  BFF. Санити afterPromoId !== id — refine ниже. */
+    afterPromoId: z.string().min(1).max(64).optional(),
     format: promoFormatSchema,
     title: z.string().min(1),
     description: z.string().optional(),
@@ -99,6 +104,10 @@ export const promoSchema = z
   .refine((p) => p.format !== 'tooltip' || (typeof p.anchor === 'string' && p.anchor.length > 0), {
     message: 'anchor is required for the tooltip format',
     path: ['anchor'],
+  })
+  .refine((p) => p.afterPromoId === undefined || p.afterPromoId !== p.id, {
+    message: 'afterPromoId must reference a different promo',
+    path: ['afterPromoId'],
   });
 
 export const catalogueSchema = z.array(promoSchema);

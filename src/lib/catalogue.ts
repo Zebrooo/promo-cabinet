@@ -124,6 +124,17 @@ export const CANONICAL_ANCHORS: { id: string; label: string; pages: string[] }[]
   { id: 'campaign-editor-what',   label: 'Кабинет · шаг «Что на баннере»',  pages: ['campaign-editor'] },
   { id: 'campaign-editor-budget', label: 'Кабинет · шаг «Сколько платить»', pages: ['campaign-editor'] },
   { id: 'campaign-editor-submit', label: 'Кабинет · кнопка «Отправить»',    pages: ['campaign-editor'] },
+  // Site anchors mirrored from the storefront's data-promo-anchor markup
+  // (duplicated from data-onboarding-anchor, feat/promo-anchor-coverage).
+  { id: 'categories-sidebar', label: 'Сайдбар категорий',              pages: ['home'] },
+  { id: 'listing-price',      label: 'Цена объявления',                pages: ['listing'] },
+  { id: 'listing-seller',     label: 'Блок продавца',                  pages: ['listing'] },
+  { id: 'lk-sidebar',         label: 'Меню личного кабинета',          pages: ['lk'] },
+  { id: 'lk-hero-kpi',        label: 'KPI-плитка в шапке ЛК',          pages: ['lk'] },
+  { id: 'boost-btn',          label: 'Кнопка «Продвинуть» на карточке', pages: ['lk-obyavleniya'] },
+  { id: 'reklama-wallet',     label: 'Кошелёк рекламы',                pages: ['lk-reklama'] },
+  { id: 'reklama-methods',    label: 'Способы продвижения',            pages: ['lk-reklama'] },
+  { id: 'reklama-banner',     label: 'Карточка «Купить баннер»',        pages: ['lk-reklama'] },
 ];
 
 /**
