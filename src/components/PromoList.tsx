@@ -25,6 +25,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { FORMAT_LABEL } from '@/lib/format-labels';
+import { KNOWN_CUSTOM_VARIANTS } from '@/lib/custom-variants';
 
 interface PromoListProps {
   promos: Promo[];
@@ -34,7 +35,7 @@ interface PromoListProps {
 
 type StatusKind = 'active' | 'scheduled' | 'paused' | 'draft';
 
-const FORMAT_FILTERS = ['inline', 'topline', 'popup', 'fullscreen', 'divkit', 'tooltip', 'multistep'] as const;
+const FORMAT_FILTERS = ['inline', 'topline', 'popup', 'fullscreen', 'divkit', 'tooltip', 'multistep', 'custom'] as const;
 
 // Labels come from the single source in PromoForm so filter chips and the
 // format picker never drift apart.
@@ -208,11 +209,25 @@ function FilterChip({
 function PromoCard({ promo, queues }: { promo: Promo; queues: string[] }) {
   const status = classifyStatus(promo);
   const cover = coverHue(promo.id);
+  // Custom-формат: превью-картинки нет (визуал у хоста) — вместо неё
+  // показываем label варианта из манифеста + тег [custom].
+  const customLabel =
+    promo.format === 'custom'
+      ? (KNOWN_CUSTOM_VARIANTS.find((v) => v.id === promo.variant)?.label ??
+         promo.variant ??
+         '(без варианта)')
+      : null;
 
   return (
     <Link href={`/cabinet/${encodeURIComponent(promo.id)}`} className="pcard" aria-label={`Открыть «${promo.title}»`}>
       <div className="pcard-cover" style={{ background: cover }}>
         <span className={`pcard-status status-${status}`}>{STATUS_LABEL[status]}</span>
+        {customLabel !== null && (
+          <span className="pcard-badge pcard-badge--custom">
+            {customLabel}
+            <em> [custom]</em>
+          </span>
+        )}
       </div>
       <div className="pcard-body">
         <div className="pcard-title">{promo.title}</div>
