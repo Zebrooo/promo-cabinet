@@ -45,6 +45,7 @@ import { trackEvent } from '@/lib/analytics';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { FORMAT_LABEL } from '@/lib/format-labels';
+import { KNOWN_CUSTOM_VARIANTS } from '@/lib/custom-variants';
 import { CANONICAL_ANCHORS } from '@/lib/catalogue';
 import { PromoPreview } from './PromoPreview';
 import { PromoImageUpload } from './PromoImageUpload';
@@ -63,8 +64,10 @@ function allowedFormatsFor(target: NonNullable<Promo['deviceTarget']>): readonly
     : FORMATS_BY_DEVICE[target as DeviceClass];
   // 'multistep' — формат PromoRenderer с 0.10.0 (FORMATS_BY_DEVICE пакета его
   // уже содержит после бампа зависимости); до бампа (0.9.x) добавляем локально.
+  // 'custom' — host-owned формат (renderer 0.14.0); пока пакет не забампан,
+  // добавляем локально тем же приёмом. Доступен на desktop и touch.
   // Set-дедуп защищает от задвоения тайла при любой версии пакета.
-  return [...new Set<Promo['format']>([...base, 'multistep'])];
+  return [...new Set<Promo['format']>([...base, 'multistep', 'custom'])];
 }
 
 // Покажем ли warn у конкретного формата для текущего target. Пока единственный
@@ -114,6 +117,11 @@ const CAPS: Record<Promo['format'], Caps> = {
   // применяются composeOverlayBackground в @zebrooo/promo-renderer 0.13.0.
   // (Фон промо, не путать с картинкой шага steps[].imageUrl — отдельное поле.)
   multistep:  { image: false, description: false, actionLabel: false, dismissible: false, colors: true,  bgImage: true,  gradient: true,  textAlign: false, variants: false, bullets: false },
+  // Custom — host-owned React-контент (customFormats на <PromoProvider>).
+  // Кабинет НЕ управляет визуалом: всё внутри — забота хоста. Единственное
+  // поле — variant (id из KNOWN_CUSTOM_VARIANTS, отдельный dropdown ниже, не
+  // CAPS-boolean). Все декоративные поля скрыты.
+  custom:     { image: false, description: false, actionLabel: false, dismissible: false, colors: false, bgImage: false, gradient: false, textAlign: false, variants: false, bullets: false },
 };
 
 // Human labels per format moved to @/lib/format-labels (single source, usable
@@ -160,8 +168,18 @@ function sanitize(p: Promo): Promo {
   const isDivkit = p.format === 'divkit';
   // Multistep: контент целиком в steps — CTA не бывает (как у divkit).
   const noCta = isDivkit || p.format === 'multistep';
+  // Custom: кабинет не управляет заголовком (визуал у хоста), но schema.ts
+  // всё ещё требует title.min(1). Деривим человекочитаемый title из label
+  // варианта (fallback — name промо), чтобы промо прошло валидацию.
+  const customTitle =
+    p.format === 'custom'
+      ? (p.title?.trim() ||
+         KNOWN_CUSTOM_VARIANTS.find((v) => v.id === p.variant)?.label ||
+         p.name)
+      : p.title;
   return {
     ...p,
+    title: customTitle,
     imageUrl:           c.image       ? p.imageUrl           : undefined,
     description:        c.description ? p.description        : undefined,
     dismissible:        c.dismissible ? p.dismissible        : undefined,
@@ -174,6 +192,9 @@ function sanitize(p: Promo): Promo {
     bullets:            c.bullets     ? p.bullets            : undefined,
     anchor: p.format === 'tooltip' ? p.anchor : undefined,
     steps:  p.format === 'multistep' ? p.steps : undefined,
+    // variant применим только к custom (schema.ts refine) — у остальных
+    // форматов вычищается, как anchor/steps выше.
+    variant: p.format === 'custom' ? p.variant : undefined,
     // presentation применим только к multistep (schema.ts refine) — у
     // остальных форматов вычищается, как декоративные поля выше.
     presentation: p.format === 'multistep' ? p.presentation : undefined,
@@ -201,7 +222,16 @@ const ERROR_MESSAGES: Record<string, string> = {
 function clientValidate(p: Promo): string | null {
   if (!p.id.trim())    return 'Укажите ID (slug).';
   if (!p.name.trim())  return 'Укажите внутреннее название.';
-  if (!p.title.trim()) return 'Укажите заголовок.';
+  // Custom: заголовком кабинет не управляет (title деривится в sanitize из
+  // label варианта) — вместо title требуем выбранный variant (зеркалит два
+  // refine в schema.ts).
+  if (p.format === 'custom') {
+    if (!p.variant || !KNOWN_CUSTOM_VARIANTS.some((v) => v.id === p.variant)) {
+      return 'Выберите вариант host-компонента.';
+    }
+  } else if (!p.title.trim()) {
+    return 'Укажите заголовок.';
+  }
   if (!p.startsAt || !p.endsAt) return 'Укажите начало и окончание показа.';
   if (new Date(p.startsAt).getTime() >= new Date(p.endsAt).getTime()) {
     return 'Начало показа должно быть раньше окончания.';
@@ -519,7 +549,7 @@ export function PromoForm({
                     key={f}
                     type="button"
                     className={`fmt-tile${active ? ' active' : ''}`}
-                    onClick={() => set({ format: f })}
+                    onClick={() => set({ format: f, ...(f !== 'custom' ? { variant: undefined } : {}) })}
                     disabled={mode === 'edit'}
                     aria-pressed={active}
                   >
@@ -559,7 +589,34 @@ export function PromoForm({
             </section>
           )}
 
-          {/* Title */}
+          {/* Custom variant — required when format=custom. Визуал целиком у
+              хоста (customFormats), кабинет лишь выбирает вариант из манифеста
+              KNOWN_CUSTOM_VARIANTS; поля title/описание/картинка/CTA скрыты. */}
+          {p.format === 'custom' && (
+            <section className="ef-block">
+              <div className="ef-label">ВАРИАНТ</div>
+              <select
+                className="ef-input"
+                value={p.variant ?? ''}
+                onChange={(e) => set({ variant: e.target.value || undefined })}
+              >
+                <option value="">Выберите вариант…</option>
+                {KNOWN_CUSTOM_VARIANTS.map((v) => (
+                  <option key={v.id} value={v.id}>{v.label}</option>
+                ))}
+              </select>
+              {p.variant ? (
+                <div className="hint">
+                  {KNOWN_CUSTOM_VARIANTS.find((v) => v.id === p.variant)?.description}
+                </div>
+              ) : (
+                <div className="hint hint-warn">Выберите вариант host-компонента.</div>
+              )}
+            </section>
+          )}
+
+          {/* Title — скрыт для custom: визуал у хоста, заголовком кабинет не управляет. */}
+          {p.format !== 'custom' && (
           <section className="ef-block">
             <div className="ef-label-row">
               <div className="ef-label">ЗАГОЛОВОК</div>
@@ -573,6 +630,7 @@ export function PromoForm({
               maxLength={TITLE_MAX + 20}
             />
           </section>
+          )}
 
           {/* Multistep steps — репитер «Заголовок + Текст», 2..6 шагов.
               Контент визарда целиком здесь; description/image/CTA у формата
@@ -723,8 +781,9 @@ export function PromoForm({
             </section>
           )}
 
-          {/* CTA — у multistep нет: контент целиком в шагах (см. CAPS). */}
-          {p.format !== 'multistep' && (
+          {/* CTA — у multistep нет: контент целиком в шагах (см. CAPS).
+              У custom тоже нет: CTA/действие — забота host-компонента. */}
+          {p.format !== 'multistep' && p.format !== 'custom' && (
           <section className="ef-block">
             <div className="ef-label">CTA</div>
             <div className="ef-cta-row">
@@ -1348,6 +1407,7 @@ function estimateReach(fmt: Promo['format']): number {
     case 'divkit':     return 1600;  // примерно как popup — JSON может рендериться где угодно
     case 'tooltip':    return 1200;  // anchored bubble, desktop-only
     case 'multistep':  return 900;   // онбординг-визард — примерно как fullscreen
+    case 'custom':     return 900;   // host-owned overlay — примерно как multistep
   }
 }
 

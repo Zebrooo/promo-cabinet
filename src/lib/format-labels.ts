@@ -15,6 +15,7 @@ export const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }
   divkit:     { name: 'DivKit',     sub: 'JSON-верстка' },
   tooltip:    { name: 'Tooltip',    sub: 'Подсказка у элемента' },
   multistep:  { name: 'Multistep',  sub: 'Пошаговый визард' },
+  custom:     { name: 'Custom',     sub: 'Host-компонент' },
 };
 
 /** English capitalized format name shown to humans. Falls back to the raw id
