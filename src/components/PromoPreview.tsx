@@ -20,7 +20,9 @@ function toAd(p: Promo): Advertisement {
   const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
     id: p.id || 'preview',
-    format: p.format,
+    // 'multistep' до сюда не доходит (отдельная ветка ниже) — renderer'у
+    // известны только его собственные форматы.
+    format: p.format as Advertisement['format'],
     title: p.title,
     description: p.description,
     imageUrl: p.imageUrl,
@@ -38,6 +40,33 @@ function toAd(p: Promo): Advertisement {
 export function PromoPreview({ promo }: { promo: Promo }) {
   // Bumping the key remounts the overlay so it can be reopened after being closed.
   const [openKey, setOpenKey] = useState(0);
+
+  // Multistep: рендерер кабинета (0.9.1) этот формат ещё не знает — гейтимся
+  // по формату ДО PromoRenderer (иначе console.warn + null) и показываем
+  // статический список шагов. После бампа зависимости на 0.10.0 здесь можно
+  // будет открывать живой визард пакета.
+  if (promo.format === 'multistep') {
+    const steps = promo.steps ?? [];
+    if (steps.length === 0) {
+      return <div className="preview-hint">Добавьте шаги (2–6), чтобы увидеть превью визарда.</div>;
+    }
+    return (
+      <div className="preview-panel">
+        <p className="preview-note">
+          На сайте — модальный визард: шаги листаются, точки-прогресс, «Далее».
+          Шагов: {steps.length}.
+        </p>
+        <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {steps.map((st, i) => (
+            <li key={i}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{st.title || '—'}</div>
+              <div style={{ fontSize: 13, opacity: 0.75 }}>{st.body || '—'}</div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
 
   // DivKit: визуал диктуется JSON-tree'ом, наш title/desc не используются.
   // Если JSON не вставлен — подсказка, иначе renderer всё нарисует сам.
