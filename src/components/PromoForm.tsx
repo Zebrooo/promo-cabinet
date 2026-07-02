@@ -630,7 +630,7 @@ export function PromoForm({
                   className="ef-input mono"
                   list="chain-promo-ids"
                   value={p.afterPromoId ?? ''}
-                  onChange={(e) => set({ afterPromoId: e.target.value || undefined })}
+                  onChange={(e) => set({ afterPromoId: e.target.value.trim() || undefined })}
                   placeholder="id промо-предшественника"
                   maxLength={64}
                 />
