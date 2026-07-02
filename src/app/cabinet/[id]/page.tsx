@@ -29,6 +29,7 @@ export default async function EditPromoPage({ params }: { params: { id: string }
         initial={promo}
         queueNames={queueNames}
         membership={membership}
+        poolPromos={promos.map((p) => ({ id: p.id, title: p.title }))}
       />
     </>
   );
