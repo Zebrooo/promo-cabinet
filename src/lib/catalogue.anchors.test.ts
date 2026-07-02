@@ -42,6 +42,26 @@ describe('catalog queues (per-catalog rollout, step B\')', () => {
   });
 });
 
+describe('site anchors (promo-anchor coverage)', () => {
+  it('registers the 9 storefront anchors duplicated from data-onboarding-anchor', () => {
+    const ids = CANONICAL_ANCHORS.map((a) => a.id);
+    expect(ids).toEqual(expect.arrayContaining([
+      'categories-sidebar',
+      'listing-price', 'listing-seller',
+      'lk-sidebar', 'lk-hero-kpi', 'boost-btn',
+      'reklama-wallet', 'reklama-methods', 'reklama-banner',
+    ]));
+  });
+
+  it('keeps the pre-existing anchors untouched', () => {
+    const ids = CANONICAL_ANCHORS.map((a) => a.id);
+    expect(ids).toEqual(expect.arrayContaining([
+      'home-search', 'listing-cta', 'catalog-filters',
+      'campaign-editor-where', 'campaign-editor-what', 'campaign-editor-budget', 'campaign-editor-submit',
+    ]));
+  });
+});
+
 describe('cabinet-onboarding', () => {
   it('registers the cabinet-onboarding queue', () => {
     expect(CANONICAL_QUEUES.some((q) => q.name === 'cabinet-onboarding')).toBe(true);
