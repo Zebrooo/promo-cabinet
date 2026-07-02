@@ -92,8 +92,8 @@ export const promoSchema = z
      *  привязан пузырёк (хост помечает элемент data-promo-anchor="<id>").
      *  Обязателен когда format==='tooltip' (см. refine ниже). */
     anchor: z.string().min(1).optional(),
-    /** Multistep-формат: шаги визарда (2..6). Storefront рендерит их
-     *  собственным ReklamaWizard (не через PromoRenderer). Обязателен когда
+    /** Multistep-формат: шаги визарда (2..6). Рендерится штатным
+     *  @zebrooo/promo-renderer (MultistepPromo, с 0.10.0). Обязателен когда
      *  format==='multistep' (см. refine ниже, как anchor у tooltip). */
     steps: z.array(promoStepSchema).min(2).max(6).optional(),
     audience: audienceSchema.optional(),

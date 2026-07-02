@@ -60,11 +60,10 @@ function allowedFormatsFor(target: NonNullable<Promo['deviceTarget']>): readonly
   const base = target === 'desktop' || target === 'both'
     ? FORMATS_BY_DEVICE.desktop
     : FORMATS_BY_DEVICE[target as DeviceClass];
-  // 'multistep' — кабинетный формат поверх renderer'а: storefront рендерит его
-  // собственным ReklamaWizard (не через PromoRenderer), поэтому в
-  // FORMATS_BY_DEVICE пакета его нет — добавляем локально. Работает на любых
-  // устройствах (модалка-визард), как popup.
-  return [...base, 'multistep'];
+  // 'multistep' — формат PromoRenderer с 0.10.0 (FORMATS_BY_DEVICE пакета его
+  // уже содержит после бампа зависимости); до бампа (0.9.x) добавляем локально.
+  // Set-дедуп защищает от задвоения тайла при любой версии пакета.
+  return [...new Set<Promo['format']>([...base, 'multistep'])];
 }
 
 // Покажем ли warn у конкретного формата для текущего target. Пока единственный
