@@ -176,6 +176,33 @@ describe('multistep format (steps)', () => {
   it('steps on a non-multistep format still validate the 2..6 bound', () => {
     expect(() => promoSchema.parse({ ...valid, steps: [step(1)] })).toThrow();
   });
+
+  it('accepts an optional per-step imageUrl (картинка/гифка шага)', () => {
+    const parsed = promoSchema.parse({
+      ...multistep,
+      steps: [{ ...step(1), imageUrl: 'https://cdn.example.com/step-1.gif' }, step(2)],
+    });
+    expect(parsed.steps?.[0].imageUrl).toBe('https://cdn.example.com/step-1.gif');
+    expect(parsed.steps?.[1].imageUrl).toBeUndefined();
+  });
+
+  it('rejects a step imageUrl that is not a URL', () => {
+    expect(() =>
+      promoSchema.parse({ ...multistep, steps: [{ ...step(1), imageUrl: 'not-a-url' }, step(2)] }),
+    ).toThrow();
+  });
+
+  it('rejects a step imageUrl over 1024 chars (границы как в BFF)', () => {
+    const long = `https://cdn.example.com/${'x'.repeat(1024)}.png`;
+    expect(() =>
+      promoSchema.parse({ ...multistep, steps: [{ ...step(1), imageUrl: long }, step(2)] }),
+    ).toThrow();
+    const max = `https://cdn.example.com/${'x'.repeat(1024 - 28)}.png`; // ровно 1024
+    expect(max.length).toBe(1024);
+    expect(() =>
+      promoSchema.parse({ ...multistep, steps: [{ ...step(1), imageUrl: max }, step(2)] }),
+    ).not.toThrow();
+  });
 });
 
 describe('presentation (multistep: модалка / во весь экран)', () => {

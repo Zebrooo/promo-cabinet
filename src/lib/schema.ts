@@ -31,10 +31,16 @@ export const presentationSchema = z.enum(['modal', 'fullscreen']);
 
 /** Один шаг multistep-визарда: заголовок + текст. Лимиты повторяют
  *  wizard-steps.ts на storefront (title ≤ 80, body ≤ 240) — что не влезло,
- *  web всё равно обрежет, поэтому честнее не пустить на этапе формы. */
+ *  web всё равно обрежет, поэтому честнее не пустить на этапе формы.
+ *  imageUrl — опциональная картинка/гифка шага (http(s)-URL ≤ 1024):
+ *  рендерится в зоне сцены MultistepPromo приоритетнее хост-слота
+ *  multistepStage (@zebrooo/promo-renderer 0.12.0); если пусто — на сайте
+ *  показывается анимированная сцена хоста. Байт-в-байт с catalogue-schema.ts
+ *  BFF. */
 export const promoStepSchema = z.object({
   title: z.string().min(1).max(80),
   body:  z.string().min(1).max(240),
+  imageUrl: z.string().url().max(1024).optional(),
 });
 
 /**

@@ -218,6 +218,11 @@ function clientValidate(p: Promo): string | null {
     if (steps.some((s) => s.title.length > STEP_TITLE_MAX || s.body.length > STEP_BODY_MAX)) {
       return `Заголовок шага — до ${STEP_TITLE_MAX} символов, текст — до ${STEP_BODY_MAX}.`;
     }
+    // Картинка шага опциональна, но если задана руками — должна быть URL
+    // (зеркалит promoStepSchema.imageUrl: z.string().url()).
+    if (steps.some((s) => s.imageUrl && !/^https?:\/\/\S+$/.test(s.imageUrl))) {
+      return 'Картинка шага должна быть http(s)-URL — загрузите файл или вставьте ссылку.';
+    }
   }
   return null;
 }
@@ -262,7 +267,7 @@ export function PromoForm({
     setSteps([...steps, { title: '', body: '' }]);
   };
   const removeStep = (i: number) => setSteps(steps.filter((_, idx) => idx !== i));
-  const patchStep = (i: number, patch: Partial<{ title: string; body: string }>) =>
+  const patchStep = (i: number, patch: Partial<NonNullable<Promo['steps']>[number]>) =>
     setSteps(steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   const moveStep = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -627,6 +632,18 @@ export function PromoForm({
                       placeholder="Короткое пояснение под заголовком шага"
                       maxLength={STEP_BODY_MAX + 40}
                     />
+                    {/* Картинка/гифка шага — тот же аплоад, что у промо-картинок
+                        (drag-and-drop / клик → /api/upload, «Указать URL вручную»,
+                        превью-миниатюра). Пусто = на сайте анимированная сцена. */}
+                    <div className="ef-label-row">
+                      <span className="ef-hint">Картинка/гифка (необязательно)</span>
+                    </div>
+                    <PromoImageUpload
+                      value={st.imageUrl ?? ''}
+                      onChange={(url) => patchStep(i, { imageUrl: url || undefined })}
+                      label={`Картинка шага ${i + 1}`}
+                    />
+                    <div className="hint">Если пусто — на сайте показывается анимированная сцена.</div>
                   </div>
                 ))}
               </div>
