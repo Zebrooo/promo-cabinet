@@ -34,7 +34,7 @@ interface PromoListProps {
 
 type StatusKind = 'active' | 'scheduled' | 'paused' | 'draft';
 
-const FORMAT_FILTERS = ['inline', 'topline', 'popup', 'fullscreen', 'divkit', 'tooltip'] as const;
+const FORMAT_FILTERS = ['inline', 'topline', 'popup', 'fullscreen', 'divkit', 'tooltip', 'multistep'] as const;
 
 // Labels come from the single source in PromoForm so filter chips and the
 // format picker never drift apart.

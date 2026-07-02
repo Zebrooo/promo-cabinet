@@ -126,6 +126,58 @@ describe('promoSchema', () => {
   });
 });
 
+describe('multistep format (steps)', () => {
+  const step = (n: number) => ({ title: `Шаг ${n}`, body: `Текст шага ${n}` });
+  const multistep = {
+    id: 'ms', name: 'MS', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
+    targeting: {}, cooldownHours: 0, format: 'multistep', title: 'Онбординг',
+  };
+
+  it('accepts a multistep promo with 2 steps', () => {
+    expect(() => promoSchema.parse({ ...multistep, steps: [step(1), step(2)] })).not.toThrow();
+  });
+
+  it('accepts a multistep promo with 6 steps', () => {
+    const steps = Array.from({ length: 6 }, (_, i) => step(i + 1));
+    expect(() => promoSchema.parse({ ...multistep, steps })).not.toThrow();
+  });
+
+  it('rejects a multistep promo without steps (refine, как anchor у tooltip)', () => {
+    expect(() => promoSchema.parse(multistep)).toThrow();
+  });
+
+  it('rejects fewer than 2 steps', () => {
+    expect(() => promoSchema.parse({ ...multistep, steps: [step(1)] })).toThrow();
+    expect(() => promoSchema.parse({ ...multistep, steps: [] })).toThrow();
+  });
+
+  it('rejects more than 6 steps', () => {
+    const steps = Array.from({ length: 7 }, (_, i) => step(i + 1));
+    expect(() => promoSchema.parse({ ...multistep, steps })).toThrow();
+  });
+
+  it('rejects a step with an empty title or body', () => {
+    expect(() => promoSchema.parse({ ...multistep, steps: [{ title: '', body: 'x' }, step(2)] })).toThrow();
+    expect(() => promoSchema.parse({ ...multistep, steps: [{ title: 'x', body: '' }, step(2)] })).toThrow();
+  });
+
+  it('rejects a step title over 80 chars and body over 240 chars', () => {
+    expect(() => promoSchema.parse({ ...multistep, steps: [{ title: 'т'.repeat(81), body: 'x' }, step(2)] })).toThrow();
+    expect(() => promoSchema.parse({ ...multistep, steps: [{ title: 'x', body: 'т'.repeat(241) }, step(2)] })).toThrow();
+    expect(() =>
+      promoSchema.parse({ ...multistep, steps: [{ title: 'т'.repeat(80), body: 'т'.repeat(240) }, step(2)] }),
+    ).not.toThrow();
+  });
+
+  it('does not require steps for non-multistep formats', () => {
+    expect(() => promoSchema.parse(valid)).not.toThrow();
+  });
+
+  it('steps on a non-multistep format still validate the 2..6 bound', () => {
+    expect(() => promoSchema.parse({ ...valid, steps: [step(1)] })).toThrow();
+  });
+});
+
 describe('afterPromoId (цепочка показов)', () => {
   it('accepts a promo with afterPromoId', () => {
     const parsed = promoSchema.parse({ ...valid, afterPromoId: 'intro-step-1' });

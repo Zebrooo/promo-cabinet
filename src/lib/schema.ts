@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
-export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip']);
+export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip', 'multistep']);
 export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
 export const deviceTargetSchema = z.enum(['desktop', 'touch', 'both']);
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
@@ -23,6 +23,14 @@ export const popupVariantSchema = z.enum(['classic', 'split']);
 /** Выравнивание текста в overlay-форматах. Только горизонтальное — для
  *  вертикального renderer уже сам центрирует через flex. */
 export const textAlignSchema = z.enum(['left', 'center', 'right']);
+
+/** Один шаг multistep-визарда: заголовок + текст. Лимиты повторяют
+ *  wizard-steps.ts на storefront (title ≤ 80, body ≤ 240) — что не влезло,
+ *  web всё равно обрежет, поэтому честнее не пустить на этапе формы. */
+export const promoStepSchema = z.object({
+  title: z.string().min(1).max(80),
+  body:  z.string().min(1).max(240),
+});
 
 /**
  * Validation source of truth for a promo. MUST match abhPromo's catalogue-schema.ts.
@@ -84,6 +92,10 @@ export const promoSchema = z
      *  привязан пузырёк (хост помечает элемент data-promo-anchor="<id>").
      *  Обязателен когда format==='tooltip' (см. refine ниже). */
     anchor: z.string().min(1).optional(),
+    /** Multistep-формат: шаги визарда (2..6). Storefront рендерит их
+     *  собственным ReklamaWizard (не через PromoRenderer). Обязателен когда
+     *  format==='multistep' (см. refine ниже, как anchor у tooltip). */
+    steps: z.array(promoStepSchema).min(2).max(6).optional(),
     audience: audienceSchema.optional(),
     sections: z.array(z.string().min(1)).optional(),
     categories: z.array(z.string().min(1)).optional(),
@@ -104,6 +116,10 @@ export const promoSchema = z
   .refine((p) => p.format !== 'tooltip' || (typeof p.anchor === 'string' && p.anchor.length > 0), {
     message: 'anchor is required for the tooltip format',
     path: ['anchor'],
+  })
+  .refine((p) => p.format !== 'multistep' || (Array.isArray(p.steps) && p.steps.length >= 2), {
+    message: 'steps (2..6) are required for the multistep format',
+    path: ['steps'],
   })
   .refine((p) => p.afterPromoId === undefined || p.afterPromoId !== p.id, {
     message: 'afterPromoId must reference a different promo',

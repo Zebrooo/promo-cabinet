@@ -57,8 +57,14 @@ import { FORMATS_BY_DEVICE, type DeviceClass } from '@zebrooo/promo-renderer';
 // просто отфильтруется на тач-юзерах в renderer'е (fail-safe null), но
 // desktop-юзеры его увидят. Юзер сам осознанно выбирает.
 function allowedFormatsFor(target: NonNullable<Promo['deviceTarget']>): readonly Promo['format'][] {
-  if (target === 'desktop' || target === 'both') return FORMATS_BY_DEVICE.desktop;
-  return FORMATS_BY_DEVICE[target as DeviceClass];
+  const base = target === 'desktop' || target === 'both'
+    ? FORMATS_BY_DEVICE.desktop
+    : FORMATS_BY_DEVICE[target as DeviceClass];
+  // 'multistep' — кабинетный формат поверх renderer'а: storefront рендерит его
+  // собственным ReklamaWizard (не через PromoRenderer), поэтому в
+  // FORMATS_BY_DEVICE пакета его нет — добавляем локально. Работает на любых
+  // устройствах (модалка-визард), как popup.
+  return [...base, 'multistep'];
 }
 
 // Покажем ли warn у конкретного формата для текущего target. Пока единственный
@@ -101,6 +107,10 @@ const CAPS: Record<Promo['format'], Caps> = {
   // colours/textAlign. No bg-image/gradient/variants/bullets. The anchor is a
   // separate required field (dropdown), not a CAPS boolean.
   tooltip:    { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: false, gradient: false, textAlign: true,  variants: false, bullets: false },
+  // Multistep — пошаговый визард на storefront (ReklamaWizard). Контент целиком
+  // в steps (заголовок+текст на шаг), поэтому image/description/CTA/визуал
+  // не имеют смысла; dismissible тоже нет — у визарда свои кнопки закрытия.
+  multistep:  { image: false, description: false, actionLabel: false, dismissible: false, colors: false, bgImage: false, gradient: false, textAlign: false, variants: false, bullets: false },
 };
 
 /** Human labels per format. Exported as the single source for format naming
@@ -112,6 +122,7 @@ export const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }
   fullscreen: { name: 'Fullscreen', sub: 'На весь экран' },
   divkit:     { name: 'DivKit',     sub: 'JSON-верстка' },
   tooltip:    { name: 'Tooltip',    sub: 'Подсказка у элемента' },
+  multistep:  { name: 'Мультистеп', sub: 'Пошаговый визард' },
 };
 
 const empty: Promo = {
@@ -122,6 +133,12 @@ const empty: Promo = {
 };
 
 const TITLE_MAX = 60;
+// Лимиты одного шага multistep-визарда — зеркалят promoStepSchema (schema.ts)
+// и wizard-steps.ts на storefront.
+const STEP_TITLE_MAX = 80;
+const STEP_BODY_MAX  = 240;
+const STEPS_MIN = 2;
+const STEPS_MAX = 6;
 
 function isoToLocalInput(iso: string): string {
   if (!iso) return '';
@@ -147,6 +164,8 @@ function slugListToText(arr?: string[]): string {
 function sanitize(p: Promo): Promo {
   const c = CAPS[p.format];
   const isDivkit = p.format === 'divkit';
+  // Multistep: контент целиком в steps — CTA не бывает (как у divkit).
+  const noCta = isDivkit || p.format === 'multistep';
   return {
     ...p,
     imageUrl:           c.image       ? p.imageUrl           : undefined,
@@ -160,10 +179,11 @@ function sanitize(p: Promo): Promo {
     popupVariant:       c.variants    ? p.popupVariant       : undefined,
     bullets:            c.bullets     ? p.bullets            : undefined,
     anchor: p.format === 'tooltip' ? p.anchor : undefined,
+    steps:  p.format === 'multistep' ? p.steps : undefined,
     // ctaColor/ctaTextColor имеют смысл только когда есть action
-    ctaColor:     p.action && !isDivkit ? p.ctaColor     : undefined,
-    ctaTextColor: p.action && !isDivkit ? p.ctaTextColor : undefined,
-    action: !isDivkit && p.action
+    ctaColor:     p.action && !noCta ? p.ctaColor     : undefined,
+    ctaTextColor: p.action && !noCta ? p.ctaTextColor : undefined,
+    action: !noCta && p.action
       ? (c.actionLabel ? p.action : { href: p.action.href })
       : undefined,
     // DivKit поля — keep только для divkit формата.
@@ -192,6 +212,18 @@ function clientValidate(p: Promo): string | null {
   // Санити цепочки: промо не может идти после самого себя (зеркалит refine в schema.ts).
   if (p.afterPromoId && p.afterPromoId.trim() === p.id.trim()) {
     return 'Промо не может показываться после самого себя — укажите id другого промо.';
+  }
+  // Multistep: шаги обязательны (зеркалит refine в schema.ts).
+  if (p.format === 'multistep') {
+    const steps = p.steps ?? [];
+    if (steps.length < STEPS_MIN) return `Добавьте минимум ${STEPS_MIN} шага визарда.`;
+    if (steps.length > STEPS_MAX) return `Максимум ${STEPS_MAX} шагов визарда.`;
+    if (steps.some((s) => !s.title.trim() || !s.body.trim())) {
+      return 'У каждого шага должны быть заголовок и текст.';
+    }
+    if (steps.some((s) => s.title.length > STEP_TITLE_MAX || s.body.length > STEP_BODY_MAX)) {
+      return `Заголовок шага — до ${STEP_TITLE_MAX} символов, текст — до ${STEP_BODY_MAX}.`;
+    }
   }
   return null;
 }
@@ -225,6 +257,26 @@ export function PromoForm({
   const setTargeting = (patch: Partial<Promo['targeting']>) =>
     set({ targeting: { ...p.targeting, ...patch } });
   const caps = CAPS[p.format];
+
+  // Multistep: репитер шагов. Пустой массив держим как undefined, чтобы
+  // sanitize/schema видели «шагов нет», а не «нулевой список».
+  const steps = p.steps ?? [];
+  const setSteps = (next: NonNullable<Promo['steps']>) =>
+    set({ steps: next.length ? next : undefined });
+  const addStep = () => {
+    if (steps.length >= STEPS_MAX) return;
+    setSteps([...steps, { title: '', body: '' }]);
+  };
+  const removeStep = (i: number) => setSteps(steps.filter((_, idx) => idx !== i));
+  const patchStep = (i: number, patch: Partial<{ title: string; body: string }>) =>
+    setSteps(steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const moveStep = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= steps.length) return;
+    const next = [...steps];
+    [next[i], next[j]] = [next[j], next[i]];
+    setSteps(next);
+  };
 
   // Текущий deviceTarget (по умолчанию 'both' для старых промо без поля).
   const currentTarget: NonNullable<Promo['deviceTarget']> = p.deviceTarget ?? 'both';
@@ -520,6 +572,87 @@ export function PromoForm({
             />
           </section>
 
+          {/* Multistep steps — репитер «Заголовок + Текст», 2..6 шагов.
+              Контент визарда целиком здесь; description/image/CTA у формата
+              нет (см. CAPS). */}
+          {p.format === 'multistep' && (
+            <section className="ef-block">
+              <div className="ef-label-row">
+                <div className="ef-label">ШАГИ ВИЗАРДА</div>
+                <div className={`ef-counter mono${steps.length < STEPS_MIN || steps.length > STEPS_MAX ? ' over' : ''}`}>
+                  {steps.length} / {STEPS_MIN}–{STEPS_MAX}
+                </div>
+              </div>
+              <div className="ef-steps">
+                {steps.map((st, i) => (
+                  <div key={i} className="ef-step">
+                    <div className="ef-step-head">
+                      <span className="ef-step-num mono">Шаг {i + 1}</span>
+                      <div className="ef-step-tools">
+                        <button
+                          type="button" className="ef-step-btn"
+                          onClick={() => moveStep(i, -1)} disabled={i === 0}
+                          aria-label={`Переместить шаг ${i + 1} вверх`}
+                        >↑</button>
+                        <button
+                          type="button" className="ef-step-btn"
+                          onClick={() => moveStep(i, 1)} disabled={i === steps.length - 1}
+                          aria-label={`Переместить шаг ${i + 1} вниз`}
+                        >↓</button>
+                        <button
+                          type="button" className="ef-step-btn danger"
+                          onClick={() => removeStep(i)}
+                          aria-label={`Удалить шаг ${i + 1}`}
+                        >✕</button>
+                      </div>
+                    </div>
+                    <div className="ef-label-row">
+                      <span className="ef-hint">Заголовок</span>
+                      <span className={`ef-counter mono${st.title.length > STEP_TITLE_MAX ? ' over' : ''}`}>
+                        {st.title.length} / {STEP_TITLE_MAX}
+                      </span>
+                    </div>
+                    <input
+                      className="ef-input"
+                      value={st.title}
+                      onChange={(e) => patchStep(i, { title: e.target.value })}
+                      placeholder="Что происходит на шаге"
+                      maxLength={STEP_TITLE_MAX + 20}
+                    />
+                    <div className="ef-label-row">
+                      <span className="ef-hint">Текст</span>
+                      <span className={`ef-counter mono${st.body.length > STEP_BODY_MAX ? ' over' : ''}`}>
+                        {st.body.length} / {STEP_BODY_MAX}
+                      </span>
+                    </div>
+                    <textarea
+                      className="ef-input ef-textarea"
+                      rows={2}
+                      value={st.body}
+                      onChange={(e) => patchStep(i, { body: e.target.value })}
+                      placeholder="Короткое пояснение под заголовком шага"
+                      maxLength={STEP_BODY_MAX + 40}
+                    />
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="ef-step-add"
+                onClick={addStep}
+                disabled={steps.length >= STEPS_MAX}
+              >
+                + Добавить шаг
+              </button>
+              {steps.length < STEPS_MIN && (
+                <div className="hint hint-warn">Нужно минимум {STEPS_MIN} шага — без них визард не сохранится.</div>
+              )}
+              {steps.some((s) => !s.title.trim() || !s.body.trim()) && (
+                <div className="hint hint-warn">Заполните заголовок и текст у каждого шага.</div>
+              )}
+            </section>
+          )}
+
           {/* Description */}
           {caps.description && (
             <section className="ef-block">
@@ -548,7 +681,8 @@ export function PromoForm({
             </section>
           )}
 
-          {/* CTA */}
+          {/* CTA — у multistep нет: контент целиком в шагах (см. CAPS). */}
+          {p.format !== 'multistep' && (
           <section className="ef-block">
             <div className="ef-label">CTA</div>
             <div className="ef-cta-row">
@@ -581,6 +715,7 @@ export function PromoForm({
               />
             </div>
           </section>
+          )}
 
           {/* Queue chips */}
           {queueNames.length > 0 && (
@@ -1170,6 +1305,7 @@ function estimateReach(fmt: Promo['format']): number {
     case 'fullscreen': return 900;
     case 'divkit':     return 1600;  // примерно как popup — JSON может рендериться где угодно
     case 'tooltip':    return 1200;  // anchored bubble, desktop-only
+    case 'multistep':  return 900;   // онбординг-визард — примерно как fullscreen
   }
 }
 
@@ -1490,6 +1626,41 @@ const EDITOR_CSS = `
 .ef-segment-sub {
   font-size: 11px; font-weight: 500; color: var(--app-fg2);
 }
+
+/* Multistep steps repeater */
+.ef-steps { display: flex; flex-direction: column; gap: 12px; }
+.ef-step {
+  background: #fff; border: 1px solid var(--app-border);
+  border-radius: 12px; padding: 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ef-step-head { display: flex; align-items: center; justify-content: space-between; }
+.ef-step-num {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--app-fg3);
+}
+.ef-step-tools { display: flex; gap: 6px; }
+.ef-step-btn {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: #fff; border: 1px solid var(--app-border);
+  color: var(--app-fg3); font: 600 13px var(--font-sans);
+  cursor: pointer;
+  transition: border-color var(--dur-fast), color var(--dur-fast);
+}
+.ef-step-btn:hover:not(:disabled) { border-color: var(--app-border2); color: var(--app-fg1); }
+.ef-step-btn:disabled { opacity: .35; cursor: not-allowed; }
+.ef-step-btn.danger:hover:not(:disabled) { border-color: var(--brand-coral-600); color: var(--brand-coral-700); }
+.ef-step-add {
+  align-self: flex-start;
+  display: inline-flex; align-items: center;
+  height: 36px; padding: 0 16px; border-radius: 10px;
+  background: #fff; border: 1px dashed var(--app-border2);
+  color: var(--app-fg2); font: 600 13px var(--font-sans);
+  cursor: pointer;
+  transition: border-color var(--dur-fast), color var(--dur-fast);
+}
+.ef-step-add:hover:not(:disabled) { border-color: var(--brand-sea-600); color: var(--app-fg1); }
+.ef-step-add:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Gradient picker row */
 .ef-gradient-row {
