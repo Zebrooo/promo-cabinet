@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
-import { readPool, readQueue, writeQueue, mutateQueue, readQueuesIndex, writeQueuesIndex } from '@/lib/catalogue';
+import { readPool, readQueue, writeQueue, mutateQueue, readQueuesIndex, writeQueuesIndex, PROD_SERVED_QUEUES } from '@/lib/catalogue';
 import { queueKey, getS3Client } from '@/lib/s3';
 import { reorderQueue, ReorderMismatchError } from '@/lib/mutations';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
@@ -17,6 +17,17 @@ const patchBody = z.object({
   persist: z.boolean().optional(),
   rename: z.string().min(1).regex(/^[a-z0-9-_]+$/i).optional(),
 });
+
+/** 409 body for delete/rename of a queue that production still requests. */
+function prodServedConflict(): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'prod_served_queue',
+      message: 'Очередь обслуживает прод; storefront должен перестать её запрашивать до удаления или переименования.',
+    },
+    { status: 409 },
+  );
+}
 
 export async function GET(req: NextRequest, { params }: Ctx): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -42,6 +53,12 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
   }
 
   try {
+    // Reordering an unregistered name would silently create an orphan
+    // queue-<name>.json no UI lists — refuse instead.
+    const index = await readQueuesIndex();
+    if (!index.some((e) => e.name === params.name)) {
+      return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
+    }
     await mutateQueue(params.name, (q) => ({ ...q, ids: reorderQueue(q.ids, ids) }));
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -73,6 +90,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
     }
 
     if (body.rename && body.rename !== currentName) {
+      if (PROD_SERVED_QUEUES.includes(currentName)) return prodServedConflict();
       const newName = body.rename;
       if (index.some((e) => e.name === newName)) {
         return NextResponse.json({ error: 'duplicate_queue' }, { status: 409 });
@@ -107,14 +125,24 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
 export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
+    if (PROD_SERVED_QUEUES.includes(params.name)) return prodServedConflict();
     const index = await readQueuesIndex();
     if (!index.some((e) => e.name === params.name)) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
     const newIndex = index.filter((e) => e.name !== params.name);
     await writeQueuesIndex(newIndex);
-    // Delete the queue object
-    await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(params.name) })).catch(() => {});
+    // Delete the queue object. The queue is already out of the index, so a
+    // failure here only leaves a harmless orphaned queue-<name>.json — but
+    // don't swallow it silently: surface a warning to the caller.
+    try {
+      await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(params.name) }));
+    } catch {
+      return NextResponse.json({
+        ok: true,
+        warning: `Очередь убрана из списка, но объект queue-${params.name}.json удалить не удалось — он останется в хранилище.`,
+      });
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });

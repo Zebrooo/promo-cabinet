@@ -24,6 +24,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
+import { FORMAT_LABEL } from './PromoForm';
 
 interface PromoListProps {
   promos: Promo[];
@@ -33,14 +34,13 @@ interface PromoListProps {
 
 type StatusKind = 'active' | 'scheduled' | 'paused' | 'draft';
 
-const FORMAT_LABELS: Record<string, string> = {
-  inline:     'Inline',
-  topline:    'Topline',
-  popup:      'Popup',
-  fullscreen: 'Fullscreen',
-};
+const FORMAT_FILTERS = ['inline', 'topline', 'popup', 'fullscreen', 'divkit', 'tooltip'] as const;
 
-const FORMAT_FILTERS = ['inline', 'topline', 'popup', 'fullscreen'] as const;
+// Labels come from the single source in PromoForm so filter chips and the
+// format picker never drift apart.
+const FORMAT_LABELS: Record<string, string> = Object.fromEntries(
+  FORMAT_FILTERS.map((f) => [f, FORMAT_LABEL[f].name]),
+);
 
 function classifyStatus(p: Promo): StatusKind {
   if (!p.startsAt || !p.endsAt) return 'draft';

@@ -134,6 +134,14 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
 
   const activeCount = order.filter((p) => isActive(p)).length;
 
+  // Format breakdown for the stats panel — the BFF picks by format inside a
+  // queue, so an advertiser must see at a glance which formats the queue can
+  // actually serve (a queue without e.g. a popup serves no popup slot).
+  const formatCounts = order.reduce<Record<string, number>>((acc, p) => {
+    acc[p.format] = (acc[p.format] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div className="page-header">
@@ -217,6 +225,7 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
                     <div className="qi-title">{p.title}</div>
                     <div className="qi-slug">{p.id}</div>
                   </div>
+                  <span className={`badge badge-${p.format}`}>{p.format}</span>
                   <span className={`badge ${isActive(p) ? 'badge-active' : 'badge-inactive'}`}>
                     {isActive(p) ? 'активен' : 'не активен'}
                   </span>
@@ -264,7 +273,7 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
                     onChange={(e) => setAddId(e.target.value)}
                   >
                     {available.map((p) => (
-                      <option key={p.id} value={p.id}>{p.title} ({p.id})</option>
+                      <option key={p.id} value={p.id}>{p.title} ({p.format}, {p.id})</option>
                     ))}
                   </select>
                 </div>
@@ -307,6 +316,12 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
               <span className="sr-label">Активных</span>
               <span className="sr-val">{activeCount}</span>
             </div>
+            {Object.entries(formatCounts).map(([format, count]) => (
+              <div className="stat-row" key={format}>
+                <span className="sr-label">— {format}</span>
+                <span className="sr-val">{count}</span>
+              </div>
+            ))}
             <div className="stat-row">
               <span className="sr-label">Persist</span>
               <span className="sr-val">{persist ? 'да' : 'нет'}</span>

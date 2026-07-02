@@ -72,10 +72,41 @@ export async function mutateQueue(name: string, apply: (q: QueueObject) => Queue
  * the bootstrap will create the file + register it in queues.json idempotently).
  */
 export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
+  // Legacy pre-cutover queues. Kept until the storefront stops requesting
+  // them (retire = separate step D after the per-catalog cutover).
   { name: 'home-banner', persist: true  }, // abkhaz-auto topline (cookie-pinned banner)
   { name: 'home-popup',  persist: false }, // abkhaz-auto popup (rotates per visit)
   { name: 'tooltip',     persist: false }, // abkhaz-auto tooltip (anchored bubble; site requests this queue)
   { name: 'cabinet-onboarding', persist: false }, // ad-cabinet onboarding tooltips (editor lead-by-hand)
+  // Per-catalog queues (step B' of the per-catalog rollout,
+  // docs 2026-07-01-per-catalog-queues.md): one queue per storefront catalog
+  // page context; the BFF picks by format inside the queue.
+  { name: 'home',      persist: false },
+  { name: 'transport', persist: false },
+  { name: 'realty',    persist: false },
+  { name: 'goods',     persist: false },
+  { name: 'services',  persist: false },
+  { name: 'jobs',      persist: false },
+  { name: 'news',      persist: false },
+  { name: 'listing',   persist: false },
+];
+
+/**
+ * Queue names production consumers request from the BFF RIGHT NOW (storefront
+ * slot wiring + ad-cabinet onboarding). Deleting or renaming one of these
+ * silently darks a live slot, so the queues API refuses with 409 until the
+ * consumer stops requesting the name.
+ *
+ * After the per-catalog cutover (step C) add the 8 catalog queues here; the
+ * legacy names move out only at the retire step D.
+ */
+export const PROD_SERVED_QUEUES: readonly string[] = [
+  'home-banner',
+  'home-popup',
+  'tooltip',
+  'cabinet-onboarding',
+  // + after step C (storefront cutover to per-catalog queues):
+  // 'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
 ];
 
 /**

@@ -10,8 +10,16 @@ try {
 }
 
 export default defineConfig({
-  // Tests hit the real bucket.ru S3 endpoint, so allow generous network timeouts.
-  test: { environment: 'node', globals: false, testTimeout: 60000, hookTimeout: 60000 },
+  // Default: hermetic in-memory S3 (see vitest.setup.ts). With
+  // PROMO_TEST_LIVE_S3=true the suite hits the real bucket.ru endpoint,
+  // so keep the generous network timeouts.
+  test: {
+    environment: 'node',
+    globals: false,
+    testTimeout: 60000,
+    hookTimeout: 60000,
+    setupFiles: ['./vitest.setup.ts'],
+  },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

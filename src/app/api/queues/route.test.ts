@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { queuesIndexKey, queueKey, getS3Client, resetS3ClientForTests } from '@/lib/s3';
 import { createSessionToken } from '@/lib/auth';
-import { readQueuesIndex, readQueue } from '@/lib/catalogue';
+import { readQueuesIndex, readQueue, CANONICAL_QUEUES } from '@/lib/catalogue';
 import { env } from '@/env';
 import { GET, POST } from './route';
 
@@ -33,26 +33,29 @@ afterEach(async () => {
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queuesIndexKey() })).catch(() => {}),
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('main') })).catch(() => {}),
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('promo-test') })).catch(() => {}),
+    ...CANONICAL_QUEUES.map((q) =>
+      getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(q.name) })).catch(() => {})),
   ]);
   process.env = { ...ORIGINAL };
 });
 
 describe('GET /api/queues', () => {
-  it('returns the index (creating main if empty)', async () => {
+  it('returns the index (creating main + canonical queues if empty)', async () => {
     const res = await GET(authed());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body.queues)).toBe(true);
-    // ensureMainQueue should have created main
-    expect(body.queues).toEqual([{ name: 'main', persist: false }]);
+    // ensureMainQueue should have created main + every canonical queue
+    expect(body.queues).toEqual([{ name: 'main', persist: false }, ...CANONICAL_QUEUES]);
   });
 
-  it('returns existing index without modification', async () => {
+  it('keeps existing entries, only filling in missing canonical queues', async () => {
     await seedIndex([{ name: 'main', persist: false }, { name: 'promo-test', persist: true }]);
     const res = await GET(authed());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.queues).toEqual([{ name: 'main', persist: false }, { name: 'promo-test', persist: true }]);
+    expect(body.queues.slice(0, 2)).toEqual([{ name: 'main', persist: false }, { name: 'promo-test', persist: true }]);
+    expect(body.queues).toHaveLength(2 + CANONICAL_QUEUES.length);
   });
 
   it('401 without a valid session', async () => {

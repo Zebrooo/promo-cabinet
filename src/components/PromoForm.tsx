@@ -3,7 +3,7 @@
 //
 // Layout:
 //   ┌─ sticky page-bar ───────────────────────────────────────┐
-//   │ ← Вернуться к списку       [Сохранить] [Опубликовать]   │
+//   │ ← Вернуться к списку     [Удалить промо] [Сохранить]    │
 //   ├─────────────────────────────────────────────────────────┤
 //   │ H1 «Редактирование промо»                                │
 //   │ mono caption «ID xxx · обновлено HH:MM»                  │
@@ -103,7 +103,9 @@ const CAPS: Record<Promo['format'], Caps> = {
   tooltip:    { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: false, gradient: false, textAlign: true,  variants: false, bullets: false },
 };
 
-const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
+/** Human labels per format. Exported as the single source for format naming
+ *  across the cabinet (PromoList filter chips reuse it). */
+export const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
   inline:     { name: 'Inline',     sub: 'В ленте' },
   topline:    { name: 'Topline',    sub: 'Над шапкой' },
   popup:      { name: 'Popup',      sub: 'Поверх' },
@@ -209,6 +211,7 @@ export function PromoForm({
   const [memberSet, setMemberSet] = useState<Set<string>>(() => new Set(membership));
   const [queueBusy, startQueueTransition] = useTransition();
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const set = (patch: Partial<Promo>) => setP((cur) => ({ ...cur, ...patch }));
   const setTargeting = (patch: Partial<Promo['targeting']>) =>
@@ -322,6 +325,30 @@ export function PromoForm({
     });
   }
 
+  /** DELETE /api/promos/[id] — the handler also removes the id from every
+   *  queue, so no separate queue cleanup is needed here. */
+  async function deletePromo() {
+    if (mode !== 'edit' || !p.id) return;
+    if (!confirm(`Удалить промо «${p.title || p.id}»? Оно будет убрано из всех очередей.`)) return;
+    setError('');
+    setDeleting(true);
+    let res: Response;
+    try {
+      res = await fetch(`/api/promos/${encodeURIComponent(p.id)}`, { method: 'DELETE' });
+    } catch {
+      setDeleting(false);
+      setError('Сеть недоступна — проверьте соединение и повторите.');
+      return;
+    }
+    if (res.ok) {
+      trackEvent('promo_delete_success', { promo_id: p.id, format: p.format });
+      router.push('/cabinet'); router.refresh(); return;
+    }
+    setDeleting(false);
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    setError(ERROR_MESSAGES[data.error ?? ''] ?? `Не удалось удалить (ошибка ${res.status}).`);
+  }
+
   const titleLen = p.title.length;
   const titleOver = titleLen > TITLE_MAX;
   const updatedNow = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -332,25 +359,31 @@ export function PromoForm({
       <div className="editor-bar">
         <Link href="/cabinet" className="editor-back">← Вернуться к списку</Link>
         <div className="editor-actions">
+          {mode === 'edit' && (
+            <button
+              type="button"
+              className="ebtn ebtn-danger"
+              disabled={saving || deleting}
+              onClick={deletePromo}
+              data-track="promo_delete"
+              data-track-id={p.id}
+            >
+              {deleting ? 'Удаляю…' : 'Удалить промо'}
+            </button>
+          )}
           <AiEnhanceButton
             getDraft={() => ({ title: p.title, description: p.description, action: p.action })}
             onSuggestions={setAiResult}
           />
-          <button
-            type="submit"
-            className="ebtn ebtn-ghost"
-            disabled={saving}
-            title="Сохранить как черновик"
-          >
-            {saving ? 'Сохраняю…' : 'Сохранить'}
-          </button>
+          {/* Черновиков нет: каждый save уходит в S3 и попадает в прод в
+              пределах 15-секундного TTL BFF-кэша — поэтому одна честная
+              кнопка вместо пары «черновик/опубликовать». */}
           <button
             type="submit"
             className="ebtn ebtn-primary"
-            disabled={saving}
-            onClick={() => set({ /* publish is just save for now */ })}
+            disabled={saving || deleting}
           >
-            Опубликовать
+            {saving ? 'Сохраняю…' : 'Сохранить'}
           </button>
         </div>
       </div>
@@ -701,21 +734,36 @@ export function PromoForm({
                 <div className="ef-field">
                   <label>Уровни подписки</label>
                   <div className="ef-checkbox-row">
-                    {(['none', 'plus', 'premium'] as const).map((lvl) => (
-                      <label key={lvl} className="ef-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={p.targeting.subscriptionLevels?.includes(lvl) ?? false}
-                          onChange={(e) => {
-                            const cur  = p.targeting.subscriptionLevels ?? [];
-                            const next = e.target.checked ? [...cur, lvl] : cur.filter((x) => x !== lvl);
-                            setTargeting({ subscriptionLevels: next.length ? next : undefined });
-                          }}
-                        />
-                        {lvl}
-                      </label>
-                    ))}
+                    {(['none', 'plus', 'premium'] as const).map((lvl) => {
+                      const disabled = lvl === 'premium';
+                      const title =
+                        lvl === 'premium'
+                          ? 'Не поддерживается биллингом (billing-service отдаёт только plus/none)'
+                          : lvl === 'none'
+                            ? 'none = не-PRO, ВКЛЮЧАЯ гостей; для отсечения гостей добавьте аудиторию «Только залогиненные»'
+                            : undefined;
+                      return (
+                        <label key={lvl} className={`ef-checkbox${disabled ? ' is-disabled' : ''}`} title={title}>
+                          <input
+                            type="checkbox"
+                            disabled={disabled}
+                            checked={p.targeting.subscriptionLevels?.includes(lvl) ?? false}
+                            onChange={(e) => {
+                              const cur  = p.targeting.subscriptionLevels ?? [];
+                              const next = e.target.checked ? [...cur, lvl] : cur.filter((x) => x !== lvl);
+                              setTargeting({ subscriptionLevels: next.length ? next : undefined });
+                            }}
+                          />
+                          {lvl}
+                        </label>
+                      );
+                    })}
                   </div>
+                  {p.targeting.subscriptionLevels?.includes('none') && (
+                    <span className="ef-hint">
+                      none = не-PRO, включая гостей. Чтобы отсечь гостей, поставьте аудиторию «Только залогиненные».
+                    </span>
+                  )}
                 </div>
 
                 <div className="ef-row">
@@ -727,6 +775,9 @@ export function PromoForm({
                       onChange={(e) => set({ sections: parseSlugList(e.target.value) })}
                       placeholder="avto, realty"
                     />
+                    <span className="ef-hint">
+                      Работает только на overlay-поверхности; на topline/tooltip промо с разделами не показывается.
+                    </span>
                   </div>
                   <div className="ef-field">
                     <label>Категории</label>
@@ -1111,6 +1162,8 @@ const EDITOR_CSS = `
 .ebtn-ghost:hover:not(:disabled) { border-color: var(--app-border2); }
 .ebtn-primary { background: var(--brand-coral-600); color: #fff; }
 .ebtn-primary:hover:not(:disabled) { background: var(--brand-coral-700); }
+.ebtn-danger  { background: #fff; border-color: var(--brand-coral-600); color: var(--brand-coral-700); }
+.ebtn-danger:hover:not(:disabled) { background: var(--brand-coral-600); color: #fff; }
 
 /* ── AI accent button ──────────────────────────────────────── */
 /* Distinct from save/publish so the action's intent is obvious. */
@@ -1355,6 +1408,7 @@ const EDITOR_CSS = `
   font-size: 13px; font-weight: 500; color: var(--app-fg2);
   cursor: pointer;
 }
+.ef-checkbox.is-disabled { opacity: .45; cursor: not-allowed; }
 .ef-divider { height: 1px; background: var(--app-border); margin: 4px 0; }
 
 /* Segmented control — popup variant + textAlign */

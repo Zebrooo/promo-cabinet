@@ -294,6 +294,8 @@ a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-under
 .badge-popup      { background: #F4EBD9; color: #5C3D1A; }
 .badge-fullscreen { background: #FBE0D4; color: #7A2416; }
 .badge-inline     { background: #FBF2EF; color: #B91220; }
+.badge-divkit     { background: #E4E9F5; color: #24407A; }
+.badge-tooltip    { background: #EEE6F6; color: #4B2A73; }
 .badge-tag        { background: var(--app-surface2); color: var(--app-fg2); border: 1px solid var(--app-border2); }
 .badge-active     { background: #D6EDDD; color: #1B6935; }
 .badge-inactive   { background: var(--app-surface2); color: var(--app-fg3); }
