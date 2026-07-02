@@ -108,9 +108,12 @@ const CAPS: Record<Promo['format'], Caps> = {
   // separate required field (dropdown), not a CAPS boolean.
   tooltip:    { image: true,  description: true,  actionLabel: true,  dismissible: true,  colors: true,  bgImage: false, gradient: false, textAlign: true,  variants: false, bullets: false },
   // Multistep — пошаговый визард на storefront (ReklamaWizard). Контент целиком
-  // в steps (заголовок+текст на шаг), поэтому image/description/CTA/визуал
-  // не имеют смысла; dismissible тоже нет — у визарда свои кнопки закрытия.
-  multistep:  { image: false, description: false, actionLabel: false, dismissible: false, colors: false, bgImage: false, gradient: false, textAlign: false, variants: false, bullets: false },
+  // в steps (заголовок+текст на шаг), поэтому image/description/CTA не имеют
+  // смысла; dismissible тоже нет — у визарда свои кнопки закрытия. НО фон
+  // диалога/шторки визарда — те же поля, что у popup (colors/bgImage/gradient),
+  // применяются composeOverlayBackground в @zebrooo/promo-renderer 0.13.0.
+  // (Фон промо, не путать с картинкой шага steps[].imageUrl — отдельное поле.)
+  multistep:  { image: false, description: false, actionLabel: false, dismissible: false, colors: true,  bgImage: true,  gradient: true,  textAlign: false, variants: false, bullets: false },
 };
 
 // Human labels per format moved to @/lib/format-labels (single source, usable
@@ -1194,11 +1197,11 @@ export function PromoForm({
 
                     {caps.bgImage && (
                       <div className="ef-field" style={{ gridColumn: '1 / -1' }}>
-                        <label>Фон-картинка попапа</label>
+                        <label>Фон-картинка</label>
                         <PromoImageUpload
                           value={p.backgroundImage ?? ''}
                           onChange={(url) => set({ backgroundImage: url || undefined })}
-                          label="Фон попапа"
+                          label="Фон промо"
                           recommend="1200×1600"
                           format={p.format}
                         />

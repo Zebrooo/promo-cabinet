@@ -32,6 +32,7 @@ function toAd(p: Promo): Advertisement {
     backgroundColor: hasImage ? undefined : p.backgroundColor,
     textColor: p.textColor,
     backgroundImage: p.backgroundImage,
+    backgroundGradient: p.backgroundGradient,
     divkitUrl: p.divkitUrl,
     divkitJson: p.divkitJson,
     anchor: p.anchor,
