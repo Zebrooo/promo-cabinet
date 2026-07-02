@@ -16,6 +16,7 @@
 
 import Link from 'next/link';
 import { requireSession } from '@/lib/require-session';
+import { formatName } from '@/lib/format-labels';
 import {
   getPromoTop,
   getPromoZero,
@@ -28,9 +29,6 @@ import {
 export const dynamic = 'force-dynamic';
 
 const DAYS = 30;
-const FORMAT_LABEL: Record<string, string> = {
-  topline: 'topline', inline: 'inline', popup: 'popup', fullscreen: 'fullscreen',
-};
 
 export default async function PromoAnalyticsPage() {
   requireSession();
@@ -108,7 +106,7 @@ export default async function PromoAnalyticsPage() {
               {funnel.map((f) => (
                 <div key={f.format} className="ops-funnel-leg">
                   <span className={`ops-funnel-dot fmt-${f.format}`} />
-                  <span className="ops-funnel-leg-name">{FORMAT_LABEL[f.format] ?? f.format}</span>
+                  <span className="ops-funnel-leg-name">{formatName(f.format)}</span>
                   <span className="ops-funnel-leg-num mono">
                     {f.views.toLocaleString('ru-RU')} · CTR {round1(f.ctr_pct)}%
                   </span>

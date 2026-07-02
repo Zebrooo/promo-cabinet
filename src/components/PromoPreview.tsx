@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { PromoProvider, PromoRenderer, type Advertisement } from '@zebrooo/promo-renderer';
 import type { Promo } from '@/lib/schema';
+import { FORMAT_LABEL } from '@/lib/format-labels';
 
 const noop = (_href: string) => {};
 
@@ -87,7 +88,7 @@ export function PromoPreview({ promo }: { promo: Promo }) {
     return (
       <div className="preview-panel">
         <p className="preview-note">
-          Формат «{promo.format}» открывается поверх страницы. Закрыть — крестик или Esc.
+          Формат «{FORMAT_LABEL[promo.format].name}» открывается поверх страницы. Закрыть — крестик или Esc.
         </p>
         <button type="button" className="btn" onClick={() => setOpenKey((k) => k + 1)}>
           Показать превью

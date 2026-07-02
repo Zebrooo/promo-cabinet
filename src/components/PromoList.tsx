@@ -24,7 +24,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
-import { FORMAT_LABEL } from './PromoForm';
+import { FORMAT_LABEL } from '@/lib/format-labels';
 
 interface PromoListProps {
   promos: Promo[];

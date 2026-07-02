@@ -44,6 +44,7 @@ import { useRouter } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
+import { FORMAT_LABEL } from '@/lib/format-labels';
 import { CANONICAL_ANCHORS } from '@/lib/catalogue';
 import { PromoPreview } from './PromoPreview';
 import { PromoImageUpload } from './PromoImageUpload';
@@ -112,17 +113,8 @@ const CAPS: Record<Promo['format'], Caps> = {
   multistep:  { image: false, description: false, actionLabel: false, dismissible: false, colors: false, bgImage: false, gradient: false, textAlign: false, variants: false, bullets: false },
 };
 
-/** Human labels per format. Exported as the single source for format naming
- *  across the cabinet (PromoList filter chips reuse it). */
-export const FORMAT_LABEL: Record<Promo['format'], { name: string; sub: string }> = {
-  inline:     { name: 'Inline',     sub: 'В ленте' },
-  topline:    { name: 'Topline',    sub: 'Над шапкой' },
-  popup:      { name: 'Popup',      sub: 'Поверх' },
-  fullscreen: { name: 'Fullscreen', sub: 'На весь экран' },
-  divkit:     { name: 'DivKit',     sub: 'JSON-верстка' },
-  tooltip:    { name: 'Tooltip',    sub: 'Подсказка у элемента' },
-  multistep:  { name: 'Мультистеп', sub: 'Пошаговый визард' },
-};
+// Human labels per format moved to @/lib/format-labels (single source, usable
+// from server components and free of the PromoForm ↔ PromoPreview cycle).
 
 const empty: Promo = {
   id: '', name: '', startsAt: '', endsAt: '', targeting: {},
@@ -179,6 +171,9 @@ function sanitize(p: Promo): Promo {
     bullets:            c.bullets     ? p.bullets            : undefined,
     anchor: p.format === 'tooltip' ? p.anchor : undefined,
     steps:  p.format === 'multistep' ? p.steps : undefined,
+    // presentation применим только к multistep (schema.ts refine) — у
+    // остальных форматов вычищается, как декоративные поля выше.
+    presentation: p.format === 'multistep' ? p.presentation : undefined,
     // ctaColor/ctaTextColor имеют смысл только когда есть action
     ctaColor:     p.action && !noCta ? p.ctaColor     : undefined,
     ctaTextColor: p.action && !noCta ? p.ctaTextColor : undefined,
@@ -649,6 +644,34 @@ export function PromoForm({
               {steps.some((s) => !s.title.trim() || !s.body.trim()) && (
                 <div className="hint hint-warn">Заполните заголовок и текст у каждого шага.</div>
               )}
+            </section>
+          )}
+
+          {/* Multistep presentation — модалка (default) или во весь экран.
+              Тот же сегмент-контрол, что «Шаблон попапа» / выравнивание. */}
+          {p.format === 'multistep' && (
+            <section className="ef-block">
+              <div className="ef-label">ОТОБРАЖЕНИЕ</div>
+              <div className="ef-segment">
+                {([
+                  { v: 'modal',      name: 'Модалка',       sub: 'центрированный диалог' },
+                  { v: 'fullscreen', name: 'Во весь экран', sub: 'визард на весь вьюпорт' },
+                ] as const).map(({ v, name, sub }) => {
+                  const active = (p.presentation ?? 'modal') === v;
+                  return (
+                    <button
+                      type="button"
+                      key={v}
+                      className={`ef-segment-btn${active ? ' is-active' : ''}`}
+                      onClick={() => set({ presentation: v })}
+                      aria-pressed={active}
+                    >
+                      <span className="ef-segment-name">{name}</span>
+                      <span className="ef-segment-sub">{sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </section>
           )}
 

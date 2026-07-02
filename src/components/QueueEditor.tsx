@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
+import { formatName } from '@/lib/format-labels';
 
 function isActive(p: Promo): boolean {
   const now = Date.now();
@@ -225,7 +226,7 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
                     <div className="qi-title">{p.title}</div>
                     <div className="qi-slug">{p.id}</div>
                   </div>
-                  <span className={`badge badge-${p.format}`}>{p.format}</span>
+                  <span className={`badge badge-${p.format}`}>{formatName(p.format)}</span>
                   <span className={`badge ${isActive(p) ? 'badge-active' : 'badge-inactive'}`}>
                     {isActive(p) ? 'активен' : 'не активен'}
                   </span>
@@ -318,7 +319,7 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
             </div>
             {Object.entries(formatCounts).map(([format, count]) => (
               <div className="stat-row" key={format}>
-                <span className="sr-label">— {format}</span>
+                <span className="sr-label">— {formatName(format)}</span>
                 <span className="sr-val">{count}</span>
               </div>
             ))}

@@ -24,6 +24,11 @@ export const popupVariantSchema = z.enum(['classic', 'split']);
  *  вертикального renderer уже сам центрирует через flex. */
 export const textAlignSchema = z.enum(['left', 'center', 'right']);
 
+/** Multistep only: режим показа визарда. `modal` (default) — центрированный
+ *  диалог поверх backdrop; `fullscreen` — диалог на весь вьюпорт
+ *  (zr-multistep--fullscreen в @zebrooo/promo-renderer, с 0.11.0). */
+export const presentationSchema = z.enum(['modal', 'fullscreen']);
+
 /** Один шаг multistep-визарда: заголовок + текст. Лимиты повторяют
  *  wizard-steps.ts на storefront (title ≤ 80, body ≤ 240) — что не влезло,
  *  web всё равно обрежет, поэтому честнее не пустить на этапе формы. */
@@ -96,6 +101,10 @@ export const promoSchema = z
      *  @zebrooo/promo-renderer (MultistepPromo, с 0.10.0). Обязателен когда
      *  format==='multistep' (см. refine ниже, как anchor у tooltip). */
     steps: z.array(promoStepSchema).min(2).max(6).optional(),
+    /** Multistep-формат: режим показа — модалка (default) или во весь экран.
+     *  Применим ТОЛЬКО к multistep (refine ниже; sanitize в PromoForm
+     *  вычищает у остальных форматов, как декоративные поля). */
+    presentation: presentationSchema.optional(),
     audience: audienceSchema.optional(),
     sections: z.array(z.string().min(1)).optional(),
     categories: z.array(z.string().min(1)).optional(),
@@ -120,6 +129,10 @@ export const promoSchema = z
   .refine((p) => p.format !== 'multistep' || (Array.isArray(p.steps) && p.steps.length >= 2), {
     message: 'steps (2..6) are required for the multistep format',
     path: ['steps'],
+  })
+  .refine((p) => p.presentation === undefined || p.format === 'multistep', {
+    message: 'presentation is only supported by the multistep format',
+    path: ['presentation'],
   })
   .refine((p) => p.afterPromoId === undefined || p.afterPromoId !== p.id, {
     message: 'afterPromoId must reference a different promo',

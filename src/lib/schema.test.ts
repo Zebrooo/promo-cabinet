@@ -178,6 +178,36 @@ describe('multistep format (steps)', () => {
   });
 });
 
+describe('presentation (multistep: модалка / во весь экран)', () => {
+  const step = (n: number) => ({ title: `Шаг ${n}`, body: `Текст шага ${n}` });
+  const multistep = {
+    id: 'ms-p', name: 'MS', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
+    targeting: {}, cooldownHours: 0, format: 'multistep', title: 'Онбординг',
+    steps: [step(1), step(2)],
+  };
+
+  it('accepts a multistep promo with presentation: modal', () => {
+    expect(promoSchema.parse({ ...multistep, presentation: 'modal' }).presentation).toBe('modal');
+  });
+
+  it('accepts a multistep promo with presentation: fullscreen', () => {
+    expect(promoSchema.parse({ ...multistep, presentation: 'fullscreen' }).presentation).toBe('fullscreen');
+  });
+
+  it('accepts a multistep promo without presentation (optional, default modal у рендерера)', () => {
+    expect(promoSchema.parse(multistep).presentation).toBeUndefined();
+  });
+
+  it('rejects an unknown presentation value', () => {
+    expect(() => promoSchema.parse({ ...multistep, presentation: 'sheet' })).toThrow();
+  });
+
+  it('rejects presentation on a non-multistep format (refine, поле только у multistep)', () => {
+    expect(() => promoSchema.parse({ ...valid, presentation: 'fullscreen' })).toThrow();
+    expect(() => promoSchema.parse({ ...valid, presentation: 'modal' })).toThrow();
+  });
+});
+
 describe('afterPromoId (цепочка показов)', () => {
   it('accepts a promo with afterPromoId', () => {
     const parsed = promoSchema.parse({ ...valid, afterPromoId: 'intro-step-1' });
