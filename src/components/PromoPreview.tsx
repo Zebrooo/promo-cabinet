@@ -7,7 +7,7 @@ import { FORMAT_LABEL } from '@/lib/format-labels';
 const noop = (_href: string) => {};
 
 /** Formats that render as a full-viewport portal overlay (and lock page scroll). */
-const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen']);
+const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen', 'multistep']);
 
 /** Map an in-progress promo to the renderer's Advertisement subset.
  *  Правило фона: image ⊃ gradient ⊃ color. Если есть более «сильный»
@@ -21,9 +21,9 @@ function toAd(p: Promo): Advertisement {
   const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
     id: p.id || 'preview',
-    // 'multistep' до сюда не доходит (отдельная ветка ниже) — renderer'у
-    // известны только его собственные форматы.
     format: p.format as Advertisement['format'],
+    steps: p.steps,
+    presentation: p.presentation,
     title: p.title,
     description: p.description,
     imageUrl: p.imageUrl,
@@ -42,31 +42,13 @@ export function PromoPreview({ promo }: { promo: Promo }) {
   // Bumping the key remounts the overlay so it can be reopened after being closed.
   const [openKey, setOpenKey] = useState(0);
 
-  // Multistep: рендерер кабинета (0.9.1) этот формат ещё не знает — гейтимся
-  // по формату ДО PromoRenderer (иначе console.warn + null) и показываем
-  // статический список шагов. После бампа зависимости на 0.10.0 здесь можно
-  // будет открывать живой визард пакета.
+  // Multistep: живой визард пакета (renderer ≥0.10.0). Для рендера пакету
+  // нужно ≥2 валидных шагов (validSteps), до того — подсказка вместо пустоты.
   if (promo.format === 'multistep') {
-    const steps = promo.steps ?? [];
-    if (steps.length === 0) {
-      return <div className="preview-hint">Добавьте шаги (2–6), чтобы увидеть превью визарда.</div>;
+    const validSteps = (promo.steps ?? []).filter((st) => st.title?.trim() && st.body?.trim());
+    if (validSteps.length < 2) {
+      return <div className="preview-hint">Добавьте минимум 2 заполненных шага (2–6), чтобы открыть живое превью визарда.</div>;
     }
-    return (
-      <div className="preview-panel">
-        <p className="preview-note">
-          На сайте — модальный визард: шаги листаются, точки-прогресс, «Далее».
-          Шагов: {steps.length}.
-        </p>
-        <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {steps.map((st, i) => (
-            <li key={i}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{st.title || '—'}</div>
-              <div style={{ fontSize: 13, opacity: 0.75 }}>{st.body || '—'}</div>
-            </li>
-          ))}
-        </ol>
-      </div>
-    );
   }
 
   // DivKit: визуал диктуется JSON-tree'ом, наш title/desc не используются.
