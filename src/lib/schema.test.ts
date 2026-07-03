@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { promoSchema, catalogueSchema, queueSchema, audienceSchema, type Promo } from './schema';
+import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
 
 const valid: Promo = {
   id: 'summer-sale',
@@ -291,6 +292,62 @@ describe('audienceSchema', () => {
 
   it('rejects unknown values', () => {
     expect(() => audienceSchema.parse('nope')).toThrow();
+  });
+});
+
+describe('custom format', () => {
+  const base = {
+    id: 'custom-test',
+    name: 'Custom test',
+    format: 'custom' as const,
+    variant: 'reklama-onboarding' as const,
+    title: 'Custom promo',
+    startsAt: '2026-07-01T00:00:00.000Z',
+    endsAt: '2027-07-01T00:00:00.000Z',
+    targeting: {},
+    cooldownHours: 0,
+    maxImpressionsPerUser: 1,
+    audience: 'authenticated' as const,
+    deviceTarget: 'both' as const,
+  };
+
+  it('accepts a valid custom promo with a registered variant', () => {
+    expect(promoSchema.safeParse(base).success).toBe(true);
+  });
+
+  it('rejects custom promo without variant', () => {
+    const bad = { ...base, variant: undefined };
+    const result = promoSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('variant'))).toBe(true);
+    }
+  });
+
+  it('rejects custom promo with unregistered variant', () => {
+    const bad = { ...base, variant: 'not-in-manifest' };
+    const result = promoSchema.safeParse(bad);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('variant'))).toBe(true);
+    }
+  });
+
+  it('variant is ignored for non-custom formats (validation passes without variant)', () => {
+    const multistep = {
+      ...base,
+      format: 'multistep' as const,
+      variant: undefined,
+      steps: [
+        { title: 'a', body: 'b' },
+        { title: 'c', body: 'd' },
+      ],
+    };
+    expect(promoSchema.safeParse(multistep).success).toBe(true);
+  });
+
+  it('sanity: KNOWN_CUSTOM_VARIANTS has reklama-onboarding', () => {
+    expect(KNOWN_CUSTOM_VARIANTS.some((v) => v.id === 'reklama-onboarding')).toBe(true);
   });
 });
 

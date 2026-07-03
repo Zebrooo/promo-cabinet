@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
 
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
-export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip', 'multistep']);
+export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip', 'multistep', 'custom']);
 export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
 export const deviceTargetSchema = z.enum(['desktop', 'touch', 'both']);
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
@@ -111,6 +112,10 @@ export const promoSchema = z
      *  Применим ТОЛЬКО к multistep (refine ниже; sanitize в PromoForm
      *  вычищает у остальных форматов, как декоративные поля). */
     presentation: presentationSchema.optional(),
+    /** Custom-формат: id варианта host-side рендер-функции из
+     *  KNOWN_CUSTOM_VARIANTS. Обязателен когда format==='custom' и должен
+     *  быть зарегистрирован в манифесте (два refine ниже). */
+    variant: z.string().min(1).max(64).optional(),
     audience: audienceSchema.optional(),
     sections: z.array(z.string().min(1)).optional(),
     categories: z.array(z.string().min(1)).optional(),
@@ -143,7 +148,15 @@ export const promoSchema = z
   .refine((p) => p.afterPromoId === undefined || p.afterPromoId !== p.id, {
     message: 'afterPromoId must reference a different promo',
     path: ['afterPromoId'],
-  });
+  })
+  .refine(
+    (p) => p.format !== 'custom' || (typeof p.variant === 'string' && p.variant.length > 0),
+    { message: 'variant is required for the custom format', path: ['variant'] },
+  )
+  .refine(
+    (p) => p.format !== 'custom' || KNOWN_CUSTOM_VARIANTS.some((v) => v.id === p.variant),
+    { message: 'variant is not registered in KNOWN_CUSTOM_VARIANTS', path: ['variant'] },
+  );
 
 export const catalogueSchema = z.array(promoSchema);
 

@@ -1,4 +1,5 @@
 'use client';
+import { KNOWN_CUSTOM_VARIANTS } from '@/lib/custom-variants';
 import { useState } from 'react';
 import { PromoProvider, PromoRenderer, type Advertisement } from '@zebrooo/promo-renderer';
 import type { Promo } from '@/lib/schema';
@@ -50,6 +51,20 @@ export function PromoPreview({ promo }: { promo: Promo }) {
     if (validSteps.length < 2) {
       return <div className="preview-hint">Добавьте минимум 2 заполненных шага (2–6), чтобы открыть живое превью визарда.</div>;
     }
+  }
+
+  // Custom: контент рендерит host-компонент (по variant из KNOWN_CUSTOM_VARIANTS),
+  // а не renderer/кабинет — живого превью здесь нет. Показываем, какой вариант
+  // выбран и где он живёт.
+  if (promo.format === 'custom') {
+    const v = KNOWN_CUSTOM_VARIANTS.find((x) => x.id === promo.variant);
+    return (
+      <div className="preview-hint">
+        {v
+          ? <>Вариант «{v.label}» — контент рендерит {v.host} на сайте. Превью доступно там, в самом онбординге.</>
+          : <>Выберите вариант — контент этого формата задаётся host-компонентом на сайте.</>}
+      </div>
+    );
   }
 
   // DivKit: визуал диктуется JSON-tree'ом, наш title/desc не используются.
