@@ -127,8 +127,11 @@ export const PROD_SERVED_QUEUES: readonly string[] = [
   'home-popup',
   'tooltip',
   'cabinet-onboarding',
-  // + after step C (storefront cutover to per-catalog queues):
-  // 'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
+  // Per-catalog queues — the storefront now requests one per page/catalog
+  // (step C cutover, feat/per-catalog-promo-queues): overlay+topline derive the
+  // queue from catalogFromPath(). Guarded so they can't be deleted while served.
+  'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
+  // Legacy home-banner/home-popup stay until the retire step D.
 ];
 
 /**
