@@ -1,7 +1,7 @@
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '@/env';
 import { promosKey, queuesIndexKey, queueKey, legacyQueueKey, getS3Client, isNoSuchKey } from './s3';
-import { poolSchema, queueSchema, queuesIndexSchema, queueObjectSchema, type Promo, type QueueObject, type QueuesIndex } from './schema';
+import { promoSchema, queueSchema, queuesIndexSchema, queueObjectSchema, type Promo, type QueueObject, type QueuesIndex } from './schema';
 
 /** A missing object reads as null. */
 async function readText(key: string): Promise<string | null> {
@@ -21,9 +21,31 @@ async function writeJson(key: string, value: unknown): Promise<void> {
   );
 }
 
+/**
+ * Читает пул ПОШТУЧНО: одно битое промо не должно валить чтение всего каталога
+ * (иначе весь кабинет показывает «Не удалось прочитать данные из S3» — инцидент
+ * 2026-07-03: custom-промо без title завалило `poolSchema.parse` на весь массив).
+ * Невалидные записи пропускаются с `console.warn`, валидные возвращаются. Тот же
+ * подход, что в promo-bff config-service (аудит B4).
+ */
 export async function readPool(): Promise<Promo[]> {
   const text = await readText(promosKey());
-  return text === null ? [] : poolSchema.parse(JSON.parse(text));
+  if (text === null) return [];
+  const raw: unknown = JSON.parse(text);
+  if (!Array.isArray(raw)) {
+    console.warn('[readPool] promos.json is not an array — treating as empty', { type: typeof raw });
+    return [];
+  }
+  const out: Promo[] = [];
+  for (const item of raw) {
+    const res = promoSchema.safeParse(item);
+    if (res.success) out.push(res.data);
+    else {
+      const promoId = (item as { id?: unknown } | null)?.id;
+      console.warn('[readPool] skipping invalid promo', { promoId, issues: res.error.issues });
+    }
+  }
+  return out;
 }
 export async function writePool(promos: Promo[]): Promise<void> {
   await writeJson(promosKey(), promos);

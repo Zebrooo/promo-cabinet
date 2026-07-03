@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
@@ -50,6 +50,25 @@ describe('pool', () => {
     const next = await mutatePool((promos) => addPromo(promos, make('b')));
     expect(next.map((p) => p.id)).toEqual(['a', 'b']);
     expect((await readPool()).map((p) => p.id)).toEqual(['a', 'b']);
+  });
+  it('skips an invalid promo instead of failing the whole read (one bad promo must not dark the cabinet)', async () => {
+    // 2 валидных + 1 битое (без title — форма инцидента 2026-07-03: custom-промо
+    // без title валило poolSchema.parse на весь массив).
+    const bad = { id: 'bad', name: 'bad', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z', targeting: {}, cooldownHours: 0, format: 'inline' };
+    await put(promosKey(), JSON.stringify([make('a'), bad, make('b')]));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const pool = await readPool();
+    expect(pool.map((p) => p.id)).toEqual(['a', 'b']); // битое отброшено, валидные целы
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0].some((a) => JSON.stringify(a).includes('bad'))).toBe(true); // id битого залогирован
+    warn.mockRestore();
+  });
+  it('reads empty (with warn) when the pool JSON is not an array', async () => {
+    await put(promosKey(), JSON.stringify({ not: 'an array' }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await readPool()).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
 
