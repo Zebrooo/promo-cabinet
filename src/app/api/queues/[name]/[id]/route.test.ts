@@ -92,6 +92,59 @@ describe('POST /api/queues/[name]/[id]', () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it('returns no warning when format matches queue (inline in home)', async () => {
+    await seedIndex([{ name: 'home', persist: false }]);
+    await seedPool([promo('p1')]); // promo() uses 'inline' format, which IS served by 'home'
+    const res = await POST(authed('home', 'p1'), ctx('home', 'p1'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; warning?: string };
+    expect(body.ok).toBe(true);
+    expect(body.warning).toBeUndefined();
+  });
+
+  it('returns warning when format is not served by the queue (multistep in home)', async () => {
+    await seedIndex([{ name: 'home', persist: false }]);
+    const multistepPromo = {
+      ...promo('ms1'),
+      format: 'multistep' as const,
+      steps: [
+        { title: 'Шаг 1', body: 'Текст первого шага' },
+        { title: 'Шаг 2', body: 'Текст второго шага' },
+      ],
+    };
+    await seedPool([multistepPromo]);
+    const res = await POST(authed('home', 'ms1'), ctx('home', 'ms1'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; warning?: string };
+    expect(body.ok).toBe(true);
+    expect(typeof body.warning).toBe('string');
+    expect(body.warning).toMatch(/multistep/);
+    expect(body.warning).toMatch(/home/);
+  });
+
+  it('returns warning for tooltip format in a catalog queue', async () => {
+    await seedIndex([{ name: 'transport', persist: false }]);
+    const tooltipPromo = {
+      ...promo('tt1'),
+      format: 'tooltip' as const,
+      anchor: 'home-search',
+    };
+    await seedPool([tooltipPromo]);
+    const res = await POST(authed('transport', 'tt1'), ctx('transport', 'tt1'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; warning?: string };
+    expect(body.warning).toBeTruthy();
+  });
+
+  it('returns no warning for an unknown/custom queue name (avoids false positives)', async () => {
+    await seedIndex([{ name: 'my-custom-q', persist: false }]);
+    await seedPool([promo('a1')]);
+    const res = await POST(authed('my-custom-q', 'a1'), ctx('my-custom-q', 'a1'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; warning?: string };
+    expect(body.warning).toBeUndefined();
+  });
 });
 
 describe('DELETE /api/queues/[name]/[id]', () => {

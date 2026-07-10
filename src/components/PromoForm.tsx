@@ -53,6 +53,7 @@ import { AiEnhanceButton } from './AiEnhanceButton';
 import { EnhanceDiff, type EnhancePatch } from './EnhanceDiff';
 import type { AiSuggestions } from '@/lib/ai-client';
 import { FORMATS_BY_DEVICE, type DeviceClass } from '@zebrooo/promo-renderer';
+import { queuesServing, QUEUE_META } from '@/lib/queue-formats';
 
 // Какие форматы доступны для каждого варианта targeting.
 // Union (а не intersection): на 'both' оставляем все desktop-форматы — topline
@@ -567,6 +568,19 @@ export function PromoForm({
             {formatCaveatFor(p.format, currentTarget) && (
               <div className="hint hint-warn">{formatCaveatFor(p.format, currentTarget)}</div>
             )}
+            {(() => {
+              const queues = queuesServing(p.format);
+              if (queues.length === 0) return null;
+              const labels = queues.map((qn) => QUEUE_META[qn]?.label ?? qn).join(', ');
+              const multistepNote = p.format === 'multistep'
+                ? ' (каталожные очереди этот формат сейчас не запрашивают — только cabinet-onboarding)'
+                : '';
+              return (
+                <div className="hint">
+                  Формат обслуживается очередями: <b>{labels}</b>{multistepNote}.
+                </div>
+              );
+            })()}
           </section>
 
           {/* Tooltip anchor — required when format=tooltip */}
