@@ -21,7 +21,7 @@
 //   └─────────────────────────────────────────────────────────┘
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Formik, Form, useFormikContext } from 'formik';
+import { Formik, Form, useFormikContext, setNestedObjectValues } from 'formik';
 import Link from 'next/link';
 import { trackEvent } from '@/lib/analytics';
 import type { Promo } from '@/lib/schema';
@@ -29,7 +29,7 @@ import { AiEnhanceButton } from '@/components/AiEnhanceButton';
 import { EnhanceDiff, type EnhancePatch } from '@/components/EnhanceDiff';
 import type { AiSuggestions } from '@/lib/ai-client';
 import { validatePromoForm } from './validate';
-import { toPersisted } from './to-persisted';
+import { toPersisted, toPreview } from './to-persisted';
 import { EDITOR_CSS } from './editor-styles';
 import { DevicePlacementSection } from './sections/DevicePlacementSection';
 import { ContentSection } from './sections/ContentSection';
@@ -122,11 +122,12 @@ function FormBody({
     const formErrors = await validateForm();
     if (Object.keys(formErrors).length > 0) {
       // Touch everything so field-level errors render (mirrors submit-time
-      // err-banner + touched behaviour from the ТЗ).
-      setTouched(
-        Object.fromEntries(Object.keys(formErrors).map((k) => [k, true])) as never,
-        false,
-      );
+      // err-banner + touched behaviour from the ТЗ). setNestedObjectValues
+      // (not a flat Object.keys map) is required so nested paths like
+      // targeting.minAge / action.href / steps.0.title get touched too —
+      // a flat map only touches the top-level key, leaving getIn(touched, ...)
+      // undefined for nested FieldError checks.
+      setTouched(setNestedObjectValues(formErrors, true), false);
       setError('Проверьте поля формы — есть ошибки.');
       return;
     }
@@ -218,14 +219,11 @@ function FormBody({
 
   const updatedNow = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-  // Preview rail wants a fully-stripped Promo; while the draft is mid-edit
-  // (invalid) fall back to raw values so the rail never crashes.
-  let previewPromo: Promo;
-  try {
-    previewPromo = toPersisted(values);
-  } catch {
-    previewPromo = values;
-  }
+  // Preview rail wants a fully-stripped Promo; toPreview() is the lenient
+  // (never-throwing, no zod validation) sibling of toPersisted() — it keeps
+  // the preview format-clean even while the draft is mid-edit/invalid,
+  // instead of falling back to raw cross-format values.
+  const previewPromo: Promo = toPreview(values);
 
   return (
     <Form className="editor" onSubmit={submit}>

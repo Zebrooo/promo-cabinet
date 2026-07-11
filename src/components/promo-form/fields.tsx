@@ -20,25 +20,6 @@ function FieldError({ name }: { name: string }) {
   return <div className="hint hint-warn">{meta.error}</div>;
 }
 
-export function TextField({
-  name, label, placeholder, className, maxLength, mono, title,
-}: BaseProps & { mono?: boolean; title?: boolean }) {
-  const [field] = useField(name);
-  return (
-    <section className="ef-block">
-      {label && <div className="ef-label">{label}</div>}
-      <input
-        className={`ef-input${mono ? ' mono' : ''}${title ? ' title' : ''}${className ? ` ${className}` : ''}`}
-        {...field}
-        value={field.value ?? ''}
-        placeholder={placeholder}
-        maxLength={maxLength}
-      />
-      <FieldError name={name} />
-    </section>
-  );
-}
-
 export function TextareaField({
   name, label, placeholder, rows = 3,
 }: BaseProps & { rows?: number }) {
@@ -69,34 +50,6 @@ export function ColorField({ name, label, fallback }: { name: string; label: str
         value={field.value ?? fallback}
         onChange={(e) => helpers.setValue(e.target.value)}
       />
-    </div>
-  );
-}
-
-export function SegmentField<T extends string>({
-  name, options,
-}: {
-  name: string;
-  options: readonly { v: T; name: string; sub: string }[];
-}) {
-  const [field, , helpers] = useField(name);
-  return (
-    <div className="ef-segment">
-      {options.map(({ v, name: optName, sub }) => {
-        const active = field.value === v;
-        return (
-          <button
-            type="button"
-            key={v}
-            className={`ef-segment-btn${active ? ' is-active' : ''}`}
-            onClick={() => helpers.setValue(v)}
-            aria-pressed={active}
-          >
-            <span className="ef-segment-name">{optName}</span>
-            <span className="ef-segment-sub">{sub}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }

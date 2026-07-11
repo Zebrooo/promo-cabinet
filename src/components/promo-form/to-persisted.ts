@@ -5,7 +5,7 @@
 // needs to handle the handful of derivations that AREN'T pure "wrong format
 // → strip" cases: custom's derived title, and the divkitJson→undefined fixup
 // after a successful S3 upload.
-import { promoSchema, type Promo } from '@/lib/schema';
+import { promoSchema, servingBlockSchema, CONTENT_KEYS_BY_FORMAT, type Promo } from '@/lib/schema';
 import { KNOWN_CUSTOM_VARIANTS } from '@/lib/custom-variants';
 
 /**
@@ -53,4 +53,26 @@ function normalize(values: Promo): Promo {
  *  programmer error. */
 export function toPersisted(values: Promo): Promo {
   return promoSchema.parse(normalize(values)) as Promo;
+}
+
+const servingKeys = new Set<string>([...Object.keys(servingBlockSchema.shape), 'format']);
+
+/**
+ * Lenient preview projection — used by PreviewRail while the draft may still
+ * be mid-edit/invalid. Unlike toPersisted(), this NEVER throws and does no
+ * zod validation: it just keeps serving keys + the active format's content
+ * keys (CONTENT_KEYS_BY_FORMAT), running the same normalize() derivations
+ * (custom title-derive, divkitJson cleanup, CTA-colors-only-with-action) so
+ * the preview matches what toPersisted() would eventually render — without
+ * ever falling back to raw cross-format values (e.g. a leftover `steps`
+ * array from a previous format still on the draft would otherwise leak into
+ * a popup preview).
+ */
+export function toPreview(values: Promo): Promo {
+  const normalized = normalize(values);
+  const allowedKeys = new Set<string>([...servingKeys, ...CONTENT_KEYS_BY_FORMAT[normalized.format]]);
+  const projected = Object.fromEntries(
+    Object.entries(normalized).filter(([key]) => allowedKeys.has(key)),
+  );
+  return projected as Promo;
 }

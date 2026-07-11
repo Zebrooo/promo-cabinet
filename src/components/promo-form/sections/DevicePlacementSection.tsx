@@ -41,6 +41,16 @@ export function DevicePlacementSection({ mode }: { mode: 'create' | 'edit' }) {
   const currentTarget: NonNullable<Promo['deviceTarget']> = values.deviceTarget ?? 'both';
   const allowedFormats = allowedFormatsFor(currentTarget);
 
+  // Если юзер переключил deviceTarget и текущий выбранный формат больше не
+  // доступен — авто-перекидываем на первый доступный (мирроит поведение
+  // старого монолита, см. git show main:src/components/PromoForm.tsx
+  // ~319-320). edit-режим не задет: там deviceTarget/format задизейблены в
+  // UI и остаются as-is. queueMicrotask держит set вне текущего рендера —
+  // тот же порядок, что и раньше, чтобы не задеть Formik's own re-render.
+  if (mode === 'create' && !allowedFormats.includes(values.format) && allowedFormats.length > 0) {
+    queueMicrotask(() => setFieldValue('format', allowedFormats[0]));
+  }
+
   return (
     <>
       {/* Device target — выбирается ПЕРВЫМ, потому что определяет, какие

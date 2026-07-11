@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Promo } from '@/lib/schema';
-import { toPersisted } from './to-persisted';
+import { toPersisted, toPreview } from './to-persisted';
 
 const base: Omit<Promo, 'format'> = {
   id: 'summer-sale',
@@ -159,5 +159,58 @@ describe('toPersisted — CTA colors only with action present', () => {
     const out = toPersisted(draft);
     expect(out.ctaColor).toBe('#E11D2A');
     expect(out.ctaTextColor).toBe('#fff');
+  });
+});
+
+describe('toPreview — lenient projection for the mid-edit/invalid preview rail', () => {
+  it('never throws on an invalid draft (empty title)', () => {
+    const draft = make('inline', { title: '' });
+    expect(() => toPreview(draft)).not.toThrow();
+  });
+
+  it('popup carrying multistep junk (steps) does not leak into the preview', () => {
+    const draft = make('popup', {
+      description: 'desc',
+      steps: [
+        { title: 'Шаг 1', body: 'Текст 1' },
+        { title: 'Шаг 2', body: 'Текст 2' },
+      ],
+    });
+    const out = toPreview(draft);
+    expect(out).not.toHaveProperty('steps');
+    expect(out.description).toBe('desc');
+  });
+
+  it('strips cross-format junk the same way toPersisted does (divkit fields on a popup draft)', () => {
+    const draft = make('popup', {
+      divkitUrl: 'https://s3.example.com/a.json',
+      divkitJson: { card: {} },
+      anchor: 'home-search',
+    });
+    const out = toPreview(draft);
+    expect(out).not.toHaveProperty('divkitUrl');
+    expect(out).not.toHaveProperty('divkitJson');
+    expect(out).not.toHaveProperty('anchor');
+  });
+
+  it('an invalid (empty) title does not force a throw and is passed through as-is for non-custom formats', () => {
+    const draft = make('inline', { title: '' });
+    const out = toPreview(draft);
+    expect(out.title).toBe('');
+  });
+
+  it('still derives the custom title from the variant label, same as toPersisted', () => {
+    const draft = make('custom', { title: '', variant: 'reklama-onboarding' });
+    const out = toPreview(draft);
+    expect(out.title).toBe('Онбординг рекламного кабинета');
+  });
+
+  it('keeps serving keys (id/name/format/targeting) regardless of format', () => {
+    const draft = make('tooltip', { anchor: 'nav-search' });
+    const out = toPreview(draft);
+    expect(out.id).toBe('summer-sale');
+    expect(out.name).toBe('Summer Sale');
+    expect(out.format).toBe('tooltip');
+    expect(out.anchor).toBe('nav-search');
   });
 });
