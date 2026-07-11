@@ -9,7 +9,8 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docs:formats": "tsx scripts/generate-format-docs.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
@@ -27,6 +28,7 @@
     "@types/react-dom": "^18.3.0",
     "aws-sdk-client-mock": "^4.0.0",
     "jsdom": "^29.1.1",
+    "tsx": "^4.23.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
