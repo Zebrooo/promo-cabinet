@@ -1,0 +1,45 @@
+// Replaces the old hand-rolled clientValidate() — a single string message —
+// with per-field FormikErrors, built from the active format's zod schema
+// (SCHEMA_BY_FORMAT) plus the cross-field rules that live outside any single
+// member schema (dates, afterPromoId, divkit-required-on-the-form).
+import type { FormikErrors } from 'formik';
+import { setIn } from 'formik';
+import { SCHEMA_BY_FORMAT, type Promo } from '@/lib/schema';
+
+export function validatePromoForm(values: Promo): FormikErrors<Promo> {
+  let errors: FormikErrors<Promo> = {};
+
+  const schema = SCHEMA_BY_FORMAT[values.format];
+  const result = schema.safeParse(values);
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      // custom-формат: title дериватится из label варианта в toPersisted() —
+      // юзер его не заполняет, поэтому не показываем zod's "укажите
+      // заголовок" на пустом title-поле (которого в UI для custom нет).
+      if (values.format === 'custom' && issue.path.join('.') === 'title') continue;
+      errors = setIn(errors, issue.path.join('.'), issue.message);
+    }
+  }
+
+  // Даты — кросс-полевая проверка, живёт в promoSchema.superRefine(), а не в
+  // отдельных member-схемах SCHEMA_BY_FORMAT, поэтому дублируем здесь.
+  if (values.startsAt && values.endsAt &&
+      new Date(values.startsAt).getTime() >= new Date(values.endsAt).getTime()) {
+    errors = setIn(errors, 'endsAt', 'Дата начала должна быть раньше даты окончания');
+  }
+
+  // afterPromoId !== id — та же кросс-полевая проверка, что в superRefine().
+  if (values.afterPromoId && values.afterPromoId.trim() === values.id.trim()) {
+    errors = setIn(errors, 'afterPromoId', 'Промо не может показываться после самого себя — укажите id другого промо');
+  }
+
+  // DivKit: обязательность JSON/URL — правило формы (юзер должен либо
+  // вставить JSON, либо уже иметь загруженный URL), а не хранимой схемы
+  // (divkitUrl/divkitJson оба optional в divkitPromoSchema — divkitJson
+  // вообще транзитное preview-only поле, которого в сторадж-контракте нет).
+  if (values.format === 'divkit' && !values.divkitUrl && !values.divkitJson) {
+    errors = setIn(errors, 'divkitJson', 'Вставьте DivKit JSON или загрузите готовый URL');
+  }
+
+  return errors;
+}

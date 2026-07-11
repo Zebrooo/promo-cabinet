@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { promoSchema, catalogueSchema, queueSchema, audienceSchema, type Promo } from './schema';
+import {
+  promoSchema,
+  catalogueSchema,
+  queueSchema,
+  audienceSchema,
+  CONTENT_KEYS_BY_FORMAT,
+  type Promo,
+} from './schema';
 import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
 
 const valid: Promo = {
@@ -131,7 +138,7 @@ describe('multistep format (steps)', () => {
   const step = (n: number) => ({ title: `Шаг ${n}`, body: `Текст шага ${n}` });
   const multistep = {
     id: 'ms', name: 'MS', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
-    targeting: {}, cooldownHours: 0, format: 'multistep', title: 'Онбординг',
+    targeting: {}, cooldownHours: 0, format: 'multistep' as const, title: 'Онбординг',
   };
 
   it('accepts a multistep promo with 2 steps', () => {
@@ -174,12 +181,13 @@ describe('multistep format (steps)', () => {
     expect(() => promoSchema.parse(valid)).not.toThrow();
   });
 
-  it('steps on a non-multistep format still validate the 2..6 bound', () => {
-    expect(() => promoSchema.parse({ ...valid, steps: [step(1)] })).toThrow();
+  it('steps on a non-multistep format are stripped, not rejected (union member has no steps field)', () => {
+    const parsed = promoSchema.parse({ ...valid, steps: [step(1)] });
+    expect(parsed).not.toHaveProperty('steps');
   });
 
   it('accepts an optional per-step imageUrl (картинка/гифка шага)', () => {
-    const parsed = promoSchema.parse({
+    const parsed: Promo = promoSchema.parse({
       ...multistep,
       steps: [{ ...step(1), imageUrl: 'https://cdn.example.com/step-1.gif' }, step(2)],
     });
@@ -210,29 +218,32 @@ describe('presentation (multistep: модалка / во весь экран)', 
   const step = (n: number) => ({ title: `Шаг ${n}`, body: `Текст шага ${n}` });
   const multistep = {
     id: 'ms-p', name: 'MS', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
-    targeting: {}, cooldownHours: 0, format: 'multistep', title: 'Онбординг',
+    targeting: {}, cooldownHours: 0, format: 'multistep' as const, title: 'Онбординг',
     steps: [step(1), step(2)],
   };
 
   it('accepts a multistep promo with presentation: modal', () => {
-    expect(promoSchema.parse({ ...multistep, presentation: 'modal' }).presentation).toBe('modal');
+    const parsed: Promo = promoSchema.parse({ ...multistep, presentation: 'modal' });
+    expect(parsed.presentation).toBe('modal');
   });
 
   it('accepts a multistep promo with presentation: fullscreen', () => {
-    expect(promoSchema.parse({ ...multistep, presentation: 'fullscreen' }).presentation).toBe('fullscreen');
+    const parsed: Promo = promoSchema.parse({ ...multistep, presentation: 'fullscreen' });
+    expect(parsed.presentation).toBe('fullscreen');
   });
 
   it('accepts a multistep promo without presentation (optional, default modal у рендерера)', () => {
-    expect(promoSchema.parse(multistep).presentation).toBeUndefined();
+    const parsed: Promo = promoSchema.parse(multistep);
+    expect(parsed.presentation).toBeUndefined();
   });
 
   it('rejects an unknown presentation value', () => {
     expect(() => promoSchema.parse({ ...multistep, presentation: 'sheet' })).toThrow();
   });
 
-  it('rejects presentation on a non-multistep format (refine, поле только у multistep)', () => {
-    expect(() => promoSchema.parse({ ...valid, presentation: 'fullscreen' })).toThrow();
-    expect(() => promoSchema.parse({ ...valid, presentation: 'modal' })).toThrow();
+  it('presentation on a non-multistep format is stripped, not rejected (union member has no presentation field)', () => {
+    expect(promoSchema.parse({ ...valid, presentation: 'fullscreen' })).not.toHaveProperty('presentation');
+    expect(promoSchema.parse({ ...valid, presentation: 'modal' })).not.toHaveProperty('presentation');
   });
 });
 
@@ -365,5 +376,177 @@ describe('queueSchema', () => {
   it('accepts an array of id strings and rejects non-strings', () => {
     expect(() => queueSchema.parse(['a', 'b'])).not.toThrow();
     expect(() => queueSchema.parse(['a', 2])).toThrow();
+  });
+});
+
+describe('dead fields are stripped, not rejected (strip semantics of the union)', () => {
+  it('popup with popupVariant/bullets parses, fields are stripped', () => {
+    const parsed = promoSchema.parse({
+      ...valid,
+      format: 'popup' as const,
+      popupVariant: 'split',
+      bullets: ['a', 'b'],
+    });
+    expect(parsed).not.toHaveProperty('popupVariant');
+    expect(parsed).not.toHaveProperty('bullets');
+  });
+
+  it('topline with backgroundGradient/textAlign parses, fields are stripped', () => {
+    const parsed = promoSchema.parse({
+      id: 'tl-dead', name: 'TL', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
+      targeting: {}, cooldownHours: 0, format: 'topline' as const, title: 'T',
+      backgroundGradient: { from: '#fff' },
+      textAlign: 'center',
+      imageUrl: 'https://cdn.example.com/x.png',
+      ctaColor: '#000',
+      ctaTextColor: '#fff',
+    });
+    expect(parsed).not.toHaveProperty('backgroundGradient');
+    expect(parsed).not.toHaveProperty('textAlign');
+    expect(parsed).not.toHaveProperty('imageUrl');
+    expect(parsed).not.toHaveProperty('ctaColor');
+    expect(parsed).not.toHaveProperty('ctaTextColor');
+  });
+
+  it('inline with backgroundGradient is stripped', () => {
+    const parsed = promoSchema.parse({
+      ...valid,
+      format: 'inline' as const,
+      backgroundGradient: { from: '#fff', to: '#000' },
+    });
+    expect(parsed).not.toHaveProperty('backgroundGradient');
+  });
+});
+
+describe('regression shield: every format parses with all fields valid today', () => {
+  const base = {
+    id: 'fmt-x', name: 'Fmt', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
+    targeting: { minAge: 18, maxAge: 40, regions: ['ru'], subscriptionLevels: ['plus'] as const },
+    maxImpressionsPerUser: 3,
+    cooldownHours: 12,
+    afterPromoId: 'some-other-promo',
+    title: 'Заголовок',
+    audience: 'authenticated' as const,
+    sections: ['avto'],
+    categories: ['kvartiry'],
+    sellerStatus: 'seller' as const,
+    deviceTarget: 'both' as const,
+  };
+
+  it('inline', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'inline-x', format: 'inline',
+        description: 'desc', imageUrl: 'https://cdn.example.com/x.png', textAlign: 'center',
+        action: { href: '/x', label: 'Go' }, ctaColor: '#111', ctaTextColor: '#fff',
+      }),
+    ).not.toThrow();
+  });
+
+  it('topline', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'topline-x', format: 'topline',
+        description: 'desc', backgroundColor: '#fff', textColor: '#000', action: { href: '/x' },
+      }),
+    ).not.toThrow();
+  });
+
+  it('popup', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'popup-x', format: 'popup',
+        description: 'desc', imageUrl: 'https://cdn.example.com/x.png', dismissible: true,
+        backgroundColor: '#fff', textColor: '#000', backgroundImage: 'https://cdn.example.com/bg.png',
+        backgroundGradient: { from: '#fff', to: '#000', angle: 45 }, textAlign: 'left',
+        action: { href: '/x', label: 'Go' }, ctaColor: '#111', ctaTextColor: '#fff',
+      }),
+    ).not.toThrow();
+  });
+
+  it('fullscreen', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'fullscreen-x', format: 'fullscreen',
+        description: 'desc', imageUrl: 'https://cdn.example.com/x.png', dismissible: true,
+        backgroundColor: '#fff', textColor: '#000', backgroundImage: 'https://cdn.example.com/bg.png',
+        backgroundGradient: { from: '#fff', to: '#000', angle: 45 }, textAlign: 'right',
+        action: { href: '/x', label: 'Go' }, ctaColor: '#111', ctaTextColor: '#fff',
+      }),
+    ).not.toThrow();
+  });
+
+  it('tooltip', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'tooltip-x', format: 'tooltip', anchor: 'home-search',
+        description: 'desc', imageUrl: 'https://cdn.example.com/x.png', dismissible: true,
+        backgroundColor: '#fff', textColor: '#000', textAlign: 'center',
+        action: { href: '/x', label: 'Go' }, ctaColor: '#111', ctaTextColor: '#fff',
+      }),
+    ).not.toThrow();
+  });
+
+  it('multistep', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'multistep-x', format: 'multistep',
+        steps: [
+          { title: 'Шаг 1', body: 'Текст шага 1', imageUrl: 'https://cdn.example.com/1.gif' },
+          { title: 'Шаг 2', body: 'Текст шага 2' },
+        ],
+        presentation: 'fullscreen',
+        backgroundColor: '#fff', textColor: '#000', backgroundImage: 'https://cdn.example.com/bg.png',
+        backgroundGradient: { from: '#fff', to: '#000' },
+      }),
+    ).not.toThrow();
+  });
+
+  it('divkit', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'divkit-x', format: 'divkit',
+        divkitUrl: 'https://cdn.example.com/layout.json',
+        divkitJson: { some: 'preview-json' },
+      }),
+    ).not.toThrow();
+  });
+
+  it('custom', () => {
+    expect(() =>
+      promoSchema.parse({
+        ...base, id: 'custom-x', format: 'custom',
+        variant: 'reklama-onboarding', dismissible: true,
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe('CONTENT_KEYS_BY_FORMAT', () => {
+  it('tooltip contains anchor', () => {
+    expect(CONTENT_KEYS_BY_FORMAT.tooltip).toContain('anchor');
+  });
+
+  it('divkit does not contain description', () => {
+    expect(CONTENT_KEYS_BY_FORMAT.divkit).not.toContain('description');
+  });
+
+  it('no format contains popupVariant (dead field, removed everywhere)', () => {
+    for (const keys of Object.values(CONTENT_KEYS_BY_FORMAT)) {
+      expect(keys).not.toContain('popupVariant');
+      expect(keys).not.toContain('bullets');
+    }
+  });
+
+  it('multistep contains steps and presentation, not description/imageUrl', () => {
+    expect(CONTENT_KEYS_BY_FORMAT.multistep).toContain('steps');
+    expect(CONTENT_KEYS_BY_FORMAT.multistep).toContain('presentation');
+    expect(CONTENT_KEYS_BY_FORMAT.multistep).not.toContain('description');
+    expect(CONTENT_KEYS_BY_FORMAT.multistep).not.toContain('imageUrl');
+  });
+
+  it('custom contains variant, not description/imageUrl', () => {
+    expect(CONTENT_KEYS_BY_FORMAT.custom).toContain('variant');
+    expect(CONTENT_KEYS_BY_FORMAT.custom).not.toContain('description');
   });
 });
