@@ -145,8 +145,14 @@
 ## Custom — Host-компонент
 
 > `variant` — обязателен и должен входить в `KNOWN_CUSTOM_VARIANTS` (проверяется `.refine()` в схеме).
+> variant `referral-invite`: поля `referral*` (копейки/целые числа) не рендерятся на сайте — promo-bff зеркалит их (best-effort upsert) в abkhaz-Supabase `referral_config` (id=1) при сохранении промо.
 
 | Поле | Тип | Обязательность | Описание |
 |---|---|---|---|
 | `variant` | строка | обязательно | Зарегистрированный host-компонент витрины (id из KNOWN_CUSTOM_VARIANTS) |
 | `dismissible` | булево | опционально | Можно ли закрыть промо крестиком |
+| `referralActive` | булево | опционально | — |
+| `referralInviterCreditKopecks` | число | опционально | — |
+| `referralSellerBonusKopecks` | число | опционально | — |
+| `referralDailyInviteCap` | число | опционально | — |
+| `referralHoldHours` | число | опционально | — |

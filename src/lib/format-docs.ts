@@ -187,7 +187,10 @@ function renderTable(rows: FieldRow[]): string {
 const FORMAT_NOTES: Partial<Record<PromoFormat, string[]>> = {
   tooltip: ['`anchor` — обязательное поле схемы (не просто форма): якорь должен существовать в CANONICAL_ANCHORS.'],
   multistep: ['`steps` — обязателен, от 2 до 6 шагов (ограничение схемы: `.min(2).max(6)`).'],
-  custom: ['`variant` — обязателен и должен входить в `KNOWN_CUSTOM_VARIANTS` (проверяется `.refine()` в схеме).'],
+  custom: [
+    '`variant` — обязателен и должен входить в `KNOWN_CUSTOM_VARIANTS` (проверяется `.refine()` в схеме).',
+    'variant `referral-invite`: поля `referral*` (копейки/целые числа) не рендерятся на сайте — promo-bff зеркалит их (best-effort upsert) в abkhaz-Supabase `referral_config` (id=1) при сохранении промо.',
+  ],
   divkit: [
     '`divkitUrl` и `divkitJson` оба опциональны в схеме (storage-контракт), но на форме обязателен хотя бы один из них: `divkitUrl || divkitJson`.',
   ],

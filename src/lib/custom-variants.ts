@@ -29,6 +29,15 @@ export const KNOWN_CUSTOM_VARIANTS = [
       '4-шаговый визард знакомства с редактором кампаний (ReklamaWizardStage). Живёт в abkhaz-auto-web.',
     host: 'abkhaz-auto-web',
   },
+  {
+    id: 'referral-invite',
+    label: 'Реферальная программа (приглашения)',
+    description:
+      'Не рендерит контент на сайте — это конфиг-промо: поля формы зеркалируются в ' +
+      'таблицу referral_config (singleton id=1) abkhaz-Supabase через promo-bff. ' +
+      'Сам инвайт-флоу целиком на стороне abkhaz-auto-web.',
+    host: 'abkhaz-auto-web',
+  },
 ] as const satisfies readonly CustomVariant[];
 
 export type KnownCustomVariantId = (typeof KNOWN_CUSTOM_VARIANTS)[number]['id'];

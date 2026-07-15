@@ -193,6 +193,22 @@ export const divkitPromoSchema = servingBlockSchema.extend({
   divkitJson: z.unknown().optional(),
 });
 
+/** Поля варианта `referral-invite` — конфиг реферальной программы, который
+ *  promo-bff зеркалит (best-effort upsert) в abkhaz-Supabase `referral_config`
+ *  (singleton id=1). Хранятся/передаются в КОПЕЙКАХ (как price_kopecks в
+ *  abkhaz) — форма конвертирует ₽↔копейки на вводе/выводе, здесь всегда целые
+ *  копейки. Все поля optional на уровне схемы, т.к. они специфичны для этого
+ *  одного варианта и должны молча стриптись у остальных custom-промо (union
+ *  member остаётся общим для всех custom-вариантов — различать по `variant`
+ *  на уровне формы/BFF, не заводить под каждый вариант свой член union). */
+const referralInviteShape = {
+  referralActive: z.boolean().optional(),
+  referralInviterCreditKopecks: z.number().int('Только целое число копеек').nonnegative('Не может быть отрицательным').optional(),
+  referralSellerBonusKopecks: z.number().int('Только целое число копеек').nonnegative('Не может быть отрицательным').optional(),
+  referralDailyInviteCap: z.number().int('Только целое число').positive('Должно быть больше 0').optional(),
+  referralHoldHours: z.number().int('Только целое число часов').nonnegative('Не может быть отрицательным').optional(),
+};
+
 /** Слой 2, член 8/8: custom. variant — id варианта host-side рендер-функции
  *  из KNOWN_CUSTOM_VARIANTS; field-level refine (не object-level!) — того
  *  требует z.discriminatedUnion в zod 3.23: сам объект члена обязан
@@ -207,6 +223,7 @@ export const customPromoSchema = servingBlockSchema.extend({
       message: 'Вариант не зарегистрирован в KNOWN_CUSTOM_VARIANTS',
     }),
   dismissible: z.boolean().optional(),
+  ...referralInviteShape,
 });
 
 /**
@@ -262,6 +279,7 @@ export const promoDraftSchema = servingBlockSchema.extend({
   presentation: presentationSchema.optional(),
   variant: z.string().min(1).max(64).optional(),
   dismissible: z.boolean().optional(),
+  ...referralInviteShape,
 });
 
 export const catalogueSchema = z.array(promoSchema);
