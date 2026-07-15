@@ -46,6 +46,33 @@ const empty: Promo = {
   deviceTarget: 'both',
 };
 
+/** Awaited referral_config mirror call, bounded to REFERRAL_SYNC_TIMEOUT_MS so
+ *  a hung BFF can't stall the save forever. `keepalive` lets the request
+ *  survive if the tab still ends up navigating away right after. Returns
+ *  false on any failure (network, timeout, non-ok) — caller must warn the
+ *  admin instead of silently navigating on, see H2 fix note above. */
+const REFERRAL_SYNC_TIMEOUT_MS = 8000;
+async function syncReferralConfig(payload: Record<string, unknown>): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REFERRAL_SYNC_TIMEOUT_MS);
+  try {
+    const r = await fetch('/api/referral-config/sync', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+      signal: controller.signal,
+    });
+    if (!r.ok) return false;
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean };
+    return j.ok === true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_promo:        'Проверьте поля: ID, название и заголовок обязательны, а начало показа должно быть раньше окончания.',
   duplicate_id:         'Промо с таким ID уже существует — выберите другой ID.',
@@ -186,22 +213,27 @@ function FormBody({
       trackEvent('promo_save_success', { promo_id: values.id, format: values.format });
       // referral-invite is a config-only custom promo: nothing renders on the
       // site, but its fields must additionally land in abkhaz-Supabase
-      // referral_config (id=1), which only promo-bff can reach. Fire this
-      // AFTER the S3 save succeeds and don't await it — best-effort mirror, a
-      // BFF hiccup must never stop the admin from saving/queueing the promo
-      // (see /api/referral-config/sync route doc).
+      // referral_config (id=1), which only promo-bff can reach. The S3 save
+      // is already durable at this point — sync failure must never revert
+      // it — but we DO await this (bounded by an 8s timeout, keepalive so a
+      // slow response outlives navigation) so a silent money mismatch in
+      // abkhaz can't happen: fire-and-forget here used to race the
+      // router.push()/refresh() below, which could abort the request before
+      // it reached the BFF.
       if (body.format === 'custom' && body.variant === 'referral-invite') {
-        void fetch('/api/referral-config/sync', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            active: body.referralActive ?? false,
-            inviterCreditKopecks: body.referralInviterCreditKopecks ?? 0,
-            sellerBonusKopecks: body.referralSellerBonusKopecks ?? 0,
-            dailyInviteCap: body.referralDailyInviteCap ?? 1,
-            holdHours: body.referralHoldHours ?? 0,
-          }),
-        }).catch(() => {});
+        const synced = await syncReferralConfig({
+          active: body.referralActive ?? false,
+          inviterCreditKopecks: body.referralInviterCreditKopecks ?? 0,
+          sellerBonusKopecks: body.referralSellerBonusKopecks ?? 0,
+          dailyInviteCap: body.referralDailyInviteCap ?? 1,
+          holdHours: body.referralHoldHours ?? 0,
+          dailyBudgetKopecks: body.dailyBudgetKopecks ?? 100000,
+        });
+        if (!synced) {
+          setSaving(false);
+          setError('Промо сохранено, но суммы реферальной программы в abkhaz не обновились (BFF недоступен) — повторите сохранение.');
+          return;
+        }
       }
       router.push('/cabinet'); router.refresh(); return;
     }
