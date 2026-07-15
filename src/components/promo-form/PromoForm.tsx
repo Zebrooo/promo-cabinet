@@ -184,6 +184,25 @@ function FormBody({
     }
     if (res.ok) {
       trackEvent('promo_save_success', { promo_id: values.id, format: values.format });
+      // referral-invite is a config-only custom promo: nothing renders on the
+      // site, but its fields must additionally land in abkhaz-Supabase
+      // referral_config (id=1), which only promo-bff can reach. Fire this
+      // AFTER the S3 save succeeds and don't await it — best-effort mirror, a
+      // BFF hiccup must never stop the admin from saving/queueing the promo
+      // (see /api/referral-config/sync route doc).
+      if (body.format === 'custom' && body.variant === 'referral-invite') {
+        void fetch('/api/referral-config/sync', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            active: body.referralActive ?? false,
+            inviterCreditKopecks: body.referralInviterCreditKopecks ?? 0,
+            sellerBonusKopecks: body.referralSellerBonusKopecks ?? 0,
+            dailyInviteCap: body.referralDailyInviteCap ?? 1,
+            holdHours: body.referralHoldHours ?? 0,
+          }),
+        }).catch(() => {});
+      }
       router.push('/cabinet'); router.refresh(); return;
     }
     setSaving(false);

@@ -172,3 +172,22 @@ export interface BffEventPayload {
 export async function recordEventToBff(payload: BffEventPayload): Promise<void> {
   await bffPost('/events', payload as unknown as Record<string, unknown>);
 }
+
+// ── Referral config mirror ──────────────────────────────────────────────
+// The cabinet persists promos only to its own S3 pool — it has no creds for
+// abkhaz-Supabase. The `referral-invite` custom variant is a config-only
+// promo (nothing renders on the site); its fields must additionally land in
+// abkhaz's `referral_config` singleton (id=1), which only promo-bff can
+// reach. On every save of a referral-invite promo the cabinet calls this
+// best-effort sync — a failure here must never block the S3 save (BFF being
+// down shouldn't stop admins from editing/queueing promos), see caller.
+export interface ReferralConfigSyncPayload {
+  active: boolean;
+  inviterCreditKopecks: number;
+  sellerBonusKopecks: number;
+  dailyInviteCap: number;
+  holdHours: number;
+}
+export async function syncReferralConfigToBff(payload: ReferralConfigSyncPayload): Promise<void> {
+  await bffPost('/referral-config/sync', payload as unknown as Record<string, unknown>);
+}
