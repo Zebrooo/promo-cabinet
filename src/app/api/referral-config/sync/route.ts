@@ -29,17 +29,21 @@ export async function POST(req: NextRequest) {
   const sellerBonusKopecks = Number(b.sellerBonusKopecks);
   const dailyInviteCap = Number(b.dailyInviteCap);
   const holdHours = Number(b.holdHours);
+  // Дефолт 100000 (1000₽/день) — тот же, что и в БД — если поле не пришло
+  // (форма может ещё не заполнять его для старых промо).
+  const dailyBudgetKopecks = b.dailyBudgetKopecks === undefined ? 100000 : Number(b.dailyBudgetKopecks);
   if (
     !Number.isInteger(inviterCreditKopecks) || inviterCreditKopecks < 0 ||
     !Number.isInteger(sellerBonusKopecks) || sellerBonusKopecks < 0 ||
     !Number.isInteger(dailyInviteCap) || dailyInviteCap <= 0 ||
-    !Number.isInteger(holdHours) || holdHours < 0
+    !Number.isInteger(holdHours) || holdHours < 0 ||
+    !Number.isInteger(dailyBudgetKopecks) || dailyBudgetKopecks < 0
   ) {
     return NextResponse.json({ ok: false, error: 'invalid_fields' }, { status: 400 });
   }
 
   try {
-    await syncReferralConfigToBff({ active, inviterCreditKopecks, sellerBonusKopecks, dailyInviteCap, holdHours });
+    await syncReferralConfigToBff({ active, inviterCreditKopecks, sellerBonusKopecks, dailyInviteCap, holdHours, dailyBudgetKopecks });
   } catch {
     // Best-effort mirror — BFF/abkhaz-Supabase unavailability must not fail
     // the promo save the admin already completed in S3.

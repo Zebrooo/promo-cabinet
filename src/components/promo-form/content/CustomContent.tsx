@@ -133,6 +133,11 @@ function ReferralInviteFields() {
         label="Задержка начисления, часы"
         hint="referral_config.hold_hours — сколько часов бонус остаётся в hold до зачисления"
       />
+      <RublesField
+        name="dailyBudgetKopecks"
+        label="Дневной бюджет программы, ₽"
+        hint="referral_config.daily_budget_kopecks — хранится в копейках, дефолт 1000₽/день"
+      />
     </>
   );
 }

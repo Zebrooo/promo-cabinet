@@ -69,6 +69,7 @@ export function PromoPreview({ promo }: { promo: Promo }) {
             <li>seller_bonus_kopecks: {promo.referralSellerBonusKopecks ?? '—'}</li>
             <li>daily_invite_cap: {promo.referralDailyInviteCap ?? '—'}</li>
             <li>hold_hours: {promo.referralHoldHours ?? '—'}</li>
+            <li>daily_budget_kopecks: {promo.dailyBudgetKopecks ?? '—'}</li>
           </ul>
         </div>
       );

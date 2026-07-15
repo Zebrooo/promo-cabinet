@@ -187,6 +187,7 @@ export interface ReferralConfigSyncPayload {
   sellerBonusKopecks: number;
   dailyInviteCap: number;
   holdHours: number;
+  dailyBudgetKopecks: number;
 }
 export async function syncReferralConfigToBff(payload: ReferralConfigSyncPayload): Promise<void> {
   await bffPost('/referral-config/sync', payload as unknown as Record<string, unknown>);

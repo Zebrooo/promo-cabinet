@@ -156,3 +156,4 @@
 | `referralSellerBonusKopecks` | число | опционально | — |
 | `referralDailyInviteCap` | число | опционально | — |
 | `referralHoldHours` | число | опционально | — |
+| `dailyBudgetKopecks` | число | опционально | — |

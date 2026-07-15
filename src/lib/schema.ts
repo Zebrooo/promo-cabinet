@@ -207,6 +207,10 @@ const referralInviteShape = {
   referralSellerBonusKopecks: z.number().int('Только целое число копеек').nonnegative('Не может быть отрицательным').optional(),
   referralDailyInviteCap: z.number().int('Только целое число').positive('Должно быть больше 0').optional(),
   referralHoldHours: z.number().int('Только целое число часов').nonnegative('Не может быть отрицательным').optional(),
+  /** referral_config.daily_budget_kopecks — дневной бюджет программы, копейки.
+   *  Дефолт БД 100000 (1000₽/день); optional здесь как остальные referral*
+   *  поля — при отсутствии BFF применит дефолт сам. */
+  dailyBudgetKopecks: z.number().int('Только целое число копеек').nonnegative('Не может быть отрицательным').optional(),
 };
 
 /** Слой 2, член 8/8: custom. variant — id варианта host-side рендер-функции
