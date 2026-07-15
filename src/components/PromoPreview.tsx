@@ -58,6 +58,21 @@ export function PromoPreview({ promo }: { promo: Promo }) {
   // выбран и где он живёт.
   if (promo.format === 'custom') {
     const v = KNOWN_CUSTOM_VARIANTS.find((x) => x.id === promo.variant);
+    if (promo.variant === 'referral-invite') {
+      return (
+        <div className="preview-hint">
+          <p>Вариант «{v?.label}» не рендерит контент на сайте — это конфиг-промо.</p>
+          <p>При сохранении promo-bff зеркалит значения ниже в abkhaz-Supabase <code>referral_config</code> (id=1):</p>
+          <ul>
+            <li>active: {String(promo.referralActive ?? false)}</li>
+            <li>inviter_credit_kopecks: {promo.referralInviterCreditKopecks ?? '—'}</li>
+            <li>seller_bonus_kopecks: {promo.referralSellerBonusKopecks ?? '—'}</li>
+            <li>daily_invite_cap: {promo.referralDailyInviteCap ?? '—'}</li>
+            <li>hold_hours: {promo.referralHoldHours ?? '—'}</li>
+          </ul>
+        </div>
+      );
+    }
     return (
       <div className="preview-hint">
         {v
