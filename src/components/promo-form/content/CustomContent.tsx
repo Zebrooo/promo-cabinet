@@ -106,6 +106,9 @@ function IntegerField({
  *  идемпотентный upsert id=1) в abkhaz-Supabase `referral_config` при
  *  сохранении промо. Кабинет сам в abkhaz-базу не пишет. */
 function ReferralInviteFields() {
+  const { values } = useFormikContext<Promo>();
+  const dailyBudgetKopecks = (values as Record<string, unknown>).dailyBudgetKopecks as number | undefined;
+  const budgetFrozen = values.referralActive === true && !dailyBudgetKopecks;
   return (
     <>
       <CheckboxField
@@ -138,6 +141,12 @@ function ReferralInviteFields() {
         label="Дневной бюджет программы, ₽"
         hint="referral_config.daily_budget_kopecks — хранится в копейках, дефолт 1000₽/день"
       />
+      {budgetFrozen && (
+        <div className="hint hint-warn">
+          ⚠️ Бюджет 0 ₽ — при активной программе выплаты заморожены (0 ₽/сутки).
+          Поставьте бюджет больше 0, чтобы награды начислялись.
+        </div>
+      )}
     </>
   );
 }
