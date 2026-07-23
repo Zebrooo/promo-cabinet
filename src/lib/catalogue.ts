@@ -93,6 +93,22 @@ export async function mutateQueue(name: string, apply: (q: QueueObject) => Queue
  * slot to the storefront means adding its queue name here (and only here —
  * the bootstrap will create the file + register it in queues.json idempotently).
  */
+/**
+ * Per-device очереди (web/touch/mobile). Каждый storefront-каталог получает
+ * ТРИ независимых пула — сторфронт запрашивает `queue-<catalog>-<device>`:
+ *   web    = десктоп-браузер, touch = мобильный браузер, mobile = приложение (WebView).
+ * Контент между устройствами НЕ пересекается (независимые пулы, без фолбэка).
+ * Первичный засев — scripts/seed-device-queues.ts (копирует из старых catalog-
+ * очередей; в mobile — без app-download промо). Держи каталоги в синхроне с
+ * CATALOG_BY_PREFIX сторфронта (src/lib/promo-section.ts).
+ */
+export const DEVICE_QUEUE_CATALOGS = [
+  'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
+] as const;
+export const QUEUE_DEVICES = ['web', 'touch', 'mobile'] as const;
+export const DEVICE_QUEUES: { name: string; persist: boolean }[] =
+  DEVICE_QUEUE_CATALOGS.flatMap((c) => QUEUE_DEVICES.map((d) => ({ name: `${c}-${d}`, persist: false })));
+
 export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   // Legacy pre-cutover queues. Kept until the storefront stops requesting
   // them (retire = separate step D after the per-catalog cutover).
@@ -111,6 +127,9 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   { name: 'jobs',      persist: false },
   { name: 'news',      persist: false },
   { name: 'listing',   persist: false },
+  // Per-device очереди (catalog×{web,touch,mobile}) — актуальный контур раскатки.
+  // Старые catalog-очереди выше остаются до retire-шага (Фаза 4).
+  ...DEVICE_QUEUES,
 ];
 
 /**
@@ -131,6 +150,8 @@ export const PROD_SERVED_QUEUES: readonly string[] = [
   // (step C cutover, feat/per-catalog-promo-queues): overlay+topline derive the
   // queue from catalogFromPath(). Guarded so they can't be deleted while served.
   'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
+  // Per-device очереди — сторфронт запрашивает их после Фазы 3. Guard от удаления.
+  ...DEVICE_QUEUES.map((q) => q.name),
   // Legacy home-banner/home-popup stay until the retire step D.
 ];
 

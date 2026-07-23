@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CANONICAL_ANCHORS, CANONICAL_QUEUES } from './catalogue';
+import { CANONICAL_ANCHORS, CANONICAL_QUEUES, DEVICE_QUEUES } from './catalogue';
 
 describe('CANONICAL_ANCHORS', () => {
   it('has at least one anchor, each with a non-empty id, label and pages', () => {
@@ -35,8 +35,8 @@ describe('catalog queues (per-catalog rollout, step B\')', () => {
     }
   });
 
-  it('has 12 canonical queues with unique names', () => {
-    expect(CANONICAL_QUEUES).toHaveLength(12);
+  it('has 12 base + per-device canonical queues with unique names', () => {
+    expect(CANONICAL_QUEUES).toHaveLength(12 + DEVICE_QUEUES.length); // 4 legacy + 8 catalog + 24 device
     const names = CANONICAL_QUEUES.map((q) => q.name);
     expect(new Set(names).size).toBe(names.length);
   });
