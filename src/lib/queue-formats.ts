@@ -13,6 +13,7 @@
  *     (replaced by the per-catalog cutover). Marked legacy=true.
  */
 import type { Promo } from './schema';
+import { DEVICE_QUEUE_CATALOGS, QUEUE_DEVICES } from './catalogue';
 
 export type PromoFormat = Promo['format'];
 
@@ -108,6 +109,30 @@ export const QUEUE_META: Record<string, QueueMeta> = {
     legacy: true,
   },
 };
+
+// Per-device очереди (web/touch/mobile) — метаданные производятся из каталожных.
+// `topline` — desktop-only формат, поэтому на touch/mobile его НЕ обслуживаем
+// (эти поверхности его не рендерят); web = как каталог.
+const DEVICE_QUEUE_LABEL: Record<(typeof QUEUE_DEVICES)[number], string> = {
+  web: 'веб',
+  touch: 'моб. браузер',
+  mobile: 'приложение',
+};
+const TOUCH_CATALOG_FORMATS: PromoFormat[] = ['popup', 'fullscreen', 'inline', 'divkit'];
+for (const catalog of DEVICE_QUEUE_CATALOGS) {
+  const base = QUEUE_META[catalog];
+  for (const device of QUEUE_DEVICES) {
+    const name = `${catalog}-${device}`;
+    QUEUE_META[name] = {
+      name,
+      label: `${base.label} · ${DEVICE_QUEUE_LABEL[device]}`,
+      sectionHint: `${base.label} — ${DEVICE_QUEUE_LABEL[device]}: ${
+        device === 'web' ? 'топлайн и оверлеи' : 'оверлеи'
+      }`,
+      servedFormats: device === 'web' ? CATALOG_FORMATS : TOUCH_CATALOG_FORMATS,
+    };
+  }
+}
 
 /**
  * Returns the list of formats the storefront actually requests from the given

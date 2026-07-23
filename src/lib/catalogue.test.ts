@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
   readPool, writePool, readQueue, writeQueue, mutatePool, mutateQueue,
-  readQueuesIndex, writeQueuesIndex, ensureMainQueue, readState, CANONICAL_QUEUES,
+  readQueuesIndex, writeQueuesIndex, ensureMainQueue, readState, CANONICAL_QUEUES, DEVICE_QUEUES,
 } from './catalogue';
 import { addPromo, enqueue } from './mutations';
 import { promosKey, queueKey, queuesIndexKey, legacyQueueKey, getS3Client, resetS3ClientForTests } from './s3';
@@ -144,10 +144,10 @@ describe('ensureMainQueue', () => {
     expect(q.ids).toEqual(['existing']);
   });
 
-  it('bootstraps 12 canonical queues + main on an empty store', async () => {
+  it('bootstraps all canonical queues + main on an empty store', async () => {
     await ensureMainQueue();
     const idx = await readQueuesIndex();
-    expect(idx).toHaveLength(13); // main + 12 canonical (4 legacy + 8 catalog)
+    expect(idx).toHaveLength(13 + DEVICE_QUEUES.length); // main + 12 canonical (4 legacy + 8 catalog) + 24 device
     const names = new Set(idx.map((q) => q.name));
     for (const name of ['home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing']) {
       expect(names.has(name), `catalog queue "${name}" must be bootstrapped`).toBe(true);
