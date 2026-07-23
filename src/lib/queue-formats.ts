@@ -146,11 +146,16 @@ export function formatsServedBy(queue: string): PromoFormat[] | null {
 /**
  * Returns the names of queues that serve the given format, excluding legacy
  * queues. Useful for hints like «Формат обслуживается очередями: …».
+ *
+ * Per-device варианты (`<catalog>-web|touch|mobile`) СХЛОПЫВАЮТСЯ до каталога,
+ * чтобы хинт не разрастался в простыню из ~30 имён — рекламодателю важен каталог,
+ * а не device-вариант (device выбирается отдельно в форме размещения).
  */
 export function queuesServing(format: PromoFormat): string[] {
-  return Object.values(QUEUE_META)
+  const names = Object.values(QUEUE_META)
     .filter((m) => !m.legacy && m.servedFormats.includes(format))
-    .map((m) => m.name);
+    .map((m) => m.name.replace(/-(web|touch|mobile)$/, ''));
+  return [...new Set(names)];
 }
 
 /**

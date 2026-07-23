@@ -55,11 +55,14 @@ async function main() {
             device === 'mobile' && ids.length !== source.ids.length ? ', app-download убраны' : ''
           })`,
         );
-        if (!DRY) await writeQueue(name, { persist: source.persist, ids });
+        // persist:false — device-пулы non-persist по дизайну (как в
+        // DEVICE_QUEUES/ensureMainQueue); НЕ наследуем от source, чтобы сидер и
+        // bootstrap не разошлись, если каталожную очередь когда-то сделают persist.
+        if (!DRY) await writeQueue(name, { persist: false, ids });
         filled++;
       }
 
-      if (!known.has(name)) toRegister.push({ name, persist: source.persist });
+      if (!known.has(name)) toRegister.push({ name, persist: false });
     }
   }
 
