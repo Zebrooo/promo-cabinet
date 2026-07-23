@@ -30,14 +30,12 @@ interface NavItem {
 // из Figma пока 404. «Стайлгайд» — dev-инструмент, не показываем в nav,
 // доступен по прямому /cabinet/styleguide.
 const NAV_ITEMS: NavItem[] = [
-  { href: '/cabinet/analytics', label: 'Аналитика', matchExact: false },
-  { href: '/cabinet',           label: 'Все промо', matchExact: true  },
-  { href: '/cabinet/queues',    label: 'Очереди',   matchExact: false },
+  { href: '/cabinet',        label: 'Все промо', matchExact: true  },
+  { href: '/cabinet/queues', label: 'Очереди',   matchExact: false },
 ];
 
 // Map first matching nav item → breadcrumb tail text.
 function breadcrumbFor(path: string): string {
-  if (path.startsWith('/cabinet/analytics')) return '/ analytics';
   if (path.startsWith('/cabinet/queues'))    return '/ очереди';
   if (path === '/cabinet/new')               return '/ новое промо';
   if (path.startsWith('/cabinet/') && path !== '/cabinet') return '/ редактирование';
@@ -48,7 +46,7 @@ function TopStrip({ user }: { user: string }) {
   const path = usePathname();
   return (
     <div className="topstrip">
-      <Link href="/cabinet/analytics" className="topstrip-brand" title="К аналитике">
+      <Link href="/cabinet" className="topstrip-brand" title="Все промо">
         ABKHAZ · PROMO
       </Link>
       <span className="topstrip-crumb">{breadcrumbFor(path)}</span>
@@ -93,9 +91,8 @@ function NavRail() {
 // Mobile bottom-tab nav (≤720px). Mirrors Figma "04 · Mobile analytics" foot:
 // 4 tabs with a small square glyph + label, the active one in coral.
 const MOBILE_TABS: NavItem[] = [
-  { href: '/cabinet/analytics', label: 'Аналитика', matchExact: false },
-  { href: '/cabinet',           label: 'Промо',     matchExact: true  },
-  { href: '/cabinet/queues',    label: 'Очереди',   matchExact: false },
+  { href: '/cabinet',        label: 'Промо',   matchExact: true  },
+  { href: '/cabinet/queues', label: 'Очереди', matchExact: false },
 ];
 
 function MobileTabs() {
