@@ -1,0 +1,52 @@
+name: promo-cabinet
+
+# Кабинет — единственный из промо-связки, кому НУЖЕН публичный маршрут (в него
+# ходят люди браузером). Поэтому, в отличие от promo-bff, здесь есть
+# Traefik-метки; но ports: на хост по-прежнему нет — наружу отдаёт только
+# Traefik по своему маршруту, с TLS от letsencrypt.
+#
+# BFF кабинет достаёт по имени контейнера через общую сеть web —
+# PROMO_BFF_URL=http://promo-bff:3191 (правится в .env при переносе,
+# на eremin.site было http://127.0.0.1:3191).
+
+services:
+  promo-cabinet:
+    container_name: promo-cabinet
+    image: promo-cabinet:latest
+    build:
+      context: .
+      secrets:
+        - node_auth_token
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.promo-cabinet.rule=Host(`promo-admin.eremin.site`)
+      - traefik.http.routers.promo-cabinet.entrypoints=websecure
+      - traefik.http.routers.promo-cabinet.tls.certresolver=letsencrypt
+      - traefik.http.services.promo-cabinet.loadbalancer.server.port=3190
+    healthcheck:
+      # Логин-страница отдаёт 200 без авторизации — годится как проба живости.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3190/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        compress: "true"
+
+networks:
+  web:
+    external: true
+
+secrets:
+  node_auth_token:
+    environment: NODE_AUTH_TOKEN
