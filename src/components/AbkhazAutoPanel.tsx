@@ -466,7 +466,14 @@ function ExperimentsSection({ env }: { env: Env }) {
         list.push(v);
         byKey.set(v.experiment_key, list);
       }
-      setRows((r.data.experiments ?? []).map((e) => ({ ...e, variants: byKey.get(e.key) ?? [] })));
+      // authOnly у bff живёт внутри targeting (aa-admin-store не разворачивает
+      // его в отдельное поле) — без этого тумблер «только авторизованным»
+      // всегда показывал unchecked (находка ревью PR #9).
+      setRows((r.data.experiments ?? []).map((e) => ({
+        ...e,
+        authOnly: Boolean((e.targeting as Record<string, unknown> | null | undefined)?.authOnly),
+        variants: byKey.get(e.key) ?? [],
+      })));
     } else {
       setRows(null);
       setError(r.message);
