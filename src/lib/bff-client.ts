@@ -108,3 +108,35 @@ export interface ReferralConfigSyncPayload {
 export async function syncReferralConfigToBff(payload: ReferralConfigSyncPayload): Promise<void> {
   await bffPost('/referral-config/sync', payload as unknown as Record<string, unknown>);
 }
+
+// ── Abkhaz Auto: канарейка релиза + эксперименты ─────────────────────────
+// В отличие от bffPost() выше, эти ручки МУТИРУЮТ прод-раскатку и штатно
+// отвечают 409/503 с телом-объяснением (канарейка не включена / окружение не
+// настроено в BFF) — их нужно прозрачно довести до админа, а не превращать в
+// generic Error. Поэтому здесь свой тонкий POST, который не бросает на
+// не-2xx, а возвращает статус и распарсенное тело как есть; роут-хендлер сам
+// решает, как транслировать код наружу.
+export interface AaAdminResult<T> {
+  status: number;
+  body: T;
+}
+
+export async function aaAdminPost<T = Record<string, unknown>>(
+  path: string,
+  body: Record<string, unknown> = {},
+): Promise<AaAdminResult<T>> {
+  const res = await fetch(`${bffUrl()}${path}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      [SERVICE_TICKET_HEADER]: ticket(),
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8000),
+  });
+  // BFF всегда отвечает JSON (включая тело ошибки 409/503) — падение здесь
+  // означает несовместимый контракт, не штатный кейс, поэтому не глушим.
+  const json = (await res.json()) as T;
+  return { status: res.status, body: json };
+}

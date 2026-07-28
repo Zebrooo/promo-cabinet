@@ -783,3 +783,49 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
     letter-spacing: 0.02em;
   }
 }
+
+/* ═══ ABKHAZ AUTO: канарейка + эксперименты ══════════════════ */
+/* Табы окружения (прод/тест) — переиспользуют вид view-toggle/view-btn,
+   но шире и с текстовой подписью вместо иконки. */
+.env-tabs {
+  display: flex; border-radius: 7px; overflow: hidden;
+  border: 1px solid var(--app-border2); background: var(--input-bg);
+  width: max-content;
+}
+.env-tab {
+  padding: 0 16px; height: 32px; display: flex; align-items: center;
+  font-size: 12.5px; font-weight: 600; color: var(--app-fg3);
+  cursor: pointer; border: 0; background: transparent;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.env-tab.active { background: var(--brand-sea-700); color: #fff; }
+
+.aa-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.aa-section-title { font-size: 15px; font-weight: 700; color: var(--app-fg1); }
+
+/* Статус-бейджи эксперимента — переиспользуют готовые --status-* токены. */
+.badge-exp-draft     { background: var(--app-border);        color: var(--app-fg2); }
+.badge-exp-running   { background: var(--status-success-bg); color: var(--status-success); }
+.badge-exp-paused    { background: var(--status-warning-bg); color: var(--status-warning); }
+.badge-exp-completed { background: var(--app-surface2);       color: var(--app-fg3); }
+.badge-exp-killed    { background: var(--status-danger-bg);  color: var(--status-danger); }
+
+.aa-table-wrap { overflow-x: auto; }
+.aa-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.aa-table th {
+  text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--app-fg3); padding: 6px 10px;
+  border-bottom: 1px solid var(--card-border);
+}
+.aa-table td { padding: 8px 10px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
+.aa-table tr:last-child td { border-bottom: 0; }
+.aa-key { font-family: var(--font-mono); font-size: 11.5px; color: var(--app-fg3); }
+.aa-hint {
+  font-size: 12px; color: var(--app-fg3); background: var(--app-surface2);
+  border-radius: 6px; padding: 8px 10px; line-height: 1.45;
+}
+.aa-inline-input {
+  width: 64px; height: 28px; padding: 0 8px;
+  background: var(--input-bg); border: 1px solid var(--input-border);
+  border-radius: 6px; font: inherit; font-size: 12.5px; color: var(--app-fg1);
+}
