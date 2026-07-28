@@ -86,6 +86,54 @@ function EnvTabs({ env }: { env: Env }) {
   );
 }
 
+// Куда идти руками для включения/завершения канарейки: у каждого окружения
+// свой сервер и путь. Показ конкретной команды под выбранным табом избавляет
+// от «непонятно что с ней делать» (фидбек юзера 2026-07-28).
+const CANARY_HOSTS: Record<Env, { host: string; dir: string }> = {
+  test: { host: 'apsoft1', dir: '/srv/abkhaz-auto-web' },
+  prod: { host: 'abauto (aaprod)', dir: '/data/abkhaz-auto-web' },
+};
+
+function CanaryHelp({ env, active }: { env: Env; active: boolean }) {
+  const s = CANARY_HOSTS[env];
+  return (
+    <details className="aa-help">
+      <summary>Как пользоваться канарейкой</summary>
+      <div className="aa-help-body">
+        <p>
+          Канарейка — способ выкатить новый код на «{env === 'prod' ? 'проде' : 'тесте'}» не всем сразу:
+          неактивный blue-green-цвет собирается из свежего main и получает заданный процент посетителей.
+          Деление липкое (кука <code>aa_canary</code>): попавший в канарейку остаётся в ней, пока она включена.
+        </p>
+        <ol>
+          <li>
+            <b>Включить</b> — на сервере {s.host}: <code>cd {s.dir} && bash scripts/bluegreen.sh canary-deploy &lt;pct&gt;</code>.
+            Скрипт соберёт неактивный цвет и направит на него &lt;pct&gt;% трафика.
+          </li>
+          <li>
+            <b>Управлять процентом</b> — здесь, кнопками{active ? '' : ' (появятся, когда канарейка активна)'}.
+            Изменение доезжает до посетителей за ≤15 секунд. «Стоп (0%)» перестаёт раздавать куку —
+            новых участников нет, уже включённые вернутся на основной цвет при следующем заходе.
+          </li>
+          <li>
+            <b>Завершить</b> — на сервере: <code>bash scripts/bluegreen.sh promote &lt;цвет&gt;</code> (канареечный
+            код становится основным для 100%) либо <code>canary off</code> (откатить всех на текущий основной).
+            Обычный deploy при живой канарейке сознательно отказывается работать.
+          </li>
+        </ol>
+        <p>
+          <b>Куда смотреть, пока канарейка идёт:</b> каждый ответ витрины несёт заголовок
+          <code> X-AA-Colour</code> (DevTools → Network) — видно, какой цвет тебя обслужил;{' '}
+          <a href="https://grafana-aa.eremin.site" target="_blank" rel="noopener noreferrer">Grafana</a> —
+          логи и ошибки в разрезе цветов (дашборд наблюдаемости канарейки); страница «Здоровье» витрины —
+          датчик чтения состояния канарейки. Сравнивай ошибки/поведение канареечного цвета с основным —
+          если хуже, «Стоп» здесь или <code>canary off</code> на сервере.
+        </p>
+      </div>
+    </details>
+  );
+}
+
 function CanarySection({ env }: { env: Env }) {
   const [state, setState] = useState<CanaryState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,7 +183,14 @@ function CanarySection({ env }: { env: Env }) {
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {state.colour != null ? (
-                  <span className="badge badge-active">web-{state.colour} ~{state.pct}%</span>
+                  <>
+                    <span className="badge badge-active">web-{state.colour} ~{state.pct}%</span>
+                    <span style={{ fontSize: 12.5, color: 'var(--app-fg2)' }}>
+                      {state.pct > 0
+                        ? `~${state.pct}% посетителей липко едут на новый код (web-${state.colour}), остальные — на основной`
+                        : `роутер включён, но раздача остановлена (0%) — новых участников нет`}
+                    </span>
+                  </>
                 ) : (
                   <span className="badge badge-inactive">не активна</span>
                 )}
@@ -149,8 +204,7 @@ function CanarySection({ env }: { env: Env }) {
 
               {state.colour == null ? (
                 <div className="aa-hint">
-                  Включается на сервере: <code>bash scripts/bluegreen.sh canary-deploy &lt;pct&gt;</code> — новый цвет получит
-                  процент трафика без промоута.
+                  Весь трафик обслуживает основной цвет — канареечной раскатки сейчас нет.
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -178,6 +232,7 @@ function CanarySection({ env }: { env: Env }) {
             </>
           )}
           {error && state != null && <div className="error">{error}</div>}
+          {!loading && <CanaryHelp env={env} active={state?.colour != null} />}
         </div>
       </div>
     </section>
