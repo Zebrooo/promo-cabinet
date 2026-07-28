@@ -15,10 +15,10 @@ type Tool = {
 
 const TOOLS: Tool[] = [
   {
-    title: 'Grafana · Abkhaz Auto (тест)',
+    title: 'Grafana · Abkhaz Auto',
     description:
-      'Дашборд ads-promo: показы/клики/чекеры рекламной системы, трейс select-promo. Живёт на тест-сервере, свой логин Grafana.',
-    url: 'https://aa-grafana-test.eremin.site',
+      'Дашборд ads-promo: показы/клики/чекеры рекламной системы, трейс select-promo. Сейчас живёт на тест-сервере (имя grafana-aa заложено в monitoring/docker-compose витрины), свой логин Grafana.',
+    url: 'https://grafana-aa.eremin.site',
   },
   {
     title: 'Grafana · Abkhaz Auto (прод)',
