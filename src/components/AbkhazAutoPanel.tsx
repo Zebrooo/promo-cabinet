@@ -55,6 +55,7 @@ function describeError(status: number, error?: string): string {
   // окружения, и ложное «тестовое» на табе «Прод» дезориентирует (ревью).
   if (status === 503 && error === 'env_not_configured') return 'Это окружение не настроено в BFF (нет AA_*_SUPABASE_URL/KEY).';
   if (status === 409 && error === 'canary_not_active') return 'Канарейка не включена — процент менять нечему.';
+  if (status === 409 && error === 'key_exists') return 'Эксперимент с таким ключом уже существует.';
   if (error) return error;
   return `Ошибка ${status}`;
 }
