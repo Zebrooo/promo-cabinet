@@ -51,7 +51,9 @@ const STATUS_LABEL: Record<ExperimentRow['status'], string> = {
 /** Человеко-читаемые тексты для кодов ошибок, которые штатно шлёт BFF —
  *  остальное (network/невалидный JSON) показываем общим текстом. */
 function describeError(status: number, error?: string): string {
-  if (status === 503 && error === 'env_not_configured') return 'Тестовое окружение не настроено в BFF.';
+  // Без слова «тестовое»: 503 env_not_configured может прилететь для ЛЮБОГО
+  // окружения, и ложное «тестовое» на табе «Прод» дезориентирует (ревью).
+  if (status === 503 && error === 'env_not_configured') return 'Это окружение не настроено в BFF (нет AA_*_SUPABASE_URL/KEY).';
   if (status === 409 && error === 'canary_not_active') return 'Канарейка не включена — процент менять нечему.';
   if (error) return error;
   return `Ошибка ${status}`;
@@ -165,7 +167,7 @@ function CanarySection({ env }: { env: Env }) {
                       onChange={(e) => setPct(e.target.value)}
                     />
                   </label>
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => apply(Number(pct))}>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || pct.trim() === ''} onClick={() => apply(Number(pct))}>
                     Применить
                   </button>
                   <button type="button" className="btn btn-danger btn-sm" disabled={busy || state.pct === 0} onClick={() => apply(0)} title="Куки больше не раздаются; уже включённые вернутся на активный цвет при следующем заходе.">
