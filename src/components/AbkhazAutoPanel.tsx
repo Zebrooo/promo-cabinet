@@ -456,7 +456,7 @@ function ExperimentsSection({ env }: { env: Env }) {
     // row.variants.map(...) — та самая ошибка «undefined (reading 'map')»
     // на тестовом окружении, где эксперименты есть (фидбек юзера 2026-07-28).
     const r = await postJson<{
-      experiments: Omit<ExperimentRow, 'variants'>[];
+      experiments: (Omit<ExperimentRow, 'variants'> & { targeting?: Record<string, unknown> | null })[];
       variants: (ExperimentVariant & { experiment_key: string; position?: number })[];
     }>('/api/aa/experiments/list', { env });
     if (r.ok) {
@@ -471,7 +471,7 @@ function ExperimentsSection({ env }: { env: Env }) {
       // всегда показывал unchecked (находка ревью PR #9).
       setRows((r.data.experiments ?? []).map((e) => ({
         ...e,
-        authOnly: Boolean((e.targeting as Record<string, unknown> | null | undefined)?.authOnly),
+        authOnly: Boolean(e.targeting?.authOnly),
         variants: byKey.get(e.key) ?? [],
       })));
     } else {
