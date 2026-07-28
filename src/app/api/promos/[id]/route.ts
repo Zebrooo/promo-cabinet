@@ -3,6 +3,7 @@ import { isAuthed } from '@/lib/api-auth';
 import { promoSchema } from '@/lib/schema';
 import { mutatePool, mutateQueue, readQueuesIndex } from '@/lib/catalogue';
 import { removePromo, updatePromo, dequeue, NotFoundError } from '@/lib/mutations';
+import { readEnvMode } from '@/lib/env-mode';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +23,7 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
   }
 
   try {
-    await mutatePool((promos) => updatePromo(promos, params.id, promo));
+    await mutatePool((promos) => updatePromo(promos, params.id, promo), readEnvMode(req.cookies));
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json({ error: 'not_found' }, { status: 404 });
@@ -34,12 +35,13 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
 export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  const envMode = readEnvMode(req.cookies);
   try {
-    const index = await readQueuesIndex();
+    const index = await readQueuesIndex(envMode);
     await Promise.all(
-      index.map((entry) => mutateQueue(entry.name, (q) => ({ ...q, ids: dequeue(q.ids, params.id) }))),
+      index.map((entry) => mutateQueue(entry.name, (q) => ({ ...q, ids: dequeue(q.ids, params.id) }), envMode)),
     );
-    await mutatePool((promos) => removePromo(promos, params.id));
+    await mutatePool((promos) => removePromo(promos, params.id), envMode);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json({ error: 'not_found' }, { status: 404 });

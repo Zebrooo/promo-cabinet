@@ -1,6 +1,8 @@
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/lib/require-session';
 import { readPool, readQueue, readQueuesIndex } from '@/lib/catalogue';
+import { readEnvMode } from '@/lib/env-mode';
 import { QueueEditor } from '@/components/QueueEditor';
 import type { Promo } from '@/lib/schema';
 
@@ -13,12 +15,13 @@ interface Props {
 export default async function QueueNamePage({ params }: Props) {
   requireSession();
   const queueName = decodeURIComponent(params.name);
+  const envMode = readEnvMode(cookies());
 
   try {
     const [poolPromos, queuesIndex, queueObj] = await Promise.all([
-      readPool(),
-      readQueuesIndex(),
-      readQueue(queueName),
+      readPool(envMode),
+      readQueuesIndex(envMode),
+      readQueue(queueName, envMode),
     ]);
 
     // Verify the queue exists in the index

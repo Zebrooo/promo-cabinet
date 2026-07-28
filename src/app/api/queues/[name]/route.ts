@@ -6,6 +6,7 @@ import { queueKey, getS3Client } from '@/lib/s3';
 import { reorderQueue, ReorderMismatchError } from '@/lib/mutations';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '@/env';
+import { readEnvMode } from '@/lib/env-mode';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +33,8 @@ function prodServedConflict(): NextResponse {
 export async function GET(req: NextRequest, { params }: Ctx): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
-    const [queue, pool] = await Promise.all([readQueue(params.name), readPool()]);
+    const envMode = readEnvMode(req.cookies);
+    const [queue, pool] = await Promise.all([readQueue(params.name, envMode), readPool(envMode)]);
     const byId = new Map(pool.map((p) => [p.id, p]));
     // Resolve ids to promos, skipping dangling ids
     const promos = queue.ids.map((id) => byId.get(id)).filter(Boolean);
@@ -55,11 +57,12 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
   try {
     // Reordering an unregistered name would silently create an orphan
     // queue-<name>.json no UI lists — refuse instead.
-    const index = await readQueuesIndex();
+    const envMode = readEnvMode(req.cookies);
+    const index = await readQueuesIndex(envMode);
     if (!index.some((e) => e.name === params.name)) {
       return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
     }
-    await mutateQueue(params.name, (q) => ({ ...q, ids: reorderQueue(q.ids, ids) }));
+    await mutateQueue(params.name, (q) => ({ ...q, ids: reorderQueue(q.ids, ids) }), envMode);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof ReorderMismatchError) return NextResponse.json({ error: 'reorder_mismatch' }, { status: 400 });
@@ -77,8 +80,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
+  const envMode = readEnvMode(req.cookies);
   try {
-    const [queue, index] = await Promise.all([readQueue(params.name), readQueuesIndex()]);
+    const [queue, index] = await Promise.all([readQueue(params.name, envMode), readQueuesIndex(envMode)]);
     const entryIdx = index.findIndex((e) => e.name === params.name);
     if (entryIdx === -1) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
@@ -99,22 +103,22 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
       // Safer ordering: (a) write queue under the new key, (b) write the
       // updated index pointing to the new name, (c) delete the old key last.
       // A failure after (b) leaves only a harmless orphaned old key.
-      await writeQueue(newName, updatedQueue);
+      await writeQueue(newName, updatedQueue, envMode);
       const newIndex = index.map((e, i) =>
         i === entryIdx ? { name: newName, persist: updatedQueue.persist } : e,
       );
-      await writeQueuesIndex(newIndex);
-      await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(oldName) }));
+      await writeQueuesIndex(newIndex, envMode);
+      await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(oldName, envMode) }));
 
       return NextResponse.json({ ok: true });
     }
 
-    await writeQueue(currentName, updatedQueue);
+    await writeQueue(currentName, updatedQueue, envMode);
     // Update index entry
     const newIndex = index.map((e, i) =>
       i === entryIdx ? { name: currentName, persist: updatedQueue.persist } : e,
     );
-    await writeQueuesIndex(newIndex);
+    await writeQueuesIndex(newIndex, envMode);
 
     return NextResponse.json({ ok: true });
   } catch {
@@ -124,19 +128,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
 
 export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const envMode = readEnvMode(req.cookies);
   try {
     if (PROD_SERVED_QUEUES.includes(params.name)) return prodServedConflict();
-    const index = await readQueuesIndex();
+    const index = await readQueuesIndex(envMode);
     if (!index.some((e) => e.name === params.name)) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
     const newIndex = index.filter((e) => e.name !== params.name);
-    await writeQueuesIndex(newIndex);
+    await writeQueuesIndex(newIndex, envMode);
     // Delete the queue object. The queue is already out of the index, so a
     // failure here only leaves a harmless orphaned queue-<name>.json — but
     // don't swallow it silently: surface a warning to the caller.
     try {
-      await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(params.name) }));
+      await getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey(params.name, envMode) }));
     } catch {
       return NextResponse.json({
         ok: true,

@@ -2,7 +2,7 @@
 // Пульт канарейки релиза + эксперименты витрины abkhaz-auto. Данные живут в
 // abkhaz-Supabase за promo-bff (/aa-admin/**), поэтому в отличие от прочих
 // страниц кабинета (S3-пул) здесь нет серверного pre-fetch — всё грузится
-// client-side при монтировании и при смене env-таба.
+// client-side при монтировании.
 //
 // Перенесено из витрины (src/app/admin/experiments/{CanaryPanel,ExperimentsAdmin}.tsx),
 // упрощено под стиль кабинета:
@@ -13,8 +13,13 @@
 //    кнопки — текстовая подсказка, как включить это на самой витрине;
 //  - нет useTransition/server actions (кабинет не на server actions) — обычный
 //    fetch + локальный busy-стейт, как в QueueEditor/QueuesManager.
+//
+// Env больше не свой ?env=-таб — раньше AbkhazAutoPanel сам решал прод/тест
+// (EnvTabs + useSearchParams), теперь это глобальный режим кабинета: env
+// приходит пропом от страницы (которая читает httpOnly-куку cab_env). Внутри
+// панели изменилось ТОЛЬКО имя источника — тела запросов к /api/aa/** и вся
+// остальная логика не тронуты.
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 
 type Env = 'test' | 'prod';
 
@@ -69,21 +74,6 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
   const data = await res.json().catch(() => ({})) as Record<string, unknown> & { error?: string };
   if (!res.ok) return { ok: false, message: describeError(res.status, data.error) };
   return { ok: true, data: data as T };
-}
-
-function EnvTabs({ env }: { env: Env }) {
-  const router = useRouter();
-  const setEnv = (next: Env) => router.push(`/cabinet/abkhaz-auto?env=${next}`);
-  return (
-    <div className="env-tabs" role="tablist" aria-label="Окружение">
-      <button type="button" role="tab" aria-selected={env === 'prod'} className={`env-tab${env === 'prod' ? ' active' : ''}`} onClick={() => setEnv('prod')}>
-        Прод
-      </button>
-      <button type="button" role="tab" aria-selected={env === 'test'} className={`env-tab${env === 'test' ? ' active' : ''}`} onClick={() => setEnv('test')}>
-        Тест
-      </button>
-    </div>
-  );
 }
 
 // Куда идти руками для включения/завершения канарейки: у каждого окружения
@@ -505,11 +495,7 @@ function ExperimentsSection({ env }: { env: Env }) {
   );
 }
 
-export function AbkhazAutoPanel() {
-  const searchParams = useSearchParams();
-  const envParam = searchParams.get('env');
-  const env: Env = envParam === 'test' ? 'test' : 'prod'; // прод по умолчанию — любое иное значение тоже трактуем как прод
-
+export function AbkhazAutoPanel({ env }: { env: Env }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div className="page-header">
@@ -519,10 +505,9 @@ export function AbkhazAutoPanel() {
         </div>
       </div>
 
-      <EnvTabs env={env} />
-
-      {/* key=env — при смене таба секции монтируются заново и грузят данные
-          нужного окружения с нуля, без риска смешать стейт test/prod. */}
+      {/* key=env — при смене глобального режима кабинета (reload всей страницы)
+          секции монтируются заново и грузят данные нужного окружения с нуля,
+          без риска смешать стейт test/prod. */}
       <CanarySection key={`canary-${env}`} env={env} />
       <ExperimentsSection key={`exp-${env}`} env={env} />
     </div>

@@ -2,6 +2,7 @@ import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '@/env';
 import { promosKey, queuesIndexKey, queueKey, legacyQueueKey, getS3Client, isNoSuchKey } from './s3';
 import { promoSchema, queueSchema, queuesIndexSchema, queueObjectSchema, type Promo, type QueueObject, type QueuesIndex } from './schema';
+import type { EnvMode } from './env-mode';
 
 /** A missing object reads as null. */
 async function readText(key: string): Promise<string | null> {
@@ -28,8 +29,8 @@ async function writeJson(key: string, value: unknown): Promise<void> {
  * Невалидные записи пропускаются с `console.warn`, валидные возвращаются. Тот же
  * подход, что в promo-bff config-service (аудит B4).
  */
-export async function readPool(): Promise<Promo[]> {
-  const text = await readText(promosKey());
+export async function readPool(envMode: EnvMode = 'prod'): Promise<Promo[]> {
+  const text = await readText(promosKey(envMode));
   if (text === null) return [];
   const raw: unknown = JSON.parse(text);
   if (!Array.isArray(raw)) {
@@ -47,39 +48,39 @@ export async function readPool(): Promise<Promo[]> {
   }
   return out;
 }
-export async function writePool(promos: Promo[]): Promise<void> {
-  await writeJson(promosKey(), promos);
+export async function writePool(promos: Promo[], envMode: EnvMode = 'prod'): Promise<void> {
+  await writeJson(promosKey(envMode), promos);
 }
 
 /** Read-modify-write the pool (last-write-wins). A domain error in `apply` propagates before any write. */
-export async function mutatePool(apply: (promos: Promo[]) => Promo[]): Promise<Promo[]> {
-  const next = apply(await readPool());
-  await writePool(next);
+export async function mutatePool(apply: (promos: Promo[]) => Promo[], envMode: EnvMode = 'prod'): Promise<Promo[]> {
+  const next = apply(await readPool(envMode));
+  await writePool(next, envMode);
   return next;
 }
 
 /** Named-queues index: array of { name, persist }. Missing → []. */
-export async function readQueuesIndex(): Promise<QueuesIndex> {
-  const text = await readText(queuesIndexKey());
+export async function readQueuesIndex(envMode: EnvMode = 'prod'): Promise<QueuesIndex> {
+  const text = await readText(queuesIndexKey(envMode));
   return text === null ? [] : queuesIndexSchema.parse(JSON.parse(text));
 }
-export async function writeQueuesIndex(idx: QueuesIndex): Promise<void> {
-  await writeJson(queuesIndexKey(), idx);
+export async function writeQueuesIndex(idx: QueuesIndex, envMode: EnvMode = 'prod'): Promise<void> {
+  await writeJson(queuesIndexKey(envMode), idx);
 }
 
 /** Per-queue object. Missing → { persist: false, ids: [] }. */
-export async function readQueue(name: string): Promise<QueueObject> {
-  const text = await readText(queueKey(name));
+export async function readQueue(name: string, envMode: EnvMode = 'prod'): Promise<QueueObject> {
+  const text = await readText(queueKey(name, envMode));
   return text === null ? { persist: false, ids: [] } : queueObjectSchema.parse(JSON.parse(text));
 }
-export async function writeQueue(name: string, obj: QueueObject): Promise<void> {
-  await writeJson(queueKey(name), obj);
+export async function writeQueue(name: string, obj: QueueObject, envMode: EnvMode = 'prod'): Promise<void> {
+  await writeJson(queueKey(name, envMode), obj);
 }
 
 /** Read-modify-write a named queue (last-write-wins). */
-export async function mutateQueue(name: string, apply: (q: QueueObject) => QueueObject): Promise<QueueObject> {
-  const next = apply(await readQueue(name));
-  await writeQueue(name, next);
+export async function mutateQueue(name: string, apply: (q: QueueObject) => QueueObject, envMode: EnvMode = 'prod'): Promise<QueueObject> {
+  const next = apply(await readQueue(name, envMode));
+  await writeQueue(name, next, envMode);
   return next;
 }
 
@@ -194,17 +195,19 @@ export const CANONICAL_ANCHORS: { id: string; label: string; pages: string[] }[]
  *
  * Returns the resulting index so callers don't re-read `queues.json` right after.
  */
-export async function ensureMainQueue(): Promise<QueuesIndex> {
-  let index = await readQueuesIndex();
+export async function ensureMainQueue(envMode: EnvMode = 'prod'): Promise<QueuesIndex> {
+  let index = await readQueuesIndex(envMode);
 
   // First-run migration: if no index exists at all, seed `main` from the
   // legacy bare-array queue.json so we don't drop any pre-existing ids.
+  // В test-режиме легаси-ключ лежит под тем же 'test/'-префиксом и почти
+  // всегда пуст — миграция там просто создаст main с пустыми ids.
   if (index.length === 0) {
-    const legacyText = await readText(legacyQueueKey());
+    const legacyText = await readText(legacyQueueKey(envMode));
     const ids = legacyText === null ? [] : queueSchema.parse(JSON.parse(legacyText));
-    await writeQueue('main', { persist: false, ids });
+    await writeQueue('main', { persist: false, ids }, envMode);
     index = [{ name: 'main', persist: false }];
-    await writeQueuesIndex(index);
+    await writeQueuesIndex(index, envMode);
   }
 
   // Fill in any canonical queue the storefront expects but the cabinet
@@ -215,15 +218,15 @@ export async function ensureMainQueue(): Promise<QueuesIndex> {
   if (toAdd.length === 0) return index;
 
   for (const q of toAdd) {
-    await writeQueue(q.name, { persist: q.persist, ids: [] });
+    await writeQueue(q.name, { persist: q.persist, ids: [] }, envMode);
   }
   const next = [...index, ...toAdd];
-  await writeQueuesIndex(next);
+  await writeQueuesIndex(next, envMode);
   return next;
 }
 
 /** Both objects, for rendering pages. */
-export async function readState(): Promise<{ promos: Promo[]; queues: QueuesIndex }> {
-  const [promos, queues] = await Promise.all([readPool(), readQueuesIndex()]);
+export async function readState(envMode: EnvMode = 'prod'): Promise<{ promos: Promo[]; queues: QueuesIndex }> {
+  const [promos, queues] = await Promise.all([readPool(envMode), readQueuesIndex(envMode)]);
   return { promos, queues };
 }

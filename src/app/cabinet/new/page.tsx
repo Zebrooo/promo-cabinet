@@ -1,17 +1,20 @@
+import { cookies } from 'next/headers';
 import { requireSession } from '@/lib/require-session';
 import { readPool, readQueuesIndex } from '@/lib/catalogue';
+import { readEnvMode } from '@/lib/env-mode';
 import { PromoForm } from '@/components/PromoForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewPromoPage() {
   requireSession();
+  const envMode = readEnvMode(cookies());
   // Show the queue chips but disable them until first save — membership is
   // empty for a new promo, queueNames are the available queues. The pool
   // feeds the chain-predecessor <datalist>.
   const [queuesIndex, promos] = await Promise.all([
-    readQueuesIndex().catch(() => []),
-    readPool().catch(() => []),
+    readQueuesIndex(envMode).catch(() => []),
+    readPool(envMode).catch(() => []),
   ]);
   const queueNames = queuesIndex.map((q) => q.name);
   const poolPromos = promos.map((p) => ({ id: p.id, title: p.title }));

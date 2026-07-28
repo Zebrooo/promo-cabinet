@@ -19,6 +19,8 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LogoutButton } from '@/components/LogoutButton';
+import { EnvSwitch, EnvBanner } from '@/components/EnvSwitch';
+import type { EnvMode } from '@/lib/env-mode';
 
 interface NavItem {
   href: string;
@@ -46,7 +48,7 @@ function breadcrumbFor(path: string): string {
   return '/ все промо';
 }
 
-function TopStrip({ user }: { user: string }) {
+function TopStrip({ user, env }: { user: string; env: EnvMode }) {
   const path = usePathname();
   return (
     <div className="topstrip">
@@ -55,6 +57,7 @@ function TopStrip({ user }: { user: string }) {
       </Link>
       <span className="topstrip-crumb">{breadcrumbFor(path)}</span>
       <div className="topstrip-spacer" />
+      <EnvSwitch env={env} />
       <div className="topstrip-user" title={user}>
         <div className="topstrip-avatar">{(user[0] ?? 'A').toUpperCase()}</div>
         <span className="topstrip-name">{user}</span>
@@ -123,10 +126,11 @@ function MobileTabs() {
   );
 }
 
-export function CabinetShell({ children, user = 'admin' }: { children: ReactNode; user?: string }) {
+export function CabinetShell({ children, user = 'admin', env }: { children: ReactNode; user?: string; env: EnvMode }) {
   return (
     <div className="shell">
-      <TopStrip user={user} />
+      <TopStrip user={user} env={env} />
+      <EnvBanner env={env} />
       <NavRail />
       <main className="main">
         <div className="page-body">{children}</div>
