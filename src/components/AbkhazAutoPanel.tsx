@@ -450,9 +450,23 @@ function ExperimentsSection({ env }: { env: Env }) {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const r = await postJson<{ experiments: ExperimentRow[] }>('/api/aa/experiments/list', { env });
+    // BFF отдаёт эксперименты и варианты ДВУМЯ плоскими массивами — варианты
+    // надо пришить к своим экспериментам по experiment_key. Раньше каст врал
+    // («experiments уже с variants»), и первый же рендер строки падал на
+    // row.variants.map(...) — та самая ошибка «undefined (reading 'map')»
+    // на тестовом окружении, где эксперименты есть (фидбек юзера 2026-07-28).
+    const r = await postJson<{
+      experiments: Omit<ExperimentRow, 'variants'>[];
+      variants: (ExperimentVariant & { experiment_key: string; position?: number })[];
+    }>('/api/aa/experiments/list', { env });
     if (r.ok) {
-      setRows(r.data.experiments ?? []);
+      const byKey = new Map<string, ExperimentVariant[]>();
+      for (const v of r.data.variants ?? []) {
+        const list = byKey.get(v.experiment_key) ?? [];
+        list.push(v);
+        byKey.set(v.experiment_key, list);
+      }
+      setRows((r.data.experiments ?? []).map((e) => ({ ...e, variants: byKey.get(e.key) ?? [] })));
     } else {
       setRows(null);
       setError(r.message);
