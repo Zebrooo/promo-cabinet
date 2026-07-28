@@ -829,3 +829,17 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
   background: var(--input-bg); border: 1px solid var(--input-border);
   border-radius: 6px; font: inherit; font-size: 12.5px; color: var(--app-fg1);
 }
+
+/* ── /cabinet/metrics: хаб внешних систем наблюдения ── */
+.metrics-intro { margin: 0 0 18px; font-size: 13.5px; color: var(--app-fg3); }
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.metrics-card {
+  display: block; padding: 16px 18px; border: 1px solid var(--app-line, #E3E1DC);
+  border-radius: 12px; background: #fff; text-decoration: none; color: inherit;
+  transition: border-color .15s ease;
+}
+.metrics-card:hover { border-color: var(--app-fg3); }
+.metrics-card.is-disabled { opacity: .55; }
+.metrics-card-title { font-size: 14.5px; font-weight: 700; color: var(--app-fg1); margin-bottom: 6px; }
+.metrics-card-desc { font-size: 13px; color: var(--app-fg2); line-height: 1.5; }
+.metrics-card-note { margin-top: 8px; font-size: 12px; color: var(--app-fg3); }
