@@ -24,10 +24,35 @@ services:
       - web
     labels:
       - traefik.enable=true
-      - traefik.http.routers.promo-cabinet.rule=Host(`promo-admin.eremin.site`)
+      # Основной домен — promo.abkhaz-auto.ru (решение 2026-07-28: кабинет
+      # теперь ещё и пульт деплоя abkhaz-auto, домен должен быть свой).
+      # DNS-нюанс: на зоне есть wildcard *.abkhaz-auto.ru на ЧУЖОЙ сервер
+      # (195.140.144.90), поэтому нужна ЯВНАЯ A-запись promo → 170.168.8.16
+      # в Timeweb-панели — до неё LE-сертификат не выпустится (HTTP-01).
+      - traefik.http.routers.promo-cabinet.rule=Host(`promo.abkhaz-auto.ru`)
       - traefik.http.routers.promo-cabinet.entrypoints=websecure
       - traefik.http.routers.promo-cabinet.tls.certresolver=letsencrypt
       - traefik.http.services.promo-cabinet.loadbalancer.server.port=3190
+      # HTTP→HTTPS для нового домена (по образцу aa-*-http роутеров витрины).
+      - traefik.http.middlewares.promo-cabinet-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.promo-cabinet-https.redirectscheme.permanent=true
+      - traefik.http.routers.promo-cabinet-http.rule=Host(`promo.abkhaz-auto.ru`)
+      - traefik.http.routers.promo-cabinet-http.entrypoints=web
+      - traefik.http.routers.promo-cabinet-http.middlewares=promo-cabinet-https
+      # Старый адрес promo-admin.eremin.site — 301 на новый домен, чтобы
+      # закладки не умерли. Снести роутер можно после пары недель тишины
+      # в логах Traefik по этому хосту.
+      - traefik.http.middlewares.promo-cabinet-to-aa.redirectregex.regex=^https?://promo-admin\.eremin\.site/(.*)
+      - traefik.http.middlewares.promo-cabinet-to-aa.redirectregex.replacement=https://promo.abkhaz-auto.ru/$${1}
+      - traefik.http.middlewares.promo-cabinet-to-aa.redirectregex.permanent=true
+      - traefik.http.routers.promo-cabinet-legacy.rule=Host(`promo-admin.eremin.site`)
+      - traefik.http.routers.promo-cabinet-legacy.entrypoints=websecure
+      - traefik.http.routers.promo-cabinet-legacy.tls.certresolver=letsencrypt
+      - traefik.http.routers.promo-cabinet-legacy.service=promo-cabinet
+      - traefik.http.routers.promo-cabinet-legacy.middlewares=promo-cabinet-to-aa
+      - traefik.http.routers.promo-cabinet-legacy-http.rule=Host(`promo-admin.eremin.site`)
+      - traefik.http.routers.promo-cabinet-legacy-http.entrypoints=web
+      - traefik.http.routers.promo-cabinet-legacy-http.middlewares=promo-cabinet-to-aa
     healthcheck:
       # Логин-страница отдаёт 200 без авторизации — годится как проба живости.
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3190/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
