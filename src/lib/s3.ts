@@ -1,5 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { env } from '@/env';
+import type { EnvMode } from './env-mode';
 
 let client: S3Client | null = null;
 
@@ -51,14 +52,26 @@ function guardKey(key: string): string {
   return key;
 }
 
+/**
+ * Глобальный режим кабинета (Прод/Тест, см. env-mode.ts) добавляет свой
+ * префикс СВЕРХ тестового PROMO_KEY_PREFIX: 'test/' для envMode='test',
+ * пусто для 'prod' — так прод-данные остаются на прежних ключах без
+ * префикса (обратная совместимость), а тестовый режим живёт в изолированном
+ * поддереве того же бакета. Дефолт параметра — 'prod', чтобы существующие
+ * вызовы (интеграционные тесты, старый код) не поменяли поведение.
+ */
+function envPrefix(envMode: EnvMode): string {
+  return envMode === 'test' ? 'test/' : '';
+}
+
 /** Pool object key (all promos), honouring the optional key prefix. */
-export function promosKey(): string {
-  return guardKey(`${env.promoKeyPrefix}promos.json`);
+export function promosKey(envMode: EnvMode = 'prod'): string {
+  return guardKey(`${env.promoKeyPrefix}${envPrefix(envMode)}promos.json`);
 }
 
 /** Named-queues index key, honouring the optional key prefix. */
-export function queuesIndexKey(): string {
-  return guardKey(`${env.promoKeyPrefix}queues.json`);
+export function queuesIndexKey(envMode: EnvMode = 'prod'): string {
+  return guardKey(`${env.promoKeyPrefix}${envPrefix(envMode)}queues.json`);
 }
 
 /** Allowed queue-name shape (mirrors the create/rename slug rule). Enforced here
@@ -67,16 +80,16 @@ export function queuesIndexKey(): string {
 const QUEUE_NAME_RE = /^[a-z0-9-_]+$/i;
 
 /** Per-queue object key for a named queue, honouring the optional key prefix. */
-export function queueKey(name: string): string {
+export function queueKey(name: string, envMode: EnvMode = 'prod'): string {
   if (!QUEUE_NAME_RE.test(name)) {
     throw new Error(`[s3] invalid queue name "${name}" — must match ${QUEUE_NAME_RE}`);
   }
-  return guardKey(`${env.promoKeyPrefix}queue-${name}.json`);
+  return guardKey(`${env.promoKeyPrefix}${envPrefix(envMode)}queue-${name}.json`);
 }
 
 /** Legacy single-queue key — used ONLY for one-time migration. */
-export function legacyQueueKey(): string {
-  return guardKey(`${env.promoKeyPrefix}queue.json`);
+export function legacyQueueKey(envMode: EnvMode = 'prod'): string {
+  return guardKey(`${env.promoKeyPrefix}${envPrefix(envMode)}queue.json`);
 }
 
 /** Test seam: drop the memoized client. */

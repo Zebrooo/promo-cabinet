@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
 import { readQueuesIndex, writeQueuesIndex, writeQueue, ensureMainQueue } from '@/lib/catalogue';
+import { readEnvMode } from '@/lib/env-mode';
 
 export const runtime = 'nodejs';
 
@@ -13,7 +14,7 @@ const createQueueBody = z.object({
 export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
-    const queues = await ensureMainQueue();
+    const queues = await ensureMainQueue(readEnvMode(req.cookies));
     return NextResponse.json({ queues });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
@@ -30,13 +31,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
+  const envMode = readEnvMode(req.cookies);
   try {
-    const index = await readQueuesIndex();
+    const index = await readQueuesIndex(envMode);
     if (index.some((q) => q.name === body.name)) {
       return NextResponse.json({ error: 'duplicate_queue' }, { status: 409 });
     }
-    await writeQueue(body.name, { persist: body.persist, ids: [] });
-    await writeQueuesIndex([...index, { name: body.name, persist: body.persist }]);
+    await writeQueue(body.name, { persist: body.persist, ids: [] }, envMode);
+    await writeQueuesIndex([...index, { name: body.name, persist: body.persist }], envMode);
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });

@@ -178,6 +178,41 @@ a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-under
 }
 .topstrip-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ═══ ГЛОБАЛЬНЫЙ РЕЖИМ (Прод/Тест) ═════════════════════════════ */
+/* Компактный свитч в TopStrip — тот же вид, что .env-tabs (Abkhaz Auto),
+   но меньше (для тесной шапки). Плашка — на всю ширину, отдельная grid-area
+   под top strip, видна на каждой странице кабинета. */
+.env-switch {
+  display: flex; border-radius: 7px; overflow: hidden;
+  border: 1px solid var(--app-border2); background: var(--input-bg);
+  width: max-content; flex-shrink: 0;
+}
+.env-switch-tab {
+  padding: 0 12px; height: 28px; display: flex; align-items: center;
+  font-size: 12px; font-weight: 600; color: var(--app-fg3);
+  cursor: pointer; border: 0; background: transparent;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.env-switch-tab:disabled { opacity: .6; cursor: not-allowed; }
+.env-switch-tab.active { background: var(--brand-sea-700); color: #fff; }
+
+.shell { grid-template-rows: 64px auto 1fr; grid-template-areas: "top top" "banner banner" "rail main"; }
+.env-banner {
+  grid-area: banner;
+  padding: 8px 32px;
+  font-size: 12.5px; font-weight: 700; text-align: center;
+  letter-spacing: .01em;
+}
+/* Насыщенный (не пастельный) красный — прод-плашка должна бросаться в глаза,
+   пастельного --status-danger-bg для этого недостаточно. */
+.env-banner-prod {
+  background: var(--status-danger); color: #fff;
+}
+.env-banner-test {
+  background: var(--app-surface2); color: var(--app-fg2);
+  border-bottom: 1px solid var(--app-border2);
+}
+
 /* ═══ NAV RAIL ══════════════════════════════════════════════ */
 .nav-rail {
   grid-area: rail;
@@ -745,8 +780,8 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
   .nav-rail { display: none; }
   .shell {
     grid-template-columns: 1fr;
-    grid-template-rows: 56px 1fr 56px;
-    grid-template-areas: "top" "main" "tabs";
+    grid-template-rows: 56px auto 1fr 56px;
+    grid-template-areas: "top" "banner" "main" "tabs";
   }
   .topstrip { padding: 0 16px; height: 56px; gap: 8px; }
   .topstrip-crumb { display: none; }
