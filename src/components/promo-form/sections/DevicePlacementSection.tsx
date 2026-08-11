@@ -4,7 +4,6 @@ import type { Promo } from '@/lib/schema';
 import type { PromoFormat } from '@/lib/schema';
 import { FORMAT_LABEL } from '@/lib/format-labels';
 import { FORMATS_BY_DEVICE, type DeviceClass } from '@zebrooo/promo-renderer';
-import { queuesServing, QUEUE_META } from '@/lib/queue-formats';
 
 // Какие форматы доступны для каждого варианта targeting.
 // Union (а не intersection): на 'both' оставляем все desktop-форматы — topline
@@ -34,8 +33,7 @@ function formatCaveatFor(format: PromoFormat, target: NonNullable<Promo['deviceT
   return null;
 }
 
-/** Device target pills + format tiles (create-only, immutable in edit) +
- *  queuesServing/isFormatMismatch hints. */
+/** Device target pills + format tiles (create-only, immutable in edit). */
 export function DevicePlacementSection({ mode }: { mode: 'create' | 'edit' }) {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const currentTarget: NonNullable<Promo['deviceTarget']> = values.deviceTarget ?? 'both';
@@ -113,19 +111,6 @@ export function DevicePlacementSection({ mode }: { mode: 'create' | 'edit' }) {
         {formatCaveatFor(values.format, currentTarget) && (
           <div className="hint hint-warn">{formatCaveatFor(values.format, currentTarget)}</div>
         )}
-        {(() => {
-          const queues = queuesServing(values.format);
-          if (queues.length === 0) return null;
-          const labels = queues.map((qn) => QUEUE_META[qn]?.label ?? qn).join(', ');
-          const multistepNote = values.format === 'multistep'
-            ? ' (каталожные очереди этот формат сейчас не запрашивают — только cabinet-onboarding)'
-            : '';
-          return (
-            <div className="hint">
-              Формат обслуживается очередями: <b>{labels}</b>{multistepNote}.
-            </div>
-          );
-        })()}
       </section>
     </>
   );

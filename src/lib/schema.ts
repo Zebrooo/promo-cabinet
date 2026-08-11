@@ -88,7 +88,7 @@ export const servingBlockSchema = z.object({
 
 /** Общий шейп CTA-кнопки — расшаривается через `.extend()` форматами, у
  *  которых рендерер реально читает action/ctaColor/ctaTextColor
- *  (inline/popup/fullscreen/tooltip). Не самостоятельная схема члена union —
+ *  (inline/popup/fullscreen/tooltip/multistep). Не самостоятельная схема члена union —
  *  только объект полей для extend. */
 const ctaBlockShape = {
   action: z.object({
@@ -169,8 +169,8 @@ export const tooltipPromoSchema = servingBlockSchema.extend({
 });
 
 /** Слой 2, член 6/8: multistep. steps — обязательное поле (2..6 шагов),
- *  отдельный refine больше не нужен. Текущий персистентный контракт БЕЗ
- *  action/ctaColor/ctaTextColor/description/imageUrl/dismissible. */
+ *  отдельный refine больше не нужен. action рендерится CTA-кнопкой
+ *  на последнем шаге; цвета кнопки тоже читаются рендерером. */
 export const multistepPromoSchema = servingBlockSchema.extend({
   format: z.literal('multistep'),
   steps: z.array(promoStepSchema).min(2, 'Нужно минимум 2 шага').max(6, 'Не больше 6 шагов'),
@@ -180,6 +180,7 @@ export const multistepPromoSchema = servingBlockSchema.extend({
   textColor: z.string().optional(),
   backgroundImage: z.string().optional(),
   backgroundGradient: backgroundGradientSchema.optional(),
+  ...ctaBlockShape,
 });
 
 /** Слой 2, член 7/8: divkit. divkitUrl — URL на JSON-верстку в S3

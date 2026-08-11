@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { isAuthed } from '@/lib/api-auth';
 import { readPool, mutateQueue, readQueuesIndex } from '@/lib/catalogue';
 import { enqueue, dequeue } from '@/lib/mutations';
-import { isFormatMismatch } from '@/lib/queue-formats';
 import { readEnvMode } from '@/lib/env-mode';
 
 export const runtime = 'nodejs';
@@ -20,15 +19,11 @@ export async function POST(req: NextRequest, { params }: Ctx): Promise<NextRespo
     if (!index.some((e) => e.name === params.name)) {
       return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
     }
-    const promo = pool.find((p) => p.id === params.id);
-    if (!promo) {
+    if (!pool.some((promo) => promo.id === params.id)) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
     await mutateQueue(params.name, (q) => ({ ...q, ids: enqueue(q.ids, params.id) }), envMode);
-    const warning = isFormatMismatch(params.name, promo.format)
-      ? `Формат «${promo.format}» не запрашивается очередью «${params.name}» — промо не будет показано сайтом`
-      : undefined;
-    return NextResponse.json({ ok: true, ...(warning ? { warning } : {}) });
+    return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
   }

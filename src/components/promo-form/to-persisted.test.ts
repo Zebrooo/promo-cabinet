@@ -162,6 +162,32 @@ describe('toPersisted — CTA colors only with action present', () => {
   });
 });
 
+describe('multistep CTA projection', () => {
+  const multistep = make('multistep', {
+    steps: [
+      { title: 'Шаг 1', body: 'Текст 1' },
+      { title: 'Шаг 2', body: 'Текст 2' },
+    ],
+    action: { href: '/lk/prodvizhenie/banner/new', label: 'Создать кампанию' },
+    ctaColor: '#123456',
+    ctaTextColor: '#ffffff',
+  });
+
+  it('keeps action and CTA colors in persisted data', () => {
+    const out = toPersisted(multistep);
+    expect(out.action).toEqual(multistep.action);
+    expect(out.ctaColor).toBe('#123456');
+    expect(out.ctaTextColor).toBe('#ffffff');
+  });
+
+  it('keeps action and CTA colors in the lenient preview projection', () => {
+    const out = toPreview(multistep);
+    expect(out.action).toEqual(multistep.action);
+    expect(out.ctaColor).toBe('#123456');
+    expect(out.ctaTextColor).toBe('#ffffff');
+  });
+});
+
 describe('toPreview — lenient projection for the mid-edit/invalid preview rail', () => {
   it('never throws on an invalid draft (empty title)', () => {
     const draft = make('inline', { title: '' });

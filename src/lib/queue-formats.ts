@@ -1,124 +1,93 @@
 /**
- * Queue → formats/section dictionary.
+ * Human-readable queue metadata used by the cabinet.
  *
- * Ground-truth: what abkhaz-auto actually requests from each queue right now
- * (verified against storefront slot wiring, July 2026):
- *   - Catalog queues (home, transport, realty, goods, services, jobs, news, listing):
- *     two slots per page — topline (formats:['topline']) and overlay
- *     (formats:['popup','fullscreen','inline','divkit']). `multistep` and `custom`
- *     are NOT requested from these queues.
- *   - tooltip: only formats:['tooltip'].
- *   - cabinet-onboarding: formats: custom, multistep, tooltip, popup.
- *   - home-banner / home-popup: legacy — storefront no longer requests them
- *     (replaced by the per-catalog cutover). Marked legacy=true.
+ * Queues accept promos independently of format. Storefront consumers decide
+ * which surface can render a selected promo, so the cabinet intentionally
+ * keeps no queue → format compatibility table and emits no mismatch warnings.
  */
-import type { Promo } from './schema';
 import { DEVICE_QUEUE_CATALOGS, QUEUE_DEVICES } from './catalogue';
-
-export type PromoFormat = Promo['format'];
 
 export interface QueueMeta {
   name: string;
-  /** Human-readable label, e.g. «Транспорт» */
+  /** Human-readable label, e.g. «Транспорт». */
   label: string;
-  /** One-liner describing what section this queue serves and which formats */
+  /** One-liner describing the section served by this queue. */
   sectionHint: string;
-  /** Formats the storefront actually requests from this queue */
-  servedFormats: PromoFormat[];
-  /** true for queues the storefront no longer requests */
+  /** true for queues the storefront no longer requests. */
   legacy?: boolean;
 }
-
-/** Catalog queues share the same slot wiring: topline + overlay (popup/fullscreen/inline/divkit). */
-const CATALOG_FORMATS: PromoFormat[] = ['topline', 'popup', 'fullscreen', 'inline', 'divkit'];
 
 export const QUEUE_META: Record<string, QueueMeta> = {
   home: {
     name: 'home',
     label: 'Главная',
-    sectionHint: 'Главная страница — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Главная страница',
   },
   transport: {
     name: 'transport',
     label: 'Транспорт',
-    sectionHint: 'Авто, шины, диски, запчасти — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Авто, шины, диски и запчасти',
   },
   realty: {
     name: 'realty',
     label: 'Недвижимость',
-    sectionHint: 'Недвижимость — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Раздел недвижимости',
   },
   goods: {
     name: 'goods',
     label: 'Товары',
-    sectionHint: 'Товары и барахолка — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Товары и барахолка',
   },
   services: {
     name: 'services',
     label: 'Услуги',
-    sectionHint: 'Услуги — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Раздел услуг',
   },
   jobs: {
     name: 'jobs',
     label: 'Работа',
-    sectionHint: 'Работа — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Раздел работы',
   },
   news: {
     name: 'news',
     label: 'Новости',
-    sectionHint: 'Новости — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Раздел новостей',
   },
   listing: {
     name: 'listing',
     label: 'Страница объявления',
-    sectionHint: 'Страница объявления — топлайн и оверлеи каталога',
-    servedFormats: CATALOG_FORMATS,
+    sectionHint: 'Карточка объявления',
   },
   tooltip: {
     name: 'tooltip',
     label: 'Тултипы',
-    sectionHint: 'Привязанные подсказки у элементов страницы',
-    servedFormats: ['tooltip'],
+    sectionHint: 'Контекстные подсказки у элементов страницы',
   },
   'cabinet-onboarding': {
     name: 'cabinet-onboarding',
     label: 'Онбординг кабинета',
-    sectionHint: 'Тур по рекламному кабинету (custom, multistep, tooltip, popup)',
-    servedFormats: ['custom', 'multistep', 'tooltip', 'popup'],
+    sectionHint: 'Онбординг рекламного кабинета',
   },
-  // Legacy queues — storefront no longer requests these
   'home-banner': {
     name: 'home-banner',
     label: 'Главная (лег. баннер)',
-    sectionHint: 'Устаревшая очередь топлайна — заменена очередью «home»',
-    servedFormats: ['topline'],
+    sectionHint: 'Устаревшая очередь — заменена очередью «home»',
     legacy: true,
   },
   'home-popup': {
     name: 'home-popup',
     label: 'Главная (лег. попап)',
-    sectionHint: 'Устаревшая очередь попапа — заменена очередью «home»',
-    servedFormats: ['popup', 'fullscreen', 'inline', 'divkit'],
+    sectionHint: 'Устаревшая очередь — заменена очередью «home»',
     legacy: true,
   },
 };
 
-// Per-device очереди (web/touch/mobile) — метаданные производятся из каталожных.
-// `topline` — desktop-only формат, поэтому на touch/mobile его НЕ обслуживаем
-// (эти поверхности его не рендерят); web = как каталог.
 const DEVICE_QUEUE_LABEL: Record<(typeof QUEUE_DEVICES)[number], string> = {
   web: 'веб',
   touch: 'моб. браузер',
   mobile: 'приложение',
 };
-const TOUCH_CATALOG_FORMATS: PromoFormat[] = ['popup', 'fullscreen', 'inline', 'divkit'];
+
 for (const catalog of DEVICE_QUEUE_CATALOGS) {
   const base = QUEUE_META[catalog];
   for (const device of QUEUE_DEVICES) {
@@ -126,46 +95,7 @@ for (const catalog of DEVICE_QUEUE_CATALOGS) {
     QUEUE_META[name] = {
       name,
       label: `${base.label} · ${DEVICE_QUEUE_LABEL[device]}`,
-      sectionHint: `${base.label} — ${DEVICE_QUEUE_LABEL[device]}: ${
-        device === 'web' ? 'топлайн и оверлеи' : 'оверлеи'
-      }`,
-      servedFormats: device === 'web' ? CATALOG_FORMATS : TOUCH_CATALOG_FORMATS,
+      sectionHint: `${base.label} — ${DEVICE_QUEUE_LABEL[device]}`,
     };
   }
-}
-
-/**
- * Returns the list of formats the storefront actually requests from the given
- * queue, or null if the queue is not in our dictionary (custom/unknown queue —
- * we don't show any hint in that case).
- */
-export function formatsServedBy(queue: string): PromoFormat[] | null {
-  return QUEUE_META[queue]?.servedFormats ?? null;
-}
-
-/**
- * Returns the names of queues that serve the given format, excluding legacy
- * queues. Useful for hints like «Формат обслуживается очередями: …».
- *
- * Per-device варианты (`<catalog>-web|touch|mobile`) СХЛОПЫВАЮТСЯ до каталога,
- * чтобы хинт не разрастался в простыню из ~30 имён — рекламодателю важен каталог,
- * а не device-вариант (device выбирается отдельно в форме размещения).
- */
-export function queuesServing(format: PromoFormat): string[] {
-  const names = Object.values(QUEUE_META)
-    .filter((m) => !m.legacy && m.servedFormats.includes(format))
-    .map((m) => m.name.replace(/-(web|touch|mobile)$/, ''));
-  return [...new Set(names)];
-}
-
-/**
- * Returns true when a promo with the given format would NOT be picked up by
- * any slot in the given queue (i.e. the queue exists in our dictionary but
- * the format is not in servedFormats). Returns false for unknown queues (we
- * prefer no false positives over no false negatives for custom queues).
- */
-export function isFormatMismatch(queue: string, format: PromoFormat): boolean {
-  const served = formatsServedBy(queue);
-  if (served === null) return false; // unknown queue → no warning
-  return !served.includes(format);
 }

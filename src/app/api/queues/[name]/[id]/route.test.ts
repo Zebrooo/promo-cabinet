@@ -93,17 +93,15 @@ describe('POST /api/queues/[name]/[id]', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns no warning when format matches queue (inline in home)', async () => {
+  it('returns only ok when enqueueing a promo', async () => {
     await seedIndex([{ name: 'home', persist: false }]);
-    await seedPool([promo('p1')]); // promo() uses 'inline' format, which IS served by 'home'
+    await seedPool([promo('p1')]);
     const res = await POST(authed('home', 'p1'), ctx('home', 'p1'));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; warning?: string };
-    expect(body.ok).toBe(true);
-    expect(body.warning).toBeUndefined();
+    expect(await res.json()).toEqual({ ok: true });
   });
 
-  it('returns warning when format is not served by the queue (multistep in home)', async () => {
+  it('enqueues multistep into home without a format warning', async () => {
     await seedIndex([{ name: 'home', persist: false }]);
     const multistepPromo = {
       ...promo('ms1'),
@@ -116,34 +114,8 @@ describe('POST /api/queues/[name]/[id]', () => {
     await seedPool([multistepPromo]);
     const res = await POST(authed('home', 'ms1'), ctx('home', 'ms1'));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; warning?: string };
-    expect(body.ok).toBe(true);
-    expect(typeof body.warning).toBe('string');
-    expect(body.warning).toMatch(/multistep/);
-    expect(body.warning).toMatch(/home/);
-  });
-
-  it('returns warning for tooltip format in a catalog queue', async () => {
-    await seedIndex([{ name: 'transport', persist: false }]);
-    const tooltipPromo = {
-      ...promo('tt1'),
-      format: 'tooltip' as const,
-      anchor: 'home-search',
-    };
-    await seedPool([tooltipPromo]);
-    const res = await POST(authed('transport', 'tt1'), ctx('transport', 'tt1'));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; warning?: string };
-    expect(body.warning).toBeTruthy();
-  });
-
-  it('returns no warning for an unknown/custom queue name (avoids false positives)', async () => {
-    await seedIndex([{ name: 'my-custom-q', persist: false }]);
-    await seedPool([promo('a1')]);
-    const res = await POST(authed('my-custom-q', 'a1'), ctx('my-custom-q', 'a1'));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; warning?: string };
-    expect(body.warning).toBeUndefined();
+    expect(await res.json()).toEqual({ ok: true });
+    expect((await readQueue('home')).ids).toContain('ms1');
   });
 });
 
