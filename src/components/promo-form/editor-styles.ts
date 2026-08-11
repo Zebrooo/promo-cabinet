@@ -7,7 +7,7 @@ export const EDITOR_CSS = `
 .editor .hint-warn { color: var(--brand-coral-700); font-weight: 600; }
 
 .editor-bar {
-  position: sticky; top: 0; z-index: 9;
+  position: sticky; top: 64px; z-index: 9;
   background: var(--app-bg);
   margin: -24px -32px 0;
   padding: 16px 32px;
@@ -412,6 +412,7 @@ export const EDITOR_CSS = `
   .editor-rail { position: static; }
 }
 @media (max-width: 720px) {
+  .editor-bar { top: 56px; }
   .format-tiles { grid-template-columns: repeat(2, 1fr); }
   .device-target { grid-template-columns: 1fr; }
   .ef-cta-row { grid-template-columns: 1fr; }
