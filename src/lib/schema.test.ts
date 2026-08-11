@@ -488,18 +488,26 @@ describe('regression shield: every format parses with all fields valid today', (
   });
 
   it('multistep', () => {
-    expect(() =>
-      promoSchema.parse({
-        ...base, id: 'multistep-x', format: 'multistep',
-        steps: [
-          { title: 'Шаг 1', body: 'Текст шага 1', imageUrl: 'https://cdn.example.com/1.gif' },
-          { title: 'Шаг 2', body: 'Текст шага 2' },
-        ],
-        presentation: 'fullscreen',
-        backgroundColor: '#fff', textColor: '#000', backgroundImage: 'https://cdn.example.com/bg.png',
-        backgroundGradient: { from: '#fff', to: '#000' },
-      }),
-    ).not.toThrow();
+    const parsed = promoSchema.parse({
+      ...base, id: 'multistep-x', format: 'multistep',
+      steps: [
+        { title: 'Шаг 1', body: 'Текст шага 1', imageUrl: 'https://cdn.example.com/1.gif' },
+        { title: 'Шаг 2', body: 'Текст шага 2' },
+      ],
+      presentation: 'fullscreen',
+      backgroundColor: '#fff', textColor: '#000', backgroundImage: 'https://cdn.example.com/bg.png',
+      backgroundGradient: { from: '#fff', to: '#000' },
+      action: { href: '/lk/prodvizhenie/banner/new', label: 'Создать кампанию' },
+      ctaColor: '#111111',
+      ctaTextColor: '#ffffff',
+    });
+    if (parsed.format !== 'multistep') throw new Error('expected multistep promo');
+    expect(parsed.action).toEqual({
+      href: '/lk/prodvizhenie/banner/new',
+      label: 'Создать кампанию',
+    });
+    expect(parsed.ctaColor).toBe('#111111');
+    expect(parsed.ctaTextColor).toBe('#ffffff');
   });
 
   it('divkit', () => {
@@ -538,9 +546,12 @@ describe('CONTENT_KEYS_BY_FORMAT', () => {
     }
   });
 
-  it('multistep contains steps and presentation, not description/imageUrl', () => {
+  it('multistep contains steps, presentation and CTA, not description/imageUrl', () => {
     expect(CONTENT_KEYS_BY_FORMAT.multistep).toContain('steps');
     expect(CONTENT_KEYS_BY_FORMAT.multistep).toContain('presentation');
+    expect(CONTENT_KEYS_BY_FORMAT.multistep).toContain('action');
+    expect(CONTENT_KEYS_BY_FORMAT.multistep).toContain('ctaColor');
+    expect(CONTENT_KEYS_BY_FORMAT.multistep).toContain('ctaTextColor');
     expect(CONTENT_KEYS_BY_FORMAT.multistep).not.toContain('description');
     expect(CONTENT_KEYS_BY_FORMAT.multistep).not.toContain('imageUrl');
   });

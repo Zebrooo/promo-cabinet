@@ -2,7 +2,8 @@
 import { FieldArray, useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
-import { ColorsRow, GradientField } from './shared';
+import { ColorField } from '../fields';
+import { ColorsRow, CtaFields, GradientField } from './shared';
 
 const STEP_TITLE_MAX = 80;
 const STEP_BODY_MAX  = 240;
@@ -13,7 +14,7 @@ type Step = { title: string; body: string; imageUrl?: string };
 
 /** multistep: steps[2..6]{title≤80, body≤240, imageUrl?} (обязательны),
  *  presentation, backgroundColor, textColor, backgroundImage,
- *  backgroundGradient. */
+ *  backgroundGradient, action{href,label}, ctaColor, ctaTextColor. */
 export function MultistepContent() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const steps: Step[] = values.steps ?? [];
@@ -133,6 +134,13 @@ export function MultistepContent() {
         </div>
       </section>
 
+      <CtaFields withLabel />
+      {values.action && (
+        <div className="ef-row">
+          <ColorField name="ctaColor" label="Цвет кнопки" fallback="#E11D2A" />
+          <ColorField name="ctaTextColor" label="Цвет текста на кнопке" fallback="#ffffff" />
+        </div>
+      )}
       <ColorsRow />
       <GradientField />
       <section className="ef-block">

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { formatName } from '@/lib/format-labels';
-import { QUEUE_META, isFormatMismatch } from '@/lib/queue-formats';
+import { QUEUE_META } from '@/lib/queue-formats';
 
 function isActive(p: Promo): boolean {
   const now = Date.now();
@@ -46,7 +46,6 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
   const [busy, setBusy] = useState(false);
   const [addId, setAddId] = useState('');
   const [dangling, setDangling] = useState<string[]>(danglingIds);
-  const [enqueueWarning, setEnqueueWarning] = useState<string | null>(null);
 
   /** Remove every dangling id from the queue file via DELETE /[name]/[id].
    *  One round-trip per id (the API is per-id and idempotent); usually 0–3
@@ -110,8 +109,6 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
     try {
       const res = await fetch(`/api/queues/${encodeURIComponent(name)}/${encodeURIComponent(id)}`, { method: 'POST' });
       if (res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; warning?: string };
-        if (data.warning) setEnqueueWarning(data.warning);
         const promo = poolPromos.find((p) => p.id === id);
         if (promo) setOrder((cur) => [...cur, promo]);
         setAddId('');
@@ -139,9 +136,8 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
 
   const activeCount = order.filter((p) => isActive(p)).length;
 
-  // Format breakdown for the stats panel — the BFF picks by format inside a
-  // queue, so an advertiser must see at a glance which formats the queue can
-  // actually serve (a queue without e.g. a popup serves no popup slot).
+  // Format breakdown for the stats panel shows the queue composition without
+  // imposing format compatibility rules on placement.
   const formatCounts = order.reduce<Record<string, number>>((acc, p) => {
     acc[p.format] = (acc[p.format] ?? 0) + 1;
     return acc;
@@ -187,36 +183,6 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
           </button>
         </div>
       </div>
-
-      {enqueueWarning && (
-        <div
-          role="alert"
-          style={{
-            background: '#fef3c7',
-            border: '1px solid #d97706',
-            borderLeft: '3px solid #d97706',
-            borderRadius: 6,
-            padding: '10px 12px',
-            fontSize: 13,
-            lineHeight: 1.4,
-            color: '#92400e',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}
-        >
-          <span>⚠ {enqueueWarning}</span>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setEnqueueWarning(null)}
-            aria-label="Закрыть"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       <div className="queue-detail-grid">
         {/* LEFT — queue items */}
@@ -300,24 +266,6 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
                     <div className="qi-slug">{p.id}</div>
                   </div>
                   <span className={`badge badge-${p.format}`}>{formatName(p.format)}</span>
-                  {isFormatMismatch(name, p.format) && (
-                    <span
-                      title={`Сайт не запрашивает формат «${formatName(p.format)}» из очереди «${name}» — это промо не будет показано`}
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: '#92400e',
-                        background: '#fef3c7',
-                        border: '1px solid #d97706',
-                        borderRadius: 4,
-                        padding: '1px 6px',
-                        whiteSpace: 'nowrap',
-                        cursor: 'help',
-                      }}
-                    >
-                      ⚠ не запрашивается
-                    </span>
-                  )}
                   <span className={`badge ${isActive(p) ? 'badge-active' : 'badge-inactive'}`}>
                     {isActive(p) ? 'активен' : 'не активен'}
                   </span>
@@ -366,31 +314,10 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
                   >
                     {available.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.title} ({p.format}, {p.id}){isFormatMismatch(name, p.format) ? ' ⚠' : ''}
+                        {p.title} ({p.format}, {p.id})
                       </option>
                     ))}
                   </select>
-                  {effectiveAddId && (() => {
-                    const selectedPromo = available.find((p) => p.id === effectiveAddId);
-                    if (selectedPromo && isFormatMismatch(name, selectedPromo.format)) {
-                      return (
-                        <div
-                          style={{
-                            marginTop: 6,
-                            fontSize: 12,
-                            color: '#92400e',
-                            background: '#fef3c7',
-                            border: '1px solid #d97706',
-                            borderRadius: 4,
-                            padding: '4px 8px',
-                          }}
-                        >
-                          ⚠ Сайт не запрашивает формат «{formatName(selectedPromo.format)}» из очереди «{name}» — промо можно добавить, но оно не будет показано.
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
                 </div>
                 <button
                   className="btn btn-primary"

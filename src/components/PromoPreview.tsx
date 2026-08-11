@@ -18,7 +18,7 @@ const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen', 'multis
  *
  *  DivKit: пробрасываем divkitJson (inline) ИЛИ divkitUrl. Renderer
  *  сам разберётся (inline → используется сразу, иначе fetch'ит URL). */
-function toAd(p: Promo): Advertisement {
+export function toAdvertisement(p: Promo): Advertisement {
   const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
     id: p.id || 'preview',
@@ -29,6 +29,8 @@ function toAd(p: Promo): Advertisement {
     description: p.description,
     imageUrl: p.imageUrl,
     action: p.action,
+    ctaColor: p.ctaColor,
+    ctaTextColor: p.ctaTextColor,
     dismissible: p.dismissible,
     backgroundColor: hasImage ? undefined : p.backgroundColor,
     textColor: p.textColor,
@@ -93,7 +95,7 @@ export function PromoPreview({ promo }: { promo: Promo }) {
     return <div className="preview-hint">Заполните заголовок, чтобы увидеть превью.</div>;
   }
 
-  const ad = toAd(promo);
+  const ad = toAdvertisement(promo);
 
   // popup/fullscreen render as full-viewport portal overlays that lock page scroll, so
   // they are opened on demand instead of auto-mounting (which would freeze the cabinet).
