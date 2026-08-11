@@ -1,12 +1,74 @@
 'use client';
+import { useEffect, useRef, useState } from 'react';
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { SlugListField, FieldError } from '../fields';
 
-/** Возраст/регионы/подписки/sections/categories/sellerStatus/audience. */
+type SearchCriteriaKey = 'terms' | 'sections';
+
+function parseCommaList(value: string): string[] {
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function SearchListInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value?: string[];
+  onChange: (value: string[]) => void;
+  placeholder: string;
+}) {
+  const [draft, setDraft] = useState(() => (value ?? []).join(', '));
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setDraft((value ?? []).join(', '));
+  }, [value]);
+
+  return (
+    <input
+      className="ef-input mono"
+      value={draft}
+      onChange={(event) => {
+        const next = event.target.value;
+        setDraft(next);
+        onChange(parseCommaList(next));
+      }}
+      onFocus={() => { focused.current = true; }}
+      onBlur={() => {
+        focused.current = false;
+        // Formik may have reset the value while this input was focused. Use
+        // the canonical prop on blur instead of reviving the stale local draft.
+        setDraft((value ?? []).join(', '));
+      }}
+      placeholder={placeholder}
+    />
+  );
+}
+
+/** Возраст/регионы/подписки/поиск/sections/categories/sellerStatus/audience. */
 export function TargetingSection() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const targeting = values.targeting;
+  const search = targeting.search;
+  const searchEnabled = Boolean(search?.terms?.length || search?.sections?.length);
+
+  function setSearchCriteria(key: SearchCriteriaKey, items: string[]) {
+    const terms = key === 'terms' ? items : search?.terms;
+    const sections = key === 'sections' ? items : search?.sections;
+
+    if (!terms?.length && !sections?.length) {
+      setFieldValue('targeting.search', undefined);
+      return;
+    }
+
+    setFieldValue('targeting.search', {
+      ...search,
+      terms: terms?.length ? terms : undefined,
+      sections: sections?.length ? sections : undefined,
+    });
+  }
 
   return (
     <>
@@ -75,6 +137,70 @@ export function TargetingSection() {
           </span>
         )}
       </div>
+
+      <div className="ef-divider" />
+      <div className="ef-label">Поиск</div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Поисковые фразы</label>
+          <SearchListInput
+            value={search?.terms}
+            onChange={(items) => setSearchCriteria('terms', items)}
+            placeholder="toyota camry, семейный автомобиль"
+          />
+          <FieldError name="targeting.search.terms" />
+        </div>
+        <div className="ef-field">
+          <label>Разделы поиска</label>
+          <SearchListInput
+            value={search?.sections}
+            onChange={(items) => setSearchCriteria('sections', items)}
+            placeholder="avto, realty"
+          />
+          <FieldError name="targeting.search.sections" />
+        </div>
+        <div className="ef-field">
+          <label>Период</label>
+          <select
+            className="ef-input"
+            value={search?.lookbackDays ?? 30}
+            disabled={!searchEnabled}
+            onChange={(event) =>
+              setFieldValue('targeting.search', {
+                ...search,
+                lookbackDays: Number(event.target.value),
+              })
+            }
+          >
+            <option value={1}>1 день</option>
+            <option value={7}>7 дней</option>
+            <option value={14}>14 дней</option>
+            <option value={30}>30 дней</option>
+          </select>
+          <FieldError name="targeting.search.lookbackDays" />
+        </div>
+        <div className="ef-field">
+          <label>Совпадение</label>
+          <select
+            className="ef-input"
+            value={search?.match ?? 'any'}
+            disabled={!searchEnabled}
+            onChange={(event) =>
+              setFieldValue('targeting.search', {
+                ...search,
+                match: event.target.value as 'any' | 'all',
+              })
+            }
+          >
+            <option value="any">Хотя бы одна</option>
+            <option value="all">Все</option>
+          </select>
+          <FieldError name="targeting.search.match" />
+        </div>
+      </div>
+      <span className="ef-hint">
+        Учитываются запросы пользователя за выбранный период. Если фразы и разделы пусты, фильтр выключен.
+      </span>
 
       <div className="ef-row">
         <div className="ef-field">

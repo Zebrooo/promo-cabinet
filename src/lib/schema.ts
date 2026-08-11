@@ -7,6 +7,51 @@ export const promoFormats = promoFormatSchema.options;
 export type PromoFormat = z.infer<typeof promoFormatSchema>;
 export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
 export const deviceTargetSchema = z.enum(['desktop', 'touch', 'both']);
+
+function hasTwoNormalizedSearchCharacters(value: string): boolean {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase('ru')
+    .replaceAll('ё', 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+    .length >= 2;
+}
+
+export const searchTargetingSchema = z.object({
+  terms: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(2, 'Поисковая фраза — не короче 2 символов')
+        .max(80, 'Поисковая фраза — не длиннее 80 символов')
+        .regex(/[\p{L}\p{N}]/u, 'Поисковая фраза должна содержать букву или цифру')
+        .refine(
+          hasTwoNormalizedSearchCharacters,
+          'После нормализации в поисковой фразе должно остаться не меньше 2 букв или цифр',
+        ),
+    )
+    .max(20, 'Не больше 20 поисковых фраз')
+    .optional(),
+  sections: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, 'Раздел поиска не может быть пустым')
+        .max(40, 'Раздел поиска — не длиннее 40 символов')
+        .regex(/[\p{L}\p{N}]/u, 'Раздел поиска должен содержать букву или цифру'),
+    )
+    .max(20, 'Не больше 20 разделов поиска')
+    .optional(),
+  match: z.enum(['any', 'all']).optional(),
+  lookbackDays: z
+    .number()
+    .int('Период поиска должен быть целым числом дней')
+    .min(1, 'Период поиска — не меньше 1 дня')
+    .max(30, 'Период поиска — не больше 30 дней')
+    .optional(),
+});
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
  *  (см. composeOverlayBackground в @zebrooo/promo-renderer). */
 export const backgroundGradientSchema = z.object({
@@ -59,6 +104,7 @@ export const servingBlockSchema = z.object({
     maxAge: z.number().int().nonnegative('Возраст не может быть отрицательным').optional(),
     regions: z.array(z.string()).optional(),
     subscriptionLevels: z.array(subscriptionLevelSchema).optional(),
+    search: searchTargetingSchema.optional(),
   }),
   // Optional per-user cap. Legacy data used 0 = unlimited; coerce that to
   // undefined (the new "unlimited") so old catalogues still parse.
