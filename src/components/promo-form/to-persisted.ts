@@ -44,6 +44,24 @@ function normalize(values: Promo): Promo {
     targeting = withoutSearch;
   }
 
+  // Purchases/balance: как и search, пустой объект — не критерий. hasOwnProperty
+  // здесь не нужен: любое непустое поле делает объект "настоящим" правилом.
+  const purchases = values.targeting.purchases;
+  const hasPurchaseCriteria = purchases !== undefined && Object.keys(purchases).length > 0;
+  if (purchases && !hasPurchaseCriteria) {
+    const { purchases: discardedPurchases, ...withoutPurchases } = targeting;
+    void discardedPurchases;
+    targeting = withoutPurchases;
+  }
+
+  const balance = values.targeting.balance;
+  const hasBalanceCriteria = balance !== undefined && Object.keys(balance).length > 0;
+  if (balance && !hasBalanceCriteria) {
+    const { balance: discardedBalance, ...withoutBalance } = targeting;
+    void discardedBalance;
+    targeting = withoutBalance;
+  }
+
   return {
     ...values,
     title,
