@@ -52,6 +52,36 @@ export const searchTargetingSchema = z.object({
     .max(30, 'Период поиска — не больше 30 дней')
     .optional(),
 });
+
+export const packTypeSchema = z.enum(['bump', 'premium', 'vip']);
+
+export const purchasesTargetingSchema = z.object({
+  purchased: z.boolean().optional(),
+  minTotalKopecks: z.number().int().nonnegative('Сумма не может быть отрицательной').optional(),
+  maxTotalKopecks: z.number().int().nonnegative('Сумма не может быть отрицательной').optional(),
+  minCount: z.number().int().nonnegative('Количество не может быть отрицательным').optional(),
+  maxCount: z.number().int().nonnegative('Количество не может быть отрицательным').optional(),
+  packTypes: z.array(packTypeSchema).optional(),
+  lookbackDays: z
+    .number()
+    .int('Период должен быть целым числом дней')
+    .min(1, 'Период — не меньше 1 дня')
+    .max(365, 'Период — не больше 365 дней')
+    .optional(),
+});
+
+export const balanceTargetingSchema = z.object({
+  currentAbove: z.number().int().optional(),
+  currentBelow: z.number().int().optional(),
+  movementAbove: z.number().int().optional(),
+  movementBelow: z.number().int().optional(),
+  movementLookbackDays: z
+    .number()
+    .int('Период должен быть целым числом дней')
+    .min(1, 'Период — не меньше 1 дня')
+    .max(365, 'Период — не больше 365 дней')
+    .optional(),
+});
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
  *  (см. composeOverlayBackground в @zebrooo/promo-renderer). */
 export const backgroundGradientSchema = z.object({
@@ -105,6 +135,8 @@ export const servingBlockSchema = z.object({
     regions: z.array(z.string()).optional(),
     subscriptionLevels: z.array(subscriptionLevelSchema).optional(),
     search: searchTargetingSchema.optional(),
+    purchases: purchasesTargetingSchema.optional(),
+    balance: balanceTargetingSchema.optional(),
   }),
   // Optional per-user cap. Legacy data used 0 = unlimited; coerce that to
   // undefined (the new "unlimited") so old catalogues still parse.

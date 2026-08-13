@@ -5,6 +5,8 @@ import {
   queueSchema,
   audienceSchema,
   CONTENT_KEYS_BY_FORMAT,
+  purchasesTargetingSchema,
+  balanceTargetingSchema,
   type Promo,
 } from './schema';
 import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
@@ -196,6 +198,37 @@ describe('targeting.search', () => {
     expect(() => promoSchema.parse(withSearch({ sections: [' '] }))).toThrow();
     expect(() => promoSchema.parse(withSearch({ sections: ['-'] }))).toThrow();
     expect(() => promoSchema.parse(withSearch({ sections: ['a'.repeat(41)] }))).toThrow();
+  });
+});
+
+describe('purchasesTargetingSchema', () => {
+  it('accepts an empty object', () => {
+    expect(purchasesTargetingSchema.safeParse({}).success).toBe(true);
+  });
+  it('accepts a fully specified rule', () => {
+    const result = purchasesTargetingSchema.safeParse({
+      purchased: true,
+      minTotalKopecks: 100000,
+      packTypes: ['vip', 'bump'],
+      lookbackDays: 60,
+    });
+    expect(result.success).toBe(true);
+  });
+  it('rejects an unknown pack type', () => {
+    expect(purchasesTargetingSchema.safeParse({ packTypes: ['gold'] }).success).toBe(false);
+  });
+  it('rejects lookbackDays outside 1..365', () => {
+    expect(purchasesTargetingSchema.safeParse({ lookbackDays: 0 }).success).toBe(false);
+    expect(purchasesTargetingSchema.safeParse({ lookbackDays: 366 }).success).toBe(false);
+  });
+});
+
+describe('balanceTargetingSchema', () => {
+  it('accepts an empty object', () => {
+    expect(balanceTargetingSchema.safeParse({}).success).toBe(true);
+  });
+  it('accepts negative movement thresholds (net spend)', () => {
+    expect(balanceTargetingSchema.safeParse({ movementBelow: -50000 }).success).toBe(true);
   });
 });
 
