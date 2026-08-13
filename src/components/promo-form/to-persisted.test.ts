@@ -162,6 +162,36 @@ describe('toPersisted — purchases/balance targeting', () => {
     const result = toPersisted(values);
     expect(result.targeting.balance).toEqual({ currentBelow: 0 });
   });
+
+  it('strips a purchases block where every field was individually cleared to undefined (regression: Object.keys bug)', () => {
+    const values = make('inline', { targeting: { purchases: { minTotalKopecks: undefined, purchased: undefined } } });
+    const result = toPersisted(values);
+    expect(result.targeting.purchases).toBeUndefined();
+  });
+
+  it('strips a purchases block containing only lookbackDays (modifier, not a criterion)', () => {
+    const values = make('inline', { targeting: { purchases: { lookbackDays: 60 } } });
+    const result = toPersisted(values);
+    expect(result.targeting.purchases).toBeUndefined();
+  });
+
+  it('strips a balance block where every field was individually cleared to undefined', () => {
+    const values = make('inline', { targeting: { balance: { currentAbove: undefined, movementBelow: undefined } } });
+    const result = toPersisted(values);
+    expect(result.targeting.balance).toBeUndefined();
+  });
+
+  it('strips a balance block containing only movementLookbackDays (modifier, not a criterion)', () => {
+    const values = make('inline', { targeting: { balance: { movementLookbackDays: 14 } } });
+    const result = toPersisted(values);
+    expect(result.targeting.balance).toBeUndefined();
+  });
+
+  it('still keeps a purchases block with a real criterion alongside a cleared field', () => {
+    const values = make('inline', { targeting: { purchases: { purchased: undefined, minCount: 3 } } });
+    const result = toPersisted(values);
+    expect(result.targeting.purchases).toEqual({ minCount: 3 });
+  });
 });
 
 describe('toPersisted — custom title derivation', () => {
