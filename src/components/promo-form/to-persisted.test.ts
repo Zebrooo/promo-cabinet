@@ -101,6 +101,43 @@ describe('toPersisted — strips cross-format junk (equivalent to the old saniti
   });
 });
 
+describe('toPersisted — search targeting', () => {
+  it('keeps the nested search contract as a serving field', () => {
+    const out = toPersisted(make('inline', {
+      targeting: {
+        search: {
+          terms: ['toyota camry'],
+          sections: ['avto'],
+          match: 'all',
+          lookbackDays: 14,
+        },
+      },
+    }));
+
+    expect(out.targeting.search).toEqual({
+      terms: ['toyota camry'],
+      sections: ['avto'],
+      match: 'all',
+      lookbackDays: 14,
+    });
+  });
+
+  it('drops period/match when both phrases and sections are empty', () => {
+    const out = toPersisted(make('inline', {
+      targeting: {
+        search: {
+          terms: [],
+          sections: [],
+          match: 'all',
+          lookbackDays: 7,
+        },
+      },
+    }));
+
+    expect(out.targeting).not.toHaveProperty('search');
+  });
+});
+
 describe('toPersisted — custom title derivation', () => {
   it('derives title from the variant label when title is empty', () => {
     const draft = make('custom', { title: '', variant: 'reklama-onboarding' });

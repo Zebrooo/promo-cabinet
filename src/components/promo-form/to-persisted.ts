@@ -33,9 +33,21 @@ function normalize(values: Promo): Promo {
   const ctaColor     = values.action ? values.ctaColor     : undefined;
   const ctaTextColor = values.action ? values.ctaTextColor : undefined;
 
+  // Period/match are only modifiers: without phrases or sections there is
+  // no search criterion, so the nested block must not enable targeting.
+  const search = values.targeting.search;
+  const hasSearchCriteria = Boolean(search?.terms?.length || search?.sections?.length);
+  let targeting = values.targeting;
+  if (search && !hasSearchCriteria) {
+    const { search: discardedSearch, ...withoutSearch } = values.targeting;
+    void discardedSearch;
+    targeting = withoutSearch;
+  }
+
   return {
     ...values,
     title,
+    targeting,
     ctaColor,
     ctaTextColor,
     // ФИКС бага sanitize(): divkitJson больше не утекает в пул после

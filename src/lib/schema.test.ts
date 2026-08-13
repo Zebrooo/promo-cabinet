@@ -134,6 +134,71 @@ describe('promoSchema', () => {
   });
 });
 
+describe('targeting.search', () => {
+  const withSearch = (search: unknown) => ({
+    ...valid,
+    targeting: { search },
+  });
+
+  it('accepts and normalizes the complete search targeting contract', () => {
+    const parsed = promoSchema.parse(withSearch({
+      terms: ['  toyota camry  ', 'семейный автомобиль'],
+      sections: [' avto ', 'moto'],
+      match: 'all',
+      lookbackDays: 14,
+    }));
+
+    expect(parsed.targeting.search).toEqual({
+      terms: ['toyota camry', 'семейный автомобиль'],
+      sections: ['avto', 'moto'],
+      match: 'all',
+      lookbackDays: 14,
+    });
+  });
+
+  it('keeps match and lookback optional', () => {
+    const parsed = promoSchema.parse(withSearch({ terms: ['toyota'] }));
+    expect(parsed.targeting.search).toEqual({ terms: ['toyota'] });
+  });
+
+  it('accepts both match modes and rejects unknown values', () => {
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], match: 'any' }))).not.toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], match: 'all' }))).not.toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], match: 'some' }))).toThrow();
+  });
+
+  it('does not pass unknown nested fields through to storage', () => {
+    const parsed = promoSchema.parse(withSearch({ terms: ['toyota'], unknownRule: true }));
+    expect(parsed.targeting.search).not.toHaveProperty('unknownRule');
+  });
+
+  it('enforces the 1..30 integer lookback range', () => {
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], lookbackDays: 1 }))).not.toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], lookbackDays: 30 }))).not.toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], lookbackDays: 0 }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], lookbackDays: 31 }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['toyota'], lookbackDays: 1.5 }))).toThrow();
+  });
+
+  it('enforces phrase count and length limits', () => {
+    expect(() => promoSchema.parse(withSearch({ terms: Array.from({ length: 20 }, () => 'aa') }))).not.toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: Array.from({ length: 21 }, () => 'aa') }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['a'] }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: [' '.repeat(2)] }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['--'] }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['C++'] }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ terms: ['a'.repeat(81)] }))).toThrow();
+  });
+
+  it('enforces search section count and length limits', () => {
+    expect(() => promoSchema.parse(withSearch({ sections: Array.from({ length: 20 }, () => 'a') }))).not.toThrow();
+    expect(() => promoSchema.parse(withSearch({ sections: Array.from({ length: 21 }, () => 'a') }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ sections: [' '] }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ sections: ['-'] }))).toThrow();
+    expect(() => promoSchema.parse(withSearch({ sections: ['a'.repeat(41)] }))).toThrow();
+  });
+});
+
 describe('multistep format (steps)', () => {
   const step = (n: number) => ({ title: `Шаг ${n}`, body: `Текст шага ${n}` });
   const multistep = {
@@ -421,7 +486,13 @@ describe('dead fields are stripped, not rejected (strip semantics of the union)'
 describe('regression shield: every format parses with all fields valid today', () => {
   const base = {
     id: 'fmt-x', name: 'Fmt', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
-    targeting: { minAge: 18, maxAge: 40, regions: ['ru'], subscriptionLevels: ['plus'] as const },
+    targeting: {
+      minAge: 18,
+      maxAge: 40,
+      regions: ['ru'],
+      subscriptionLevels: ['plus'] as const,
+      search: { terms: ['toyota'], sections: ['avto'], match: 'any' as const, lookbackDays: 30 },
+    },
     maxImpressionsPerUser: 3,
     cooldownHours: 12,
     afterPromoId: 'some-other-promo',

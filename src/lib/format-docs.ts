@@ -34,6 +34,11 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   'targeting.maxAge': 'Максимальный возраст юзера',
   'targeting.regions': 'Список регионов показа (пусто = без ограничения)',
   'targeting.subscriptionLevels': 'Уровни подписки юзера, которым показывается промо',
+  'targeting.search': 'Таргетинг по истории запросов из search_queries (пустые фразы и разделы = фильтр выключен)',
+  'targeting.search.terms': 'Поисковые фразы для сопоставления (до 20 фраз, 2–80 символов каждая; после нормализации остаётся минимум 2 буквы или цифры)',
+  'targeting.search.sections': 'Разделы, в которых юзер выполнял поиск (до 20 значений)',
+  'targeting.search.match': 'Режим совпадения поисковых фраз: хотя бы одна (any) или все (all)',
+  'targeting.search.lookbackDays': 'Глубина истории поиска: от 1 до 30 дней (по умолчанию 30)',
   maxImpressionsPerUser: 'Лимит показов на юзера (пусто = без лимита)',
   cooldownHours: 'Пауза между повторными показами одному юзеру, часов',
   afterPromoId: 'Показывать только после того, как юзер видел указанное промо (id предшественника в цепочке)',
@@ -98,6 +103,10 @@ function describeZodType(schema: z.ZodTypeAny): string {
       const inner = describeZodType(def.type as z.ZodTypeAny);
       return `массив<${inner}>`;
     }
+    case 'ZodEffects':
+      // Refinements preserve the underlying storage type. This matters for
+      // arrays of refined strings such as targeting.search.terms.
+      return describeZodType(def.schema as z.ZodTypeAny);
     case 'ZodObject':
       return 'объект (см. под-поля ниже)';
     case 'ZodUnknown':
