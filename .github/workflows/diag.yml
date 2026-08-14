@@ -1,0 +1,47 @@
+# Временный диагностический workflow: admin.eremin.site отдаёт код с
+# Last-Modified 13 авг 12:13 GMT, хотя релизы 14 авг это же утро отработали
+# зелёными. Подозрение — self-hosted раннер физически не на той же машине,
+# что реально стоит за доменом. Читает только состояние, ничего не меняет.
+# Удалить после диагностики.
+name: Diag
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diag:
+    runs-on: [self-hosted, ci]
+    timeout-minutes: 5
+    steps:
+      - name: Хост и сеть
+        run: |
+          echo "=== hostname ==="
+          hostname
+          hostname -I 2>/dev/null || ip -4 addr show 2>/dev/null | grep inet
+          echo "=== публичный IP этой машины ==="
+          curl -s ifconfig.me || true
+          echo
+      - name: Код и деплой-метка на диске
+        run: |
+          echo "=== /data/promo-cabinet git log -1 ==="
+          git -C /data/promo-cabinet log -1 --oneline 2>&1 || echo "нет /data/promo-cabinet"
+          echo "=== .deployed-sha ==="
+          cat /data/promo-cabinet/.deployed-sha 2>&1 || echo "нет файла"
+      - name: Контейнеры на этой машине
+        run: |
+          echo "=== docker ps ==="
+          docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' 2>&1 || true
+          echo "=== promo-cabinet container inspect (Created/Image) ==="
+          docker inspect --format='Created={{.Created}} Image={{.Image}}' promo-cabinet 2>&1 || echo "нет контейнера promo-cabinet"
+      - name: Локальный ответ контейнера vs публичный домен
+        run: |
+          echo "=== curl localhost:3000/login (или что слушает promo-cabinet) внутри контейнера ==="
+          docker exec promo-cabinet sh -c 'wget -qO- http://127.0.0.1:3000/login 2>/dev/null | grep -o "<title>[^<]*</title>"' 2>&1 || echo "не удалось достучаться локально"
+          echo "=== curl https://admin.eremin.site/login с этой машины ==="
+          curl -s https://admin.eremin.site/login -o /tmp/live.html -w 'HTTP %{http_code}\n' || true
+          echo "=== Last-Modified одного из чанков на живом домене (просмотр, не с этой машины) ==="
+          curl -sI https://admin.eremin.site/login | grep -i '^\(server\|via\|x-\)' || true
+      - name: Traefik/прокси на этой машине
+        run: |
+          echo "=== контейнеры traefik, если есть ==="
+          docker ps --filter "name=traefik" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}' 2>&1 || true
