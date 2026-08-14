@@ -1,0 +1,35 @@
+# Временный диагностический workflow — проверка, на какой git remote/ветку
+# реально смотрит /data/promo-cabinet на прод-машине. Удалить после диагностики.
+name: Diag
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - .github/workflows/diag.yml
+
+jobs:
+  diag:
+    runs-on: [self-hosted, ci]
+    timeout-minutes: 5
+    steps:
+      - name: Remote и точный HEAD на диске
+        run: |
+          echo "=== remote -v ==="
+          git -C /data/promo-cabinet remote -v
+          echo "=== branch -vv ==="
+          git -C /data/promo-cabinet branch -vv
+          echo "=== HEAD full sha + все родители ==="
+          git -C /data/promo-cabinet log -1 --format='%H %d %s'
+          echo "=== файл TargetingSection.tsx на диске содержит ли 'Объявления продавца'? ==="
+          grep -c "Объявления продавца" /data/promo-cabinet/src/components/promo-form/sections/TargetingSection.tsx || echo "НЕ НАЙДЕНО"
+          echo "=== а внутри самого запущенного образа (.next) есть строка? ==="
+          docker exec promo-cabinet sh -c "grep -rl 'Объявления продавца' /app/.next 2>/dev/null | head -3 || echo НЕ_НАЙДЕНО_В_ОБРАЗЕ"
+          echo "=== docker-compose.yml на диске — что билдим (context/dockerfile) ==="
+          cat /data/promo-cabinet/docker-compose.yml 2>&1 | head -30
+      - name: Сколько всего Next-процессов/портов слушает 3190
+        run: |
+          echo "=== кто слушает 3190 на хосте ==="
+          ss -tlnp 2>/dev/null | grep 3190 || netstat -tlnp 2>/dev/null | grep 3190 || echo "нет ss/netstat"
+          echo "=== все контейнеры с промо-cabinet в имени или label ==="
+          docker ps -a --filter "name=promo-cabinet" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.CreatedAt}}'
