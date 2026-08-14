@@ -194,6 +194,60 @@ describe('toPersisted — purchases/balance targeting', () => {
   });
 });
 
+describe('toPersisted — listings targeting', () => {
+  it('strips an empty listings block (no fields set → no criterion)', () => {
+    const values = make('inline', { targeting: { listings: {} } });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toBeUndefined();
+  });
+
+  it('keeps a listings block with only hasUnpromotedActive:false set', () => {
+    const values = make('inline', { targeting: { listings: { hasUnpromotedActive: false } } });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toEqual({ hasUnpromotedActive: false });
+  });
+
+  it('keeps a listings block with only inactiveDays set', () => {
+    const values = make('inline', { targeting: { listings: { inactiveDays: 0 } } });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toEqual({ inactiveDays: 0 });
+  });
+
+  it('keeps a listings block with only categories set', () => {
+    const values = make('inline', { targeting: { listings: { categories: ['cars'] } } });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toEqual({ categories: ['cars'] });
+  });
+
+  it('keeps a listings block with only activeCategories set', () => {
+    const values = make('inline', { targeting: { listings: { activeCategories: ['cars'] } } });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toEqual({ activeCategories: ['cars'] });
+  });
+
+  it('strips a listings block where every field was individually cleared to undefined (regression: Object.keys bug)', () => {
+    const values = make('inline', {
+      targeting: { listings: { categories: undefined, hasUnpromotedActive: undefined } },
+    });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toBeUndefined();
+  });
+
+  it('strips a listings block containing only categoriesMatch (modifier, not a criterion)', () => {
+    const values = make('inline', { targeting: { listings: { categoriesMatch: 'all' } } });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toBeUndefined();
+  });
+
+  it('still keeps a listings block with a real criterion alongside a cleared field', () => {
+    const values = make('inline', {
+      targeting: { listings: { categoriesMatch: 'all', hasUnpromotedActive: undefined, inactiveDays: 30 } },
+    });
+    const result = toPersisted(values);
+    expect(result.targeting.listings).toEqual({ categoriesMatch: 'all', inactiveDays: 30 });
+  });
+});
+
 describe('toPersisted — custom title derivation', () => {
   it('derives title from the variant label when title is empty', () => {
     const draft = make('custom', { title: '', variant: 'reklama-onboarding' });

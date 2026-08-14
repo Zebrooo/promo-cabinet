@@ -80,6 +80,24 @@ function normalize(values: Promo): Promo {
     targeting = withoutBalance;
   }
 
+  // Listings: same "real criteria, not raw key count" rule as
+  // search/purchases/balance. categoriesMatch is a modifier only (like
+  // search's match/purchases' lookbackDays) — it alone must not keep the
+  // block alive.
+  const listings = values.targeting.listings;
+  const hasListingsCriteria = Boolean(
+    listings &&
+    (listings.categories?.length ||
+      listings.activeCategories?.length ||
+      listings.hasUnpromotedActive !== undefined ||
+      listings.inactiveDays !== undefined),
+  );
+  if (listings && !hasListingsCriteria) {
+    const { listings: discardedListings, ...withoutListings } = targeting;
+    void discardedListings;
+    targeting = withoutListings;
+  }
+
   return {
     ...values,
     title,
