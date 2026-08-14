@@ -82,6 +82,17 @@ export const balanceTargetingSchema = z.object({
     .max(365, 'Период — не больше 365 дней')
     .optional(),
 });
+
+/** Байт-в-байт с listingsTargetingSchema в catalogue-schema.ts BFF
+ *  (promo-bff, уже смержено в его main). Оба репозитория валидируют одну и
+ *  ту же JSON-форму независимо. */
+export const listingsTargetingSchema = z.object({
+  categories: z.array(z.string().min(1, 'Категория не может быть пустой')).optional(),
+  categoriesMatch: z.enum(['any', 'all']).optional(),
+  activeCategories: z.array(z.string().min(1, 'Активная категория не может быть пустой')).optional(),
+  hasUnpromotedActive: z.boolean().optional(),
+  inactiveDays: z.number().int().nonnegative('Число дней не может быть отрицательным').optional(),
+});
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
  *  (см. composeOverlayBackground в @zebrooo/promo-renderer). */
 export const backgroundGradientSchema = z.object({
@@ -137,6 +148,7 @@ export const servingBlockSchema = z.object({
     search: searchTargetingSchema.optional(),
     purchases: purchasesTargetingSchema.optional(),
     balance: balanceTargetingSchema.optional(),
+    listings: listingsTargetingSchema.optional(),
   }),
   // Optional per-user cap. Legacy data used 0 = unlimited; coerce that to
   // undefined (the new "unlimited") so old catalogues still parse.
