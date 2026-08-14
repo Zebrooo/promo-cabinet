@@ -93,6 +93,7 @@ export const listingsTargetingSchema = z.object({
   hasUnpromotedActive: z.boolean().optional(),
   inactiveDays: z.number().int().nonnegative('Число дней не может быть отрицательным').optional(),
 });
+
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
  *  (см. composeOverlayBackground в @zebrooo/promo-renderer). */
 export const backgroundGradientSchema = z.object({
