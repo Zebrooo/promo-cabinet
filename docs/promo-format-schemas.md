@@ -40,6 +40,12 @@
 | `targeting.balance.movementAbove` | число | опционально | — |
 | `targeting.balance.movementBelow` | число | опционально | — |
 | `targeting.balance.movementLookbackDays` | число | опционально | — |
+| `targeting.listings` | объект (см. под-поля ниже) | опционально | — |
+| `targeting.listings.categories` | массив<строка> | опционально | — |
+| `targeting.listings.categoriesMatch` | enum(any / all) | опционально | — |
+| `targeting.listings.activeCategories` | массив<строка> | опционально | — |
+| `targeting.listings.hasUnpromotedActive` | булево | опционально | — |
+| `targeting.listings.inactiveDays` | число | опционально | — |
 | `maxImpressionsPerUser` | число | опционально | Лимит показов на юзера (пусто = без лимита) |
 | `cooldownHours` | число | обязательно | Пауза между повторными показами одному юзеру, часов |
 | `afterPromoId` | строка | опционально | Показывать только после того, как юзер видел указанное промо (id предшественника в цепочке) |
