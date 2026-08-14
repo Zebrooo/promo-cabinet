@@ -7,6 +7,7 @@ import {
   CONTENT_KEYS_BY_FORMAT,
   purchasesTargetingSchema,
   balanceTargetingSchema,
+  listingsTargetingSchema,
   type Promo,
 } from './schema';
 import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
@@ -229,6 +230,47 @@ describe('balanceTargetingSchema', () => {
   });
   it('accepts negative movement thresholds (net spend)', () => {
     expect(balanceTargetingSchema.safeParse({ movementBelow: -50000 }).success).toBe(true);
+  });
+});
+
+describe('listingsTargetingSchema', () => {
+  it('accepts an empty object', () => {
+    expect(listingsTargetingSchema.safeParse({}).success).toBe(true);
+  });
+  it('accepts a fully specified rule', () => {
+    const result = listingsTargetingSchema.safeParse({
+      categories: ['avto', 'realty'],
+      categoriesMatch: 'all',
+      activeCategories: ['avto'],
+      hasUnpromotedActive: true,
+      inactiveDays: 14,
+    });
+    expect(result.success).toBe(true);
+  });
+  it('accepts each optional field individually', () => {
+    expect(listingsTargetingSchema.safeParse({ categories: ['avto'] }).success).toBe(true);
+    expect(listingsTargetingSchema.safeParse({ categoriesMatch: 'any' }).success).toBe(true);
+    expect(listingsTargetingSchema.safeParse({ activeCategories: ['realty'] }).success).toBe(true);
+    expect(listingsTargetingSchema.safeParse({ hasUnpromotedActive: false }).success).toBe(true);
+    expect(listingsTargetingSchema.safeParse({ inactiveDays: 0 }).success).toBe(true);
+  });
+  it('rejects an unknown categoriesMatch value', () => {
+    expect(listingsTargetingSchema.safeParse({ categoriesMatch: 'both' }).success).toBe(false);
+  });
+  it('rejects an empty string in categories', () => {
+    expect(listingsTargetingSchema.safeParse({ categories: [''] }).success).toBe(false);
+  });
+  it('rejects an empty string in activeCategories', () => {
+    expect(listingsTargetingSchema.safeParse({ activeCategories: [''] }).success).toBe(false);
+  });
+  it('rejects a non-boolean hasUnpromotedActive', () => {
+    expect(listingsTargetingSchema.safeParse({ hasUnpromotedActive: 'yes' }).success).toBe(false);
+  });
+  it('rejects a negative inactiveDays', () => {
+    expect(listingsTargetingSchema.safeParse({ inactiveDays: -1 }).success).toBe(false);
+  });
+  it('rejects a non-integer inactiveDays', () => {
+    expect(listingsTargetingSchema.safeParse({ inactiveDays: 1.5 }).success).toBe(false);
   });
 });
 
