@@ -47,13 +47,14 @@ function SearchListInput({
   );
 }
 
-/** Возраст/регионы/подписки/поиск/sections/categories/sellerStatus/audience. */
+/** Возраст/регионы/подписки/поиск/пакеты/кошелёк/sections/categories/sellerStatus/объявления продавца/audience. */
 export function TargetingSection() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const targeting = values.targeting;
   const search = targeting.search;
   const purchases = targeting.purchases;
   const balance = targeting.balance;
+  const listings = targeting.listings;
   const searchEnabled = Boolean(search?.terms?.length || search?.sections?.length);
 
   function setSearchCriteria(key: SearchCriteriaKey, items: string[]) {
@@ -384,6 +385,72 @@ export function TargetingSection() {
           </select>
         </div>
       </div>
+
+      <div className="ef-divider" />
+      <div className="ef-label">Объявления продавца</div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Категории (когда-либо размещал)</label>
+          <SlugListField name="targeting.listings.categories" placeholder="avto, realty" />
+        </div>
+        <div className="ef-field">
+          <label>Активные категории</label>
+          <SlugListField name="targeting.listings.activeCategories" placeholder="avto" />
+        </div>
+        <div className="ef-field">
+          <label>Совпадение категорий</label>
+          <select
+            className="ef-input"
+            value={listings?.categoriesMatch ?? 'any'}
+            onChange={(e) =>
+              setFieldValue('targeting.listings', {
+                ...listings,
+                categoriesMatch: e.target.value as 'any' | 'all',
+              })
+            }
+          >
+            <option value="any">Хотя бы одна</option>
+            <option value="all">Все</option>
+          </select>
+        </div>
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            <input
+              type="checkbox"
+              checked={listings?.hasUnpromotedActive ?? false}
+              onChange={(e) =>
+                setFieldValue('targeting.listings', {
+                  ...listings,
+                  hasUnpromotedActive: e.target.checked ? true : undefined,
+                })
+              }
+            />
+            {' '}Есть активное объявление без продвижения
+          </label>
+        </div>
+        <div className="ef-field">
+          <label>Не размещал ≥ дней</label>
+          <input
+            type="number"
+            className="ef-input mono"
+            min={0}
+            value={listings?.inactiveDays ?? ''}
+            onChange={(e) =>
+              setFieldValue('targeting.listings', {
+                ...listings,
+                inactiveDays: e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+            placeholder="—"
+          />
+          <FieldError name="targeting.listings.inactiveDays" />
+        </div>
+      </div>
+      <span className="ef-hint">
+        Пустой блок — фильтр по объявлениям продавца выключен.
+      </span>
 
       <div className="ef-row">
         <div className="ef-field">
