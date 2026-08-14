@@ -26,6 +26,20 @@
 | `targeting.search.sections` | массив<строка> | опционально | Разделы, в которых юзер выполнял поиск (до 20 значений) |
 | `targeting.search.match` | enum(any / all) | опционально | Режим совпадения поисковых фраз: хотя бы одна (any) или все (all) |
 | `targeting.search.lookbackDays` | число | опционально | Глубина истории поиска: от 1 до 30 дней (по умолчанию 30) |
+| `targeting.purchases` | объект (см. под-поля ниже) | опционально | — |
+| `targeting.purchases.purchased` | булево | опционально | — |
+| `targeting.purchases.minTotalKopecks` | число | опционально | — |
+| `targeting.purchases.maxTotalKopecks` | число | опционально | — |
+| `targeting.purchases.minCount` | число | опционально | — |
+| `targeting.purchases.maxCount` | число | опционально | — |
+| `targeting.purchases.packTypes` | массив<enum(bump / premium / vip)> | опционально | — |
+| `targeting.purchases.lookbackDays` | число | опционально | — |
+| `targeting.balance` | объект (см. под-поля ниже) | опционально | — |
+| `targeting.balance.currentAbove` | число | опционально | — |
+| `targeting.balance.currentBelow` | число | опционально | — |
+| `targeting.balance.movementAbove` | число | опционально | — |
+| `targeting.balance.movementBelow` | число | опционально | — |
+| `targeting.balance.movementLookbackDays` | число | опционально | — |
 | `maxImpressionsPerUser` | число | опционально | Лимит показов на юзера (пусто = без лимита) |
 | `cooldownHours` | число | обязательно | Пауза между повторными показами одному юзеру, часов |
 | `afterPromoId` | строка | опционально | Показывать только после того, как юзер видел указанное промо (id предшественника в цепочке) |

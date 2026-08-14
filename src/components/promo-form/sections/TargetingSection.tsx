@@ -52,6 +52,8 @@ export function TargetingSection() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const targeting = values.targeting;
   const search = targeting.search;
+  const purchases = targeting.purchases;
+  const balance = targeting.balance;
   const searchEnabled = Boolean(search?.terms?.length || search?.sections?.length);
 
   function setSearchCriteria(key: SearchCriteriaKey, items: string[]) {
@@ -200,6 +202,159 @@ export function TargetingSection() {
       </div>
       <span className="ef-hint">
         Учитываются запросы пользователя за выбранный период. Если фразы и разделы пусты, фильтр выключен.
+      </span>
+
+      <div className="ef-divider" />
+      <div className="ef-label">Покупки пакетов</div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Наличие покупок</label>
+          <select
+            className="ef-input"
+            value={purchases?.purchased === undefined ? '' : String(purchases.purchased)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFieldValue('targeting.purchases', {
+                ...purchases,
+                purchased: v === '' ? undefined : v === 'true',
+              });
+            }}
+          >
+            <option value="">Не важно</option>
+            <option value="true">Были покупки</option>
+            <option value="false">Не было покупок</option>
+          </select>
+        </div>
+        <div className="ef-field">
+          <label>Виды пакетов</label>
+          <div className="ef-checkbox-row">
+            {(['bump', 'premium', 'vip'] as const).map((pack) => (
+              <label key={pack} className="ef-checkbox">
+                <input
+                  type="checkbox"
+                  checked={purchases?.packTypes?.includes(pack) ?? false}
+                  onChange={(e) => {
+                    const cur = purchases?.packTypes ?? [];
+                    const next = e.target.checked ? [...cur, pack] : cur.filter((x) => x !== pack);
+                    setFieldValue('targeting.purchases', { ...purchases, packTypes: next.length ? next : undefined });
+                  }}
+                />
+                {pack}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="ef-field">
+          <label>Мин. сумма, ₽</label>
+          <input
+            type="number" min={0} className="ef-input mono"
+            value={purchases?.minTotalKopecks !== undefined ? purchases.minTotalKopecks / 100 : ''}
+            onChange={(e) => setFieldValue('targeting.purchases', {
+              ...purchases,
+              minTotalKopecks: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+            })}
+            placeholder="—"
+          />
+          <FieldError name="targeting.purchases.minTotalKopecks" />
+        </div>
+        <div className="ef-field">
+          <label>Мин. количество</label>
+          <input
+            type="number" min={0} className="ef-input mono"
+            value={purchases?.minCount ?? ''}
+            onChange={(e) => setFieldValue('targeting.purchases', {
+              ...purchases,
+              minCount: e.target.value === '' ? undefined : Number(e.target.value),
+            })}
+            placeholder="—"
+          />
+          <FieldError name="targeting.purchases.minCount" />
+        </div>
+        <div className="ef-field">
+          <label>Период, дней</label>
+          <input
+            type="number" min={1} max={365} className="ef-input mono"
+            value={purchases?.lookbackDays ?? 30}
+            onChange={(e) => setFieldValue('targeting.purchases', {
+              ...purchases,
+              lookbackDays: Number(e.target.value),
+            })}
+          />
+          <FieldError name="targeting.purchases.lookbackDays" />
+        </div>
+      </div>
+      <span className="ef-hint">
+        Смотрит покупки VIP/premium/bump-пакетов за выбранный период. Если ничего не выбрано, фильтр выключен.
+      </span>
+
+      <div className="ef-divider" />
+      <div className="ef-label">Кошелёк</div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Остаток от, ₽</label>
+          <input
+            type="number" className="ef-input mono"
+            value={balance?.currentAbove !== undefined ? balance.currentAbove / 100 : ''}
+            onChange={(e) => setFieldValue('targeting.balance', {
+              ...balance,
+              currentAbove: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+            })}
+            placeholder="—"
+          />
+        </div>
+        <div className="ef-field">
+          <label>Остаток до, ₽</label>
+          <input
+            type="number" className="ef-input mono"
+            value={balance?.currentBelow !== undefined ? balance.currentBelow / 100 : ''}
+            onChange={(e) => setFieldValue('targeting.balance', {
+              ...balance,
+              currentBelow: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+            })}
+            placeholder="—"
+          />
+        </div>
+        <div className="ef-field">
+          <label>Движение от, ₽</label>
+          <input
+            type="number" className="ef-input mono"
+            value={balance?.movementAbove !== undefined ? balance.movementAbove / 100 : ''}
+            onChange={(e) => setFieldValue('targeting.balance', {
+              ...balance,
+              movementAbove: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+            })}
+            placeholder="—"
+          />
+          <span className="ef-hint">Пополнения минус траты за период</span>
+        </div>
+        <div className="ef-field">
+          <label>Движение до, ₽</label>
+          <input
+            type="number" className="ef-input mono"
+            value={balance?.movementBelow !== undefined ? balance.movementBelow / 100 : ''}
+            onChange={(e) => setFieldValue('targeting.balance', {
+              ...balance,
+              movementBelow: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+            })}
+            placeholder="—"
+          />
+        </div>
+        <div className="ef-field">
+          <label>Окно движения, дней</label>
+          <input
+            type="number" min={1} max={365} className="ef-input mono"
+            value={balance?.movementLookbackDays ?? ''}
+            onChange={(e) => setFieldValue('targeting.balance', {
+              ...balance,
+              movementLookbackDays: e.target.value === '' ? undefined : Number(e.target.value),
+            })}
+            placeholder="за всё время"
+          />
+          <FieldError name="targeting.balance.movementLookbackDays" />
+        </div>
+      </div>
+      <span className="ef-hint">
+        Остаток — текущий баланс кошелька. Движение — без указания окна считается с момента создания кошелька.
       </span>
 
       <div className="ef-row">

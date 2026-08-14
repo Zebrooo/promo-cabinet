@@ -44,6 +44,42 @@ function normalize(values: Promo): Promo {
     targeting = withoutSearch;
   }
 
+  // Purchases/balance: same "real criteria, not raw key count" rule as
+  // search — every field-clear handler in TargetingSection.tsx sets a
+  // cleared field to `undefined` rather than deleting the key, so
+  // Object.keys().length alone would wrongly treat a fully-cleared block
+  // as still having a criterion. lookbackDays/movementLookbackDays are
+  // modifiers only, exactly like search's lookbackDays/match.
+  const purchases = values.targeting.purchases;
+  const hasPurchaseCriteria = Boolean(
+    purchases &&
+    (purchases.purchased !== undefined ||
+      purchases.minTotalKopecks !== undefined ||
+      purchases.maxTotalKopecks !== undefined ||
+      purchases.minCount !== undefined ||
+      purchases.maxCount !== undefined ||
+      purchases.packTypes?.length),
+  );
+  if (purchases && !hasPurchaseCriteria) {
+    const { purchases: discardedPurchases, ...withoutPurchases } = targeting;
+    void discardedPurchases;
+    targeting = withoutPurchases;
+  }
+
+  const balance = values.targeting.balance;
+  const hasBalanceCriteria = Boolean(
+    balance &&
+    (balance.currentAbove !== undefined ||
+      balance.currentBelow !== undefined ||
+      balance.movementAbove !== undefined ||
+      balance.movementBelow !== undefined),
+  );
+  if (balance && !hasBalanceCriteria) {
+    const { balance: discardedBalance, ...withoutBalance } = targeting;
+    void discardedBalance;
+    targeting = withoutBalance;
+  }
+
   return {
     ...values,
     title,
