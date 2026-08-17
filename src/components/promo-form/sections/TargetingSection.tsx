@@ -1,6 +1,11 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useFormikContext } from 'formik';
+import {
+  toggleEnumValue,
+  OS_OPTIONS, ENVIRONMENT_OPTIONS, DEVICE_BRAND_OPTIONS,
+  OS_HINT, ENVIRONMENT_HINT, DEVICE_BRAND_HINT,
+} from '../env-targeting';
 import type { Promo } from '@/lib/schema';
 import { SlugListField, FieldError } from '../fields';
 
@@ -465,6 +470,66 @@ export function TargetingSection() {
             <option value="anonymous">Только гости</option>
           </select>
         </div>
+      </div>
+
+      {/* Среда и устройство (спека targeting-device-env §2): три независимые
+          AND-группы; пусто = показывать всем. Поля редактируемы и в edit-режиме —
+          это правила отбора, а не структура креатива (в отличие от deviceTarget). */}
+      <div className="ef-field">
+        <label>Операционная система</label>
+        <div className="ef-checkbox-row">
+          {OS_OPTIONS.map((opt) => (
+            <label key={opt.value} className="ef-checkbox">
+              <input
+                type="checkbox"
+                checked={targeting.os?.includes(opt.value) ?? false}
+                onChange={(e) =>
+                  setFieldValue('targeting.os', toggleEnumValue(targeting.os, opt.value, e.target.checked))
+                }
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        <span className="ef-hint">{OS_HINT}</span>
+      </div>
+
+      <div className="ef-field">
+        <label>Среда</label>
+        <div className="ef-checkbox-row">
+          {ENVIRONMENT_OPTIONS.map((opt) => (
+            <label key={opt.value} className="ef-checkbox">
+              <input
+                type="checkbox"
+                checked={targeting.environments?.includes(opt.value) ?? false}
+                onChange={(e) =>
+                  setFieldValue('targeting.environments', toggleEnumValue(targeting.environments, opt.value, e.target.checked))
+                }
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        <span className="ef-hint">{ENVIRONMENT_HINT}</span>
+      </div>
+
+      <div className="ef-field">
+        <label>Класс устройства</label>
+        <div className="ef-checkbox-row">
+          {DEVICE_BRAND_OPTIONS.map((opt) => (
+            <label key={opt.value} className="ef-checkbox">
+              <input
+                type="checkbox"
+                checked={targeting.deviceBrands?.includes(opt.value) ?? false}
+                onChange={(e) =>
+                  setFieldValue('targeting.deviceBrands', toggleEnumValue(targeting.deviceBrands, opt.value, e.target.checked))
+                }
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        <span className="ef-hint">{DEVICE_BRAND_HINT}</span>
       </div>
     </>
   );

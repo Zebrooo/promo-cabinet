@@ -21,6 +21,9 @@
 | `targeting.maxAge` | число | опционально | Максимальный возраст юзера |
 | `targeting.regions` | массив<строка> | опционально | Список регионов показа (пусто = без ограничения) |
 | `targeting.subscriptionLevels` | массив<enum(none / plus / premium)> | опционально | Уровни подписки юзера, которым показывается промо |
+| `targeting.os` | массив<enum(ios / android)> | опционально | — |
+| `targeting.environments` | массив<enum(browser / telegram / pwa / app)> | опционально | — |
+| `targeting.deviceBrands` | массив<enum(iphone / android-flagship / android-other)> | опционально | — |
 | `targeting.search` | объект (см. под-поля ниже) | опционально | Таргетинг по истории запросов из search_queries (пустые фразы и разделы = фильтр выключен) |
 | `targeting.search.terms` | массив<строка> | опционально | Поисковые фразы для сопоставления (до 20 фраз, 2–80 символов каждая; после нормализации остаётся минимум 2 буквы или цифры) |
 | `targeting.search.sections` | массив<строка> | опционально | Разделы, в которых юзер выполнял поиск (до 20 значений) |
