@@ -707,3 +707,28 @@ describe('CONTENT_KEYS_BY_FORMAT', () => {
     expect(CONTENT_KEYS_BY_FORMAT.custom).not.toContain('description');
   });
 });
+
+describe('promoSchema — env-таргетинг (зеркало catalogue-schema BFF)', () => {
+  it('round-trip трёх новых полей targeting', () => {
+    const parsed = promoSchema.parse({
+      ...valid,
+      targeting: { os: ['ios'], environments: ['telegram', 'pwa'], deviceBrands: ['iphone', 'android-flagship'] },
+    });
+    expect(parsed.targeting).toEqual({
+      os: ['ios'], environments: ['telegram', 'pwa'], deviceBrands: ['iphone', 'android-flagship'],
+    });
+  });
+
+  it('старый JSON без полей валиден, поля undefined', () => {
+    const parsed = promoSchema.parse(valid);
+    expect(parsed.targeting.os).toBeUndefined();
+    expect(parsed.targeting.environments).toBeUndefined();
+    expect(parsed.targeting.deviceBrands).toBeUndefined();
+  });
+
+  it('значение вне enum отвергается', () => {
+    expect(() => promoSchema.parse({ ...valid, targeting: { os: ['windows'] } })).toThrow();
+    expect(() => promoSchema.parse({ ...valid, targeting: { environments: ['webview'] } })).toThrow();
+    expect(() => promoSchema.parse({ ...valid, targeting: { deviceBrands: ['nokia'] } })).toThrow();
+  });
+});
