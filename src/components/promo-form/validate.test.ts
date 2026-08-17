@@ -134,3 +134,9 @@ describe('validatePromoForm — custom variant', () => {
     expect(errors.title).toBeUndefined();
   });
 });
+
+it('env-таргетинг не даёт ошибок валидации формы', () => {
+  expect(validatePromoForm(make('inline', {
+    targeting: { os: ['android'], environments: ['app'], deviceBrands: ['android-other'] },
+  }))).toEqual({});
+});

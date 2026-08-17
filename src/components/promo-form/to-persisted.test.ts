@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Promo } from '@/lib/schema';
+import { promoFormats } from '@/lib/schema';
 import { toPersisted, toPreview } from './to-persisted';
 
 const base: Omit<Promo, 'format'> = {
@@ -386,4 +387,23 @@ describe('toPreview — lenient projection for the mid-edit/invalid preview rail
     expect(out.format).toBe('tooltip');
     expect(out.anchor).toBe('nav-search');
   });
+});
+
+describe('toPersisted — env-таргетинг переживает стрип каждого формата', () => {
+  const FORMAT_PATCH: Record<Promo['format'], Partial<Promo>> = {
+    inline: {}, topline: {}, popup: {}, fullscreen: {},
+    tooltip: { anchor: 'home-search' },
+    multistep: { steps: [{ title: 'Шаг 1', body: 'Т1' }, { title: 'Шаг 2', body: 'Т2' }] },
+    divkit: { divkitUrl: 'https://s3.example.com/a.json' },
+    custom: { variant: 'reklama-onboarding' },
+  };
+  const envTargeting = { os: ['ios' as const], environments: ['telegram' as const, 'pwa' as const], deviceBrands: ['iphone' as const] };
+
+  for (const format of promoFormats) {
+    it(`${format}: targeting.os/environments/deviceBrands сохраняются`, () => {
+      const draft = make(format, { ...FORMAT_PATCH[format], targeting: envTargeting });
+      const out = toPersisted(draft);
+      expect(out.targeting).toEqual(envTargeting);
+    });
+  }
 });

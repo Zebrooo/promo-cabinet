@@ -7,6 +7,10 @@ export const promoFormats = promoFormatSchema.options;
 export type PromoFormat = z.infer<typeof promoFormatSchema>;
 export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
 export const deviceTargetSchema = z.enum(['desktop', 'touch', 'both']);
+/** Env-таргетинг (спека targeting-device-env). Байт-в-байт с catalogue-schema.ts BFF. */
+export const promoOsSchema = z.enum(['ios', 'android']);
+export const promoEnvironmentSchema = z.enum(['browser', 'telegram', 'pwa', 'app']);
+export const deviceBrandSchema = z.enum(['iphone', 'android-flagship', 'android-other']);
 
 function hasTwoNormalizedSearchCharacters(value: string): boolean {
   return value
@@ -146,6 +150,12 @@ export const servingBlockSchema = z.object({
     maxAge: z.number().int().nonnegative('Возраст не может быть отрицательным').optional(),
     regions: z.array(z.string()).optional(),
     subscriptionLevels: z.array(subscriptionLevelSchema).optional(),
+    /** Пусто/omitted = любая ОС. Десктоп ОС-класса не имеет → при заданном списке промо на десктопе не показывается. */
+    os: z.array(promoOsSchema).optional(),
+    /** Пусто/omitted = любая среда. Telegram/PWA распознаются со второй страницы визита. */
+    environments: z.array(promoEnvironmentSchema).optional(),
+    /** Пусто/omitted = любой класс. Прокси платёжеспособности по UA (см. хинт в TargetingSection). */
+    deviceBrands: z.array(deviceBrandSchema).optional(),
     search: searchTargetingSchema.optional(),
     purchases: purchasesTargetingSchema.optional(),
     balance: balanceTargetingSchema.optional(),
