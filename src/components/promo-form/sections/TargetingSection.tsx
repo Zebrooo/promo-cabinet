@@ -6,8 +6,9 @@ import {
   OS_OPTIONS, ENVIRONMENT_OPTIONS, DEVICE_BRAND_OPTIONS,
   OS_HINT, ENVIRONMENT_HINT, DEVICE_BRAND_HINT,
 } from '../env-targeting';
-import { entrySources, type EntrySource, type Promo } from '@/lib/schema';
+import { type EntrySource, type Promo } from '@/lib/schema';
 import { SlugListField, FieldError } from '../fields';
+import { HintIcon } from '../HintIcon';
 
 /** IP-гео (спека targeting-geo §2): чекбоксы сегментов «где юзер СЕЙЧАС». */
 const GEO_SEGMENT_OPTIONS = [
@@ -127,7 +128,13 @@ export function TargetingSection() {
       </div>
 
       <div className="ef-field">
-        <label>Уровни подписки</label>
+        <label>
+          Уровни подписки
+          <HintIcon
+            label="Уровни подписки"
+            text="none = не-PRO, ВКЛЮЧАЯ гостей. Чтобы отсечь гостей, поставьте аудиторию «Только залогиненные». premium не поддерживается биллингом (billing-service отдаёт только plus/none)."
+          />
+        </label>
         <div className="ef-checkbox-row">
           {(['none', 'plus', 'premium'] as const).map((lvl) => {
             const disabled = lvl === 'premium';
@@ -154,15 +161,24 @@ export function TargetingSection() {
             );
           })}
         </div>
-        {targeting.subscriptionLevels?.includes('none') && (
-          <span className="ef-hint">
-            none = не-PRO, включая гостей. Чтобы отсечь гостей, поставьте аудиторию «Только залогиненные».
-          </span>
-        )}
       </div>
 
       <div className="ef-divider" />
-      <div className="ef-label">Гео по IP</div>
+      <div className="ef-label">
+        Гео по IP
+        <HintIcon
+          label="Гео по IP"
+          text={
+            <>
+              Определяется по IP в момент показа. Если гео определить не удалось (VPN,
+              неизвестная сеть), промо с гео-ограничением НЕ показывается. Ограничение
+              метода: местный с российской SIM (роуминг) определится как турист.
+              {' '}Не путать с «Регионы»: там — город из ПРОФИЛЯ пользователя, здесь —
+              где он находится СЕЙЧАС по IP. Пусто = без гео-ограничения.
+            </>
+          }
+        />
+      </div>
       <div className="ef-field">
         <label>Сегменты</label>
         <div className="ef-checkbox-row">
@@ -185,18 +201,15 @@ export function TargetingSection() {
         <SlugListField name="targeting.geoCities" placeholder="sukhum, gagra, sochi" />
         <FieldError name="targeting.geoCities" />
       </div>
-      <span className="ef-hint">
-        Определяется по IP в момент показа. Если гео определить не удалось (VPN, неизвестная
-        сеть), промо с гео-ограничением НЕ показывается. Ограничение метода: местный с
-        российской SIM (роуминг) определится как турист.
-      </span>
-      <span className="ef-hint">
-        Не путать с «Регионы»: там — город из ПРОФИЛЯ пользователя, здесь — где он находится
-        СЕЙЧАС по IP. Пусто = без гео-ограничения.
-      </span>
 
       <div className="ef-divider" />
-      <div className="ef-label">Поиск</div>
+      <div className="ef-label">
+        Поиск
+        <HintIcon
+          label="Поиск"
+          text="Учитываются запросы пользователя за выбранный период. Если фразы и разделы пусты, фильтр выключен."
+        />
+      </div>
       <div className="ef-row">
         <div className="ef-field">
           <label>Поисковые фразы</label>
@@ -255,10 +268,6 @@ export function TargetingSection() {
           <FieldError name="targeting.search.match" />
         </div>
       </div>
-      <span className="ef-hint">
-        Учитываются запросы пользователя за выбранный период. Если фразы и разделы пусты, фильтр выключен.
-      </span>
-
       {/* Поведение зрителя (спека targeting-behavior §2): интересы по РЕАЛЬНО
           открытым объявлениям (не по поиску), горячий покупатель, вовлечённость
           визита. Три независимых AND-условия; пустой блок вычищается в
@@ -267,7 +276,13 @@ export function TargetingSection() {
       <div className="ef-label">Поведение</div>
       <div className="ef-row">
         <div className="ef-field">
-          <label>Смотрел категории</label>
+          <label>
+            Смотрел категории
+            <HintIcon
+              label="Смотрел категории"
+              text="Интересы — по объявлениям, которые зритель РЕАЛЬНО открывал за последние N дней (пустое поле = 7). Слаги категорий каталога — как в поле «Категории». Не путать с блоком «Поиск»: там — что человек набирал, здесь — что смотрел."
+            />
+          </label>
           <SlugListField name="targeting.behavior.interest.categories" placeholder="shiny, avto" />
           <FieldError name="targeting.behavior.interest.categories" />
         </div>
@@ -283,11 +298,6 @@ export function TargetingSection() {
           <FieldError name="targeting.behavior.interest.lookbackDays" />
         </div>
       </div>
-      <span className="ef-hint">
-        Интересы — по объявлениям, которые зритель РЕАЛЬНО открывал за последние N дней
-        (пустое поле = 7). Слаги категорий каталога — как в поле «Категории». Не путать с
-        блоком «Поиск»: там — что человек набирал, здесь — что смотрел.
-      </span>
       <div className="ef-row">
         <div className="ef-field">
           <label className="ef-checkbox">
@@ -300,6 +310,10 @@ export function TargetingSection() {
             />
             {' '}Горячий покупатель
           </label>
+          <HintIcon
+            label="Горячий покупатель и карточки за визит"
+            text="Горячий покупатель: открывал телефон продавца не меньше N раз (разных объявлений, пусто = 2) за последние 7 дней — окно фиксировано. Анонимов с историей тоже находит. Карточки за визит — открытые карточки объявлений текущего визита (перерыв больше 30 минут = новый визит), работает и для гостей. Любое из условий сужает аудиторию: без накопленной истории промо не показывается."
+          />
         </div>
         {behavior?.hotBuyer !== undefined && (
           <div className="ef-field">
@@ -324,16 +338,15 @@ export function TargetingSection() {
           <FieldError name="targeting.behavior.minSessionViews" />
         </div>
       </div>
-      <span className="ef-hint">
-        Горячий покупатель: открывал телефон продавца не меньше N раз (разных объявлений,
-        пусто = 2) за последние 7 дней — окно фиксировано. Анонимов с историей тоже находит.
-        Карточки за визит — открытые карточки объявлений текущего визита (перерыв больше
-        30 минут = новый визит), работает и для гостей. Любое из условий сужает аудиторию:
-        без накопленной истории промо не показывается.
-      </span>
 
       <div className="ef-divider" />
-      <div className="ef-label">Покупки пакетов</div>
+      <div className="ef-label">
+        Покупки пакетов
+        <HintIcon
+          label="Покупки пакетов"
+          text="Смотрит покупки VIP/premium/bump-пакетов за выбранный период. Если ничего не выбрано, фильтр выключен."
+        />
+      </div>
       <div className="ef-row">
         <div className="ef-field">
           <label>Наличие покупок</label>
@@ -411,12 +424,15 @@ export function TargetingSection() {
           <FieldError name="targeting.purchases.lookbackDays" />
         </div>
       </div>
-      <span className="ef-hint">
-        Смотрит покупки VIP/premium/bump-пакетов за выбранный период. Если ничего не выбрано, фильтр выключен.
-      </span>
 
       <div className="ef-divider" />
-      <div className="ef-label">Кошелёк</div>
+      <div className="ef-label">
+        Кошелёк
+        <HintIcon
+          label="Кошелёк"
+          text="Остаток — текущий баланс кошелька. Движение — без указания окна считается с момента создания кошелька."
+        />
+      </div>
       <div className="ef-row">
         <div className="ef-field">
           <label>Остаток от, ₽</label>
@@ -443,7 +459,10 @@ export function TargetingSection() {
           />
         </div>
         <div className="ef-field">
-          <label>Движение от, ₽</label>
+          <label>
+            Движение от, ₽
+            <HintIcon label="Движение" text="Пополнения минус траты за период." />
+          </label>
           <input
             type="number" className="ef-input mono"
             value={balance?.movementAbove !== undefined ? balance.movementAbove / 100 : ''}
@@ -453,7 +472,6 @@ export function TargetingSection() {
             })}
             placeholder="—"
           />
-          <span className="ef-hint">Пополнения минус траты за период</span>
         </div>
         <div className="ef-field">
           <label>Движение до, ₽</label>
@@ -481,17 +499,17 @@ export function TargetingSection() {
           <FieldError name="targeting.balance.movementLookbackDays" />
         </div>
       </div>
-      <span className="ef-hint">
-        Остаток — текущий баланс кошелька. Движение — без указания окна считается с момента создания кошелька.
-      </span>
 
       <div className="ef-row">
         <div className="ef-field">
-          <label>Разделы</label>
+          <label>
+            Разделы
+            <HintIcon
+              label="Разделы"
+              text="Работает только на overlay-поверхности; на topline/tooltip промо с разделами не показывается."
+            />
+          </label>
           <SlugListField name="sections" placeholder="avto, realty" />
-          <span className="ef-hint">
-            Работает только на overlay-поверхности; на topline/tooltip промо с разделами не показывается.
-          </span>
         </div>
         <div className="ef-field">
           <label>Категории</label>
@@ -514,7 +532,13 @@ export function TargetingSection() {
       </div>
 
       <div className="ef-divider" />
-      <div className="ef-label">Объявления продавца</div>
+      <div className="ef-label">
+        Объявления продавца
+        <HintIcon
+          label="Объявления продавца"
+          text="Пустой блок — фильтр по объявлениям продавца выключен."
+        />
+      </div>
       <div className="ef-row">
         <div className="ef-field">
           <label>Категории (когда-либо размещал)</label>
@@ -575,21 +599,19 @@ export function TargetingSection() {
           <FieldError name="targeting.listings.inactiveDays" />
         </div>
       </div>
-      <span className="ef-hint">
-        Пустой блок — фильтр по объявлениям продавца выключен.
-      </span>
 
       {/* Жизненный цикл продавца (спека targeting-lifecycle §2): стадия
           собственных объявлений зрителя. Четыре независимых AND-условия;
           пустой блок схлопывает compactLifecycle (lib/lifecycle.ts). */}
       <div className="ef-divider" />
-      <div className="ef-label">Жизненный цикл продавца</div>
+      <div className="ef-label">
+        Жизненный цикл продавца
+        <HintIcon
+          label="Жизненный цикл продавца"
+          text="Условия по собственным объявлениям зрителя; все заданные должны совпасть одновременно (И). Работает только для залогиненных — анонимам такие промо не показываются."
+        />
+      </div>
       <div className="ef-field">
-        <span className="ef-hint">
-          Условия по собственным объявлениям зрителя; все заданные должны совпасть
-          одновременно (И). Работает только для залогиненных — анонимам такие промо
-          не показываются.
-        </span>
         <FieldError name="lifecycle" />
       </div>
       <div className="ef-row">
@@ -629,11 +651,10 @@ export function TargetingSection() {
           />
           {' '}Объявление зависло
         </label>
-        <span className="ef-hint">
-          Зависло = активно 30+ дней и меньше 50 просмотров; пороги — константы системы
-          (меняются деплоем BFF, не настраиваются здесь). «Продал за N дней» начинает
-          набирать аудиторию только с продаж после выката (историю не восстанавливаем).
-        </span>
+        <HintIcon
+          label="Объявление зависло"
+          text="Зависло = активно 30+ дней и меньше 50 просмотров; пороги — константы системы (меняются деплоем BFF, не настраиваются здесь). «Продал за N дней» начинает набирать аудиторию только с продаж после выката (историю не восстанавливаем)."
+        />
       </div>
 
       <div className="ef-row">
@@ -651,9 +672,15 @@ export function TargetingSection() {
         </div>
       </div>
 
-      {/* Профиль визита + источник захода (спека targeting-visit-profile §2). */}
+      {/* Профиль визита (спека targeting-visit-profile §2). */}
       <div className="ef-divider" />
-      <div className="ef-label">Профиль визита</div>
+      <div className="ef-label">
+        Профиль визита
+        <HintIcon
+          label="Профиль визита"
+          text="Новичок: аккаунт (для залогиненных) или браузер (для гостей) моложе N дней. Постоянный: заходил не менее M разных дней за последний месяц. Если сигнала о посетителе нет (куки отключены) — промо с этим таргетингом просто не показывается. Пустое поле порога = дефолт (7 / 5 дней)."
+        />
+      </div>
       <div className="ef-row">
         <div className="ef-field">
           <label>Класс посетителя</label>
@@ -697,42 +724,36 @@ export function TargetingSection() {
           </div>
         )}
       </div>
-      <span className="ef-hint">
-        Новичок: аккаунт (для залогиненных) или браузер (для гостей) моложе N дней.
-        Постоянный: заходил не менее M разных дней за последний месяц. Если сигнала о
-        посетителе нет (куки отключены) — промо с этим таргетингом просто не показывается.
-        Пустое поле порога = дефолт (7 / 5 дней).
-      </span>
 
-      <div className="ef-field">
-        <label>Источник захода</label>
-        <div className="ef-checkbox-row">
-          {entrySources.map((src) => (
-            <label key={src} className="ef-checkbox">
-              <input
-                type="checkbox"
-                checked={values.entrySources?.includes(src) ?? false}
-                onChange={(e) =>
-                  setFieldValue('entrySources', toggleEnumValue(values.entrySources, src, e.target.checked))
-                }
-              />
-              {ENTRY_SOURCE_LABELS[src]}
-            </label>
-          ))}
+      {/* «Источник захода» (entrySources) из формы убран по фидбеку владельца:
+          дублировал ось «Среда» (Telegram в обоих). Поле живёт в схеме и
+          to-persisted ради обратной совместимости; у промо с уже сохранённым
+          значением показываем компактную строку с возможностью очистить —
+          значение не теряется молча. */}
+      {Boolean(values.entrySources?.length) && (
+        <div className="ef-field">
+          <span className="ef-sublabel">
+            Источник захода: {(values.entrySources ?? []).map((src) => ENTRY_SOURCE_LABELS[src]).join(', ')}
+            {' '}
+            <button
+              type="button"
+              className="ef-link-btn"
+              onClick={() => setFieldValue('entrySources', undefined)}
+            >
+              очистить
+            </button>
+          </span>
         </div>
-        <span className="ef-hint">
-          Определяется по referrer/utm при входе на сайт; источник виден в течение 30 минут
-          после перехода (скользящая сессия). «Другое» — внешний переход, не опознанный как
-          поиск или Telegram. Где именно открыт сайт (приложение, WebView) — это отдельная
-          ось «Среда» ниже. Пусто = любой источник.
-        </span>
-      </div>
+      )}
 
       {/* Среда и устройство (спека targeting-device-env §2): три независимые
           AND-группы; пусто = показывать всем. Поля редактируемы и в edit-режиме —
           это правила отбора, а не структура креатива (в отличие от deviceTarget). */}
       <div className="ef-field">
-        <label>Операционная система</label>
+        <label>
+          Операционная система
+          <HintIcon label="Операционная система" text={OS_HINT} />
+        </label>
         <div className="ef-checkbox-row">
           {OS_OPTIONS.map((opt) => (
             <label key={opt.value} className="ef-checkbox">
@@ -747,11 +768,13 @@ export function TargetingSection() {
             </label>
           ))}
         </div>
-        <span className="ef-hint">{OS_HINT}</span>
       </div>
 
       <div className="ef-field">
-        <label>Среда</label>
+        <label>
+          Среда
+          <HintIcon label="Среда" text={ENVIRONMENT_HINT} />
+        </label>
         <div className="ef-checkbox-row">
           {ENVIRONMENT_OPTIONS.map((opt) => (
             <label key={opt.value} className="ef-checkbox">
@@ -766,11 +789,13 @@ export function TargetingSection() {
             </label>
           ))}
         </div>
-        <span className="ef-hint">{ENVIRONMENT_HINT}</span>
       </div>
 
       <div className="ef-field">
-        <label>Класс устройства</label>
+        <label>
+          Класс устройства
+          <HintIcon label="Класс устройства" text={DEVICE_BRAND_HINT} />
+        </label>
         <div className="ef-checkbox-row">
           {DEVICE_BRAND_OPTIONS.map((opt) => (
             <label key={opt.value} className="ef-checkbox">
@@ -785,7 +810,6 @@ export function TargetingSection() {
             </label>
           ))}
         </div>
-        <span className="ef-hint">{DEVICE_BRAND_HINT}</span>
       </div>
     </>
   );

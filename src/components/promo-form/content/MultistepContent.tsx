@@ -54,7 +54,7 @@ export function MultistepContent() {
                     </div>
                   </div>
                   <div className="ef-label-row">
-                    <span className="ef-hint">Заголовок</span>
+                    <span className="ef-sublabel">Заголовок</span>
                     <span className={`ef-counter mono${st.title.length > STEP_TITLE_MAX ? ' over' : ''}`}>
                       {st.title.length} / {STEP_TITLE_MAX}
                     </span>
@@ -67,7 +67,7 @@ export function MultistepContent() {
                     maxLength={STEP_TITLE_MAX + 20}
                   />
                   <div className="ef-label-row">
-                    <span className="ef-hint">Текст</span>
+                    <span className="ef-sublabel">Текст</span>
                     <span className={`ef-counter mono${st.body.length > STEP_BODY_MAX ? ' over' : ''}`}>
                       {st.body.length} / {STEP_BODY_MAX}
                     </span>
@@ -81,7 +81,7 @@ export function MultistepContent() {
                     maxLength={STEP_BODY_MAX + 40}
                   />
                   <div className="ef-label-row">
-                    <span className="ef-hint">Картинка/гифка (необязательно)</span>
+                    <span className="ef-sublabel">Картинка/гифка (необязательно)</span>
                   </div>
                   <PromoImageUpload
                     value={st.imageUrl ?? ''}
