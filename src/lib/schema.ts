@@ -11,6 +11,31 @@ export const deviceTargetSchema = z.enum(['desktop', 'touch', 'both']);
 export const promoOsSchema = z.enum(['ios', 'android']);
 export const promoEnvironmentSchema = z.enum(['browser', 'telegram', 'pwa', 'app']);
 export const deviceBrandSchema = z.enum(['iphone', 'android-flagship', 'android-other']);
+/** IP-гео «где юзер СЕЙЧАС» (спека targeting-geo). НЕ ось targeting.regions
+ *  (та — город из ПРОФИЛЯ). Байт-в-байт с catalogue-schema.ts BFF. */
+export const geoSegmentSchema = z.enum(['local', 'tourist', 'other']);
+export type GeoSegment = z.infer<typeof geoSegmentSchema>;
+/** Профиль визита (спека targeting-visit-profile). Байт-в-байт с BFF. */
+export const visitorClassSchema = z.enum(['newcomer', 'regular']);
+export const entrySourceSchema = z.enum(['direct', 'search', 'telegram', 'other']);
+export const entrySources = entrySourceSchema.options;
+export type EntrySource = z.infer<typeof entrySourceSchema>;
+
+/** Расписание показов (dayparting, спека targeting-schedule): дни ISO
+ *  (1=Пн..7=Вс) + часы МСК (UTC+3). hourEnd — исключающая граница, 24 = до
+ *  полуночи; интервалы через полночь не поддерживаются (hourStart < hourEnd).
+ *  Байт-в-байт с scheduleSchema в catalogue-schema.ts BFF, но БЕЗ .catch —
+ *  кабинет единственная точка, где человек может исправить данные, поэтому
+ *  здесь строго (спека § 6). */
+export const scheduleSchema = z.object({
+  daysOfWeek: z.array(z.number().int().min(1).max(7))
+    .min(1, 'Выберите хотя бы один день')
+    .refine((d) => new Set(d).size === d.length, 'Дни не должны повторяться'),
+  hourStart: z.number().int('Час начала — целое число').min(0, 'Час начала — от 0').max(23, 'Час начала — не позже 23'),
+  hourEnd: z.number().int('Час окончания — целое число').min(1, 'Час окончания — от 1').max(24, 'Час окончания — не позже 24'),
+}).refine((s) => s.hourStart < s.hourEnd,
+  { message: 'Начальный час должен быть меньше конечного', path: ['hourEnd'] });
+export type PromoSchedule = z.infer<typeof scheduleSchema>;
 
 function hasTwoNormalizedSearchCharacters(value: string): boolean {
   return value
@@ -145,6 +170,9 @@ export const servingBlockSchema = z.object({
   title: z.string().min(1, 'Укажите заголовок'),
   startsAt: z.string().datetime({ message: 'Некорректная дата начала' }),
   endsAt: z.string().datetime({ message: 'Некорректная дата окончания' }),
+  /** Показ только в выбранные дни/часы МСК поверх окна дат. Отсутствие поля
+   *  = 24/7 (полное покрытие нормализуется в undefined в to-persisted.ts). */
+  schedule: scheduleSchema.optional(),
   targeting: z.object({
     minAge: z.number().int().nonnegative('Возраст не может быть отрицательным').optional(),
     maxAge: z.number().int().nonnegative('Возраст не может быть отрицательным').optional(),
@@ -156,6 +184,19 @@ export const servingBlockSchema = z.object({
     environments: z.array(promoEnvironmentSchema).optional(),
     /** Пусто/omitted = любой класс. Прокси платёжеспособности по UA (см. хинт в TargetingSection). */
     deviceBrands: z.array(deviceBrandSchema).optional(),
+    /** IP-гео: сегменты «где сейчас» (local=Абхазия / tourist=Россия / other).
+     *  Пусто/нет = любой. Гео не определилось (VPN) → промо с правилом не показывается. */
+    geoSegments: z.array(geoSegmentSchema).optional(),
+    /** IP-гео: города-слаги «где сейчас» (та же номенклатура, что profiles.city).
+     *  Пусто/нет = любой город. НЕ regions: та ось — город из профиля. */
+    geoCities: z.array(z.string().min(1, 'Город не может быть пустым').max(64, 'Слаг города — не длиннее 64 символов')).optional(),
+    /** Профиль визита: newcomer (молодой аккаунт/браузер) / regular (заходит
+     *  часто). Нет поля = любой посетитель. */
+    visitorClass: visitorClassSchema.optional(),
+    /** Только при visitorClass='newcomer'; пусто = дефолт BFF (7 дней). */
+    newcomerMaxAgeDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(365, 'Не больше 365 дней').optional(),
+    /** Только при visitorClass='regular'; пусто = дефолт BFF (5 дней). */
+    regularMinVisitDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(30, 'Не больше 30 дней').optional(),
     search: searchTargetingSchema.optional(),
     purchases: purchasesTargetingSchema.optional(),
     balance: balanceTargetingSchema.optional(),
@@ -177,6 +218,10 @@ export const servingBlockSchema = z.object({
   sections: z.array(z.string().min(1)).optional(),
   categories: z.array(z.string().min(1)).optional(),
   sellerStatus: z.enum(['seller', 'buyer']).optional(),
+  /** Классы источника захода текущей сессии (referrer/utm при входе, кука
+   *  30 мин). Пусто/нет = любой источник; [] нормализуется в undefined в
+   *  to-persisted.ts. */
+  entrySources: z.array(entrySourceSchema).optional(),
   /**
    * Где промо должно показываться. По умолчанию `'both'`. BFF
    * select-promo фильтрует кандидатов: если deviceTarget = 'touch',
