@@ -1,10 +1,17 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormikContext } from 'formik';
-import type { Promo } from '@/lib/schema';
+import type { EntrySource, Promo } from '@/lib/schema';
 import { FilterCard } from '../targeting/FilterCard';
 import { FilterCatalog } from '../targeting/FilterCatalog';
 import { clearFilter, filterIdsWithErrors, findFilter, visibleFilterIds } from '../targeting/registry';
+
+const ENTRY_SOURCE_LABELS: Record<EntrySource, string> = {
+  direct: 'Прямой',
+  search: 'Поиск',
+  telegram: 'Telegram',
+  other: 'Другое',
+};
 
 /** Таргетинг как набор подключаемых фильтров: видны только включённые,
  *  остальные добавляются из каталога. Пусто = промо показывается всем. */
@@ -73,6 +80,28 @@ export function TargetingSection() {
       <FilterCatalog addedIds={visible} onPick={addFilter} />
       {visible.length === 0 && (
         <div className="ef-flt-empty">Фильтров нет — промо показывается всем.</div>
+      )}
+
+      {/* «Источник захода» (entrySources) из формы убран по фидбеку владельца:
+          дублировал ось «Среда» (Telegram в обоих). Поле живёт в схеме и
+          to-persisted ради обратной совместимости; у промо с уже сохранённым
+          значением показываем компактную строку с возможностью очистить —
+          значение не теряется молча. Фильтром в каталоге не заводим намеренно:
+          добавить его заново нельзя, только убрать. */}
+      {Boolean(values.entrySources?.length) && (
+        <div className="ef-field">
+          <span className="ef-sublabel">
+            Источник захода: {(values.entrySources ?? []).map((src) => ENTRY_SOURCE_LABELS[src]).join(', ')}
+            {' '}
+            <button
+              type="button"
+              className="ef-link-btn"
+              onClick={() => setFieldValue('entrySources', undefined)}
+            >
+              очистить
+            </button>
+          </span>
+        </div>
       )}
     </section>
   );

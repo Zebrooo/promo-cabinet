@@ -13,7 +13,12 @@ const base: Promo = {
 /** Значения, при которых фильтр заведомо активен — по одному на фильтр. */
 const ACTIVE_SAMPLE: Record<string, Promo> = {
   age: { ...base, targeting: { minAge: 25, maxAge: 45 } },
+  geo: { ...base, targeting: { geoSegments: ['tourist'] } },
+  visitProfile: { ...base, targeting: { visitorClass: 'newcomer', newcomerMaxAgeDays: 3 } },
   regions: { ...base, targeting: { regions: ['sukhum'] } },
+  behavior: { ...base, targeting: { behavior: { minSessionViews: 3 } } },
+  lifecycle: { ...base, lifecycle: { soldWithinDays: 14 } },
+  schedule: { ...base, schedule: { daysOfWeek: [1, 2, 3, 4, 5], hourStart: 9, hourEnd: 18 } },
   subscription: { ...base, targeting: { subscriptionLevels: ['plus'] } },
   audience: { ...base, audience: 'authenticated' },
   sellerStatus: { ...base, sellerStatus: 'seller' },

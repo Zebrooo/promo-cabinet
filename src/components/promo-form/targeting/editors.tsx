@@ -9,8 +9,21 @@ import {
   OS_OPTIONS, ENVIRONMENT_OPTIONS, DEVICE_BRAND_OPTIONS,
   OS_HINT, ENVIRONMENT_HINT, DEVICE_BRAND_HINT,
 } from '../env-targeting';
-import type { Promo } from '@/lib/schema';
+import type { Promo, PromoSchedule } from '@/lib/schema';
 import { SlugListField, FieldError } from '../fields';
+import { HintIcon } from '../HintIcon';
+import { fullCoverage, weekdays9to18, weekendsOnly, roundTheClock } from '../schedule-presets';
+
+const GEO_SEGMENT_OPTIONS = [
+  { value: 'local', label: 'Местные (Абхазия)' },
+  { value: 'tourist', label: 'Туристы (Россия)' },
+  { value: 'other', label: 'Другое' },
+] as const;
+
+const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']; // индекс i → ISO-день i+1
+const HOURS_FROM = Array.from({ length: 24 }, (_, h) => h);     // 0..23
+const HOURS_TO = Array.from({ length: 24 }, (_, h) => h + 1);   // 1..24
+const fmtHour = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
 
 type SearchCriteriaKey = 'terms' | 'sections';
 
@@ -91,9 +104,338 @@ function AgeEditor() {
 function RegionsEditor() {
   return (
     <div className="ef-field">
-      <label>Регионы</label>
+      <label>
+        Регионы
+        <HintIcon
+          label="Регионы"
+          text="Город из ПРОФИЛЯ пользователя. Не путать с «Гео по IP»: там — где человек находится сейчас."
+        />
+      </label>
       <SlugListField name="targeting.regions" placeholder="sukhum, gagra" />
     </div>
+  );
+}
+
+function GeoEditor() {
+  const { values, setFieldValue } = useFormikContext<Promo>();
+  const targeting = values.targeting;
+  return (
+    <>
+      <div className="ef-field">
+        <label>
+          Сегменты
+          <HintIcon
+            label="Гео по IP"
+            text={
+              <>
+                Определяется по IP в момент показа. Если гео определить не удалось (VPN,
+                неизвестная сеть), промо с гео-ограничением НЕ показывается. Ограничение
+                метода: местный с российской SIM (роуминг) определится как турист.
+                {' '}Не путать с «Регионы»: там — город из ПРОФИЛЯ пользователя, здесь —
+                где он находится СЕЙЧАС по IP. Пусто = без гео-ограничения.
+              </>
+            }
+          />
+        </label>
+        <div className="ef-checkbox-row">
+          {GEO_SEGMENT_OPTIONS.map((opt) => (
+            <label key={opt.value} className="ef-checkbox">
+              <input
+                type="checkbox"
+                checked={targeting.geoSegments?.includes(opt.value) ?? false}
+                onChange={(e) =>
+                  setFieldValue('targeting.geoSegments', toggleEnumValue(targeting.geoSegments, opt.value, e.target.checked))
+                }
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="ef-field">
+        <label>Города</label>
+        <SlugListField name="targeting.geoCities" placeholder="sukhum, gagra, sochi" />
+        <FieldError name="targeting.geoCities" />
+      </div>
+    </>
+  );
+}
+
+function VisitProfileEditor() {
+  const { values, setFieldValue } = useFormikContext<Promo>();
+  const targeting = values.targeting;
+  return (
+    <div className="ef-row">
+      <div className="ef-field">
+        <label>
+          Класс посетителя
+          <HintIcon
+            label="Профиль визита"
+            text="Новичок: аккаунт (для залогиненных) или браузер (для гостей) моложе N дней. Постоянный: заходил не менее M разных дней за последний месяц. Если сигнала о посетителе нет (куки отключены) — промо с этим таргетингом просто не показывается. Пустое поле порога = дефолт (7 / 5 дней)."
+          />
+        </label>
+        <select
+          className="ef-input"
+          value={targeting.visitorClass ?? ''}
+          onChange={(e) => {
+            const next = e.target.value === '' ? undefined : (e.target.value as 'newcomer' | 'regular');
+            setFieldValue('targeting.visitorClass', next);
+            // Пороги чужого класса не таскаем за собой (normalize вычистит,
+            // но форма не должна показывать устаревшее значение).
+            if (next !== 'newcomer') setFieldValue('targeting.newcomerMaxAgeDays', undefined);
+            if (next !== 'regular') setFieldValue('targeting.regularMinVisitDays', undefined);
+          }}
+        >
+          <option value="">Любой</option>
+          <option value="newcomer">Новички</option>
+          <option value="regular">Постоянные</option>
+        </select>
+      </div>
+      {targeting.visitorClass === 'newcomer' && (
+        <div className="ef-field">
+          <label>Новичок — моложе, дней</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={365} placeholder="7"
+            value={targeting.newcomerMaxAgeDays ?? ''}
+            onChange={(e) => setFieldValue('targeting.newcomerMaxAgeDays', e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="targeting.newcomerMaxAgeDays" />
+        </div>
+      )}
+      {targeting.visitorClass === 'regular' && (
+        <div className="ef-field">
+          <label>Постоянный — от, дней с визитами</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={30} placeholder="5"
+            value={targeting.regularMinVisitDays ?? ''}
+            onChange={(e) => setFieldValue('targeting.regularMinVisitDays', e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="targeting.regularMinVisitDays" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BehaviorEditor() {
+  const { values, setFieldValue } = useFormikContext<Promo>();
+  const behavior = values.targeting.behavior;
+  return (
+    <>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Смотрел категории
+            <HintIcon
+              label="Смотрел категории"
+              text="Интересы — по объявлениям, которые зритель РЕАЛЬНО открывал за последние N дней (пустое поле = 7). Слаги категорий каталога — как в поле «Категории». Не путать с блоком «Поиск»: там — что человек набирал, здесь — что смотрел."
+            />
+          </label>
+          <SlugListField name="targeting.behavior.interest.categories" placeholder="shiny, avto" />
+          <FieldError name="targeting.behavior.interest.categories" />
+        </div>
+        <div className="ef-field">
+          <label>За период, дней</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={14} placeholder="7"
+            disabled={!behavior?.interest?.categories?.length}
+            value={behavior?.interest?.lookbackDays ?? ''}
+            onChange={(e) => setFieldValue('targeting.behavior.interest.lookbackDays',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="targeting.behavior.interest.lookbackDays" />
+        </div>
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label className="ef-checkbox">
+            <input
+              type="checkbox"
+              checked={behavior?.hotBuyer !== undefined}
+              onChange={(e) =>
+                setFieldValue('targeting.behavior.hotBuyer', e.target.checked ? {} : undefined)
+              }
+            />
+            {' '}Горячий покупатель
+          </label>
+          <HintIcon
+            label="Горячий покупатель и карточки за визит"
+            text="Горячий покупатель: открывал телефон продавца не меньше N раз (разных объявлений, пусто = 2) за последние 7 дней — окно фиксировано. Анонимов с историей тоже находит. Карточки за визит — открытые карточки объявлений текущего визита (перерыв больше 30 минут = новый визит), работает и для гостей. Любое из условий сужает аудиторию: без накопленной истории промо не показывается."
+          />
+        </div>
+        {behavior?.hotBuyer !== undefined && (
+          <div className="ef-field">
+            <label>Открывал телефонов, минимум</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={50} placeholder="2"
+              value={behavior.hotBuyer.minPhoneViews ?? ''}
+              onChange={(e) => setFieldValue('targeting.behavior.hotBuyer.minPhoneViews',
+                e.target.value === '' ? undefined : Number(e.target.value))}
+            />
+            <FieldError name="targeting.behavior.hotBuyer.minPhoneViews" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>Показывать после N карточек за визит</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={100} placeholder="—"
+            value={behavior?.minSessionViews ?? ''}
+            onChange={(e) => setFieldValue('targeting.behavior.minSessionViews',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="targeting.behavior.minSessionViews" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function LifecycleEditor() {
+  const { values, setFieldValue } = useFormikContext<Promo>();
+  return (
+    <>
+      <div className="ef-field">
+        <FieldError name="lifecycle" />
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Продаёт в категориях
+            <HintIcon
+              label="Жизненный цикл продавца"
+              text="Условия по собственным объявлениям зрителя; все заданные должны совпасть одновременно (И). Работает только для залогиненных — анонимам такие промо не показываются."
+            />
+          </label>
+          <SlugListField name="lifecycle.activeInCategories" placeholder="avto" />
+          <FieldError name="lifecycle.activeInCategories" />
+        </div>
+        <div className="ef-field">
+          <label>Продал за последние N дней</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={90} placeholder="14"
+            value={values.lifecycle?.soldWithinDays ?? ''}
+            onChange={(e) => setFieldValue('lifecycle.soldWithinDays',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="lifecycle.soldWithinDays" />
+        </div>
+        <div className="ef-field">
+          <label>Первое объявление не старше N дней</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={30} placeholder="7"
+            value={values.lifecycle?.firstListingWithinDays ?? ''}
+            onChange={(e) => setFieldValue('lifecycle.firstListingWithinDays',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="lifecycle.firstListingWithinDays" />
+        </div>
+      </div>
+      <div className="ef-field">
+        <label className="ef-checkbox">
+          <input
+            type="checkbox"
+            checked={values.lifecycle?.hasStalledActive === true}
+            onChange={(e) => setFieldValue('lifecycle.hasStalledActive',
+              e.target.checked ? true : undefined)}
+          />
+          {' '}Объявление зависло
+        </label>
+        <HintIcon
+          label="Объявление зависло"
+          text="Зависло = активно 30+ дней и меньше 50 просмотров; пороги — константы системы (меняются деплоем BFF, не настраиваются здесь). «Продал за N дней» начинает набирать аудиторию только с продаж после выката (историю не восстанавливаем)."
+        />
+      </div>
+    </>
+  );
+}
+
+/** Дейпартинг. Источник истины один — Formik: отсутствие поля рисуем как
+ *  полное покрытие (все дни, 0–24); любое взаимодействие пишет цельный
+ *  объект. «Круглосуточно» при сохранении нормализуется обратно в отсутствие
+ *  поля (to-persisted.ts). */
+function ScheduleEditor() {
+  const { values, setFieldValue } = useFormikContext<Promo>();
+  const schedule: PromoSchedule = values.schedule ?? fullCoverage();
+  const set = (next: PromoSchedule) => setFieldValue('schedule', next);
+  return (
+    <>
+      <div className="ef-field">
+        <label>
+          Пресеты
+          <HintIcon
+            label="Расписание показов"
+            text="Время московское (МСК, UTC+3). «До» — исключающая граница: с 9 до 18 = показы в 9:00–17:59. Интервалы через полночь не поддерживаются — делайте два промо. Все дни и 0–24 = без ограничений (поле не сохраняется)."
+          />
+        </label>
+        <div className="ef-queues">
+          <button type="button" className="qchip" onClick={() => set(weekdays9to18())}>
+            Будни 9–18
+          </button>
+          <button type="button" className="qchip" onClick={() => set(weekendsOnly())}>
+            Только выходные
+          </button>
+          <button type="button" className="qchip" onClick={() => set(roundTheClock())}>
+            Круглосуточно
+          </button>
+        </div>
+      </div>
+      <div className="ef-field">
+        <label>Дни недели</label>
+        <div className="ef-queues">
+          {DAY_LABELS.map((label, i) => {
+            const day = i + 1;
+            const on = schedule.daysOfWeek.includes(day);
+            const last = on && schedule.daysOfWeek.length === 1; // снять последний день нельзя
+            return (
+              <button
+                type="button"
+                key={day}
+                className={`qchip${on ? ' on' : ''}`}
+                disabled={last}
+                title={last ? 'Нужен хотя бы один день показа' : undefined}
+                onClick={() => set({
+                  ...schedule,
+                  daysOfWeek: on
+                    ? schedule.daysOfWeek.filter((d) => d !== day)
+                    : [...schedule.daysOfWeek, day].sort((a, b) => a - b),
+                })}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <FieldError name="schedule.daysOfWeek" />
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Показывать с</label>
+          <select
+            className="ef-input"
+            value={schedule.hourStart}
+            onChange={(e) => set({ ...schedule, hourStart: Number(e.target.value) })}
+          >
+            {HOURS_FROM.map((h) => (
+              <option key={h} value={h}>{fmtHour(h)}</option>
+            ))}
+          </select>
+          <FieldError name="schedule.hourStart" />
+        </div>
+        <div className="ef-field">
+          <label>Показывать до</label>
+          <select
+            className="ef-input"
+            value={schedule.hourEnd}
+            onChange={(e) => set({ ...schedule, hourEnd: Number(e.target.value) })}
+          >
+            {HOURS_TO.map((h) => (
+              <option key={h} value={h}>{h === 24 ? '24:00 (до полуночи)' : fmtHour(h)}</option>
+            ))}
+          </select>
+          <FieldError name="schedule.hourEnd" />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -102,7 +444,13 @@ function SubscriptionEditor() {
   const targeting = values.targeting;
   return (
     <div className="ef-field">
-      <label>Уровни подписки</label>
+      <label>
+        Уровни подписки
+        <HintIcon
+          label="Уровни подписки"
+          text="premium не поддерживается биллингом — billing-service отдаёт только plus/none. none = не-PRO, включая гостей: чтобы отсечь гостей, добавьте фильтр «Гости и залогиненные» и поставьте «Только залогиненные»."
+        />
+      </label>
       <div className="ef-checkbox-row">
         {(['none', 'plus', 'premium'] as const).map((lvl) => {
           const disabled = lvl === 'premium';
@@ -123,13 +471,6 @@ function SubscriptionEditor() {
           );
         })}
       </div>
-      <span className="ef-hint">
-        premium не поддерживается биллингом — billing-service отдаёт только plus/none.
-      </span>
-      <span className="ef-hint">
-        none = не-PRO, включая гостей. Чтобы отсечь гостей, добавьте фильтр «Гости и залогиненные»
-        и поставьте «Только залогиненные».
-      </span>
     </div>
   );
 }
@@ -195,7 +536,13 @@ function SearchEditor() {
     <>
       <div className="ef-row">
         <div className="ef-field">
-          <label>Поисковые фразы</label>
+          <label>
+            Поисковые фразы
+            <HintIcon
+              label="Поиск"
+              text="Учитываются запросы пользователя за выбранный период. Если фразы и разделы пусты, фильтр выключен."
+            />
+          </label>
           <SearchListInput
             value={search?.terms}
             onChange={(items) => setSearchCriteria('terms', items)}
@@ -251,9 +598,6 @@ function SearchEditor() {
           <FieldError name="targeting.search.match" />
         </div>
       </div>
-      <span className="ef-hint">
-        Учитываются запросы пользователя за выбранный период. Если фразы и разделы пусты, фильтр выключен.
-      </span>
     </>
   );
 }
@@ -265,7 +609,13 @@ function PurchasesEditor() {
     <>
       <div className="ef-row">
         <div className="ef-field">
-          <label>Наличие покупок</label>
+          <label>
+            Наличие покупок
+            <HintIcon
+              label="Покупки пакетов"
+              text="Смотрит покупки VIP/premium/bump-пакетов за выбранный период. Если ничего не выбрано, фильтр выключен."
+            />
+          </label>
           <select
             className="ef-input"
             value={purchases?.purchased === undefined ? '' : String(purchases.purchased)}
@@ -340,9 +690,6 @@ function PurchasesEditor() {
           <FieldError name="targeting.purchases.lookbackDays" />
         </div>
       </div>
-      <span className="ef-hint">
-        Смотрит покупки VIP/premium/bump-пакетов за выбранный период. Если ничего не выбрано, фильтр выключен.
-      </span>
     </>
   );
 }
@@ -354,7 +701,13 @@ function ListingsEditor() {
     <>
       <div className="ef-row">
         <div className="ef-field">
-          <label>Категории (когда-либо размещал)</label>
+          <label>
+            Категории (когда-либо размещал)
+            <HintIcon
+              label="Объявления продавца"
+              text="Пустой блок — фильтр по объявлениям продавца выключен."
+            />
+          </label>
           <SlugListField name="targeting.listings.categories" placeholder="avto, realty" />
         </div>
         <div className="ef-field">
@@ -412,9 +765,6 @@ function ListingsEditor() {
           <FieldError name="targeting.listings.inactiveDays" />
         </div>
       </div>
-      <span className="ef-hint">
-        Пустой блок — фильтр по объявлениям продавца выключен.
-      </span>
     </>
   );
 }
@@ -426,7 +776,13 @@ function BalanceEditor() {
     <>
       <div className="ef-row">
         <div className="ef-field">
-          <label>Остаток от, ₽</label>
+          <label>
+            Остаток от, ₽
+            <HintIcon
+              label="Кошелёк"
+              text="Остаток — текущий баланс кошелька. Движение — пополнения минус траты за период; без указания окна считается с момента создания кошелька."
+            />
+          </label>
           <input
             type="number" className="ef-input mono"
             value={balance?.currentAbove !== undefined ? balance.currentAbove / 100 : ''}
@@ -460,7 +816,6 @@ function BalanceEditor() {
             })}
             placeholder="—"
           />
-          <span className="ef-hint">Пополнения минус траты за период</span>
         </div>
         <div className="ef-field">
           <label>Движение до, ₽</label>
@@ -488,9 +843,6 @@ function BalanceEditor() {
           <FieldError name="targeting.balance.movementLookbackDays" />
         </div>
       </div>
-      <span className="ef-hint">
-        Остаток — текущий баланс кошелька. Движение — без указания окна считается с момента создания кошелька.
-      </span>
     </>
   );
 }
@@ -510,7 +862,10 @@ function EnumCheckboxEditor({
   const { setFieldValue } = useFormikContext<Promo>();
   return (
     <div className="ef-field">
-      <label>{label}</label>
+      <label>
+        {label}
+        <HintIcon label={label} text={hint} />
+      </label>
       <div className="ef-checkbox-row">
         {options.map((opt) => (
           <label key={opt.value} className="ef-checkbox">
@@ -523,7 +878,6 @@ function EnumCheckboxEditor({
           </label>
         ))}
       </div>
-      <span className="ef-hint">{hint}</span>
     </div>
   );
 }
@@ -570,11 +924,14 @@ function DeviceBrandsEditor() {
 function SectionsEditor() {
   return (
     <div className="ef-field">
-      <label>Разделы</label>
+      <label>
+        Разделы
+        <HintIcon
+          label="Разделы"
+          text="Работает только на overlay-поверхности; на topline/tooltip промо с разделами не показывается."
+        />
+      </label>
       <SlugListField name="sections" placeholder="avto, realty" />
-      <span className="ef-hint">
-        Работает только на overlay-поверхности; на topline/tooltip промо с разделами не показывается.
-      </span>
     </div>
   );
 }
@@ -590,7 +947,12 @@ function CategoriesEditor() {
 
 export const FILTER_EDITORS: Record<string, () => JSX.Element> = {
   age: AgeEditor,
+  geo: GeoEditor,
+  visitProfile: VisitProfileEditor,
   regions: RegionsEditor,
+  behavior: BehaviorEditor,
+  lifecycle: LifecycleEditor,
+  schedule: ScheduleEditor,
   subscription: SubscriptionEditor,
   audience: AudienceEditor,
   sellerStatus: SellerStatusEditor,

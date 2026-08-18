@@ -405,7 +405,7 @@ export const EDITOR_CSS = `
   font: italic 700 10.5px/1 Georgia, serif;
   cursor: pointer; padding: 0;
 }
-.hint-icon:hover, .hint-icon[aria-expanded="true"] {
+.hint-icon:hover, .hint-icon[aria-expanded=true] {
   border-color: var(--brand-sea-700); color: var(--brand-sea-700);
 }
 .hint-popover {

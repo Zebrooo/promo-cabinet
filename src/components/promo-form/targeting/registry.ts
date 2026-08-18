@@ -4,9 +4,9 @@
 // не меняется — это описание уже существующих полей Promo.
 import type { Promo } from '@/lib/schema';
 
-export type FilterGroup = 'audience' | 'behavior' | 'money' | 'device' | 'context';
+export type FilterGroup = 'audience' | 'behavior' | 'money' | 'device' | 'context' | 'time';
 
-export const GROUP_ORDER = ['audience', 'behavior', 'money', 'device', 'context'] as const;
+export const GROUP_ORDER = ['audience', 'behavior', 'money', 'device', 'context', 'time'] as const;
 
 export const GROUP_LABELS: Record<FilterGroup, string> = {
   audience: 'Аудитория',
@@ -14,6 +14,7 @@ export const GROUP_LABELS: Record<FilterGroup, string> = {
   money: 'Деньги',
   device: 'Устройство и среда',
   context: 'Контекст страницы',
+  time: 'Время показа',
 };
 
 export type FilterDescriptor = {
@@ -35,6 +36,17 @@ const AUDIENCE_LABELS: Record<string, string> = {
   authenticated: 'только залогиненные',
   anonymous: 'только гости',
 };
+const GEO_SEGMENT_LABELS: Record<string, string> = {
+  local: 'местные',
+  tourist: 'туристы',
+  other: 'другое',
+};
+const VISITOR_CLASS_LABELS: Record<string, string> = {
+  newcomer: 'новички',
+  regular: 'постоянные',
+};
+const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const fmtHour = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
 const SELLER_LABELS: Record<string, string> = {
   seller: 'продавцам',
   buyer: 'покупателям',
@@ -52,6 +64,34 @@ export const FILTERS: readonly FilterDescriptor[] = [
       if (minAge !== undefined && maxAge !== undefined) return `от ${minAge} до ${maxAge}`;
       if (minAge !== undefined) return `от ${minAge}`;
       return `до ${maxAge}`;
+    },
+  },
+  {
+    id: 'geo',
+    label: 'Гео по IP',
+    group: 'audience',
+    paths: ['targeting.geoSegments', 'targeting.geoCities'],
+    isActive: (v) => Boolean(v.targeting.geoSegments?.length || v.targeting.geoCities?.length),
+    summary: (v) => [
+      (v.targeting.geoSegments ?? []).map((s) => GEO_SEGMENT_LABELS[s] ?? s).join(', '),
+      list(v.targeting.geoCities),
+    ].filter(Boolean).join(' · '),
+  },
+  {
+    id: 'visitProfile',
+    label: 'Профиль визита',
+    group: 'audience',
+    paths: ['targeting.visitorClass', 'targeting.newcomerMaxAgeDays', 'targeting.regularMinVisitDays'],
+    isActive: (v) => Boolean(v.targeting.visitorClass),
+    summary: (v) => {
+      const cls = VISITOR_CLASS_LABELS[v.targeting.visitorClass ?? ''] ?? '';
+      if (v.targeting.visitorClass === 'newcomer' && v.targeting.newcomerMaxAgeDays !== undefined) {
+        return `${cls} — моложе ${v.targeting.newcomerMaxAgeDays} дн.`;
+      }
+      if (v.targeting.visitorClass === 'regular' && v.targeting.regularMinVisitDays !== undefined) {
+        return `${cls} — от ${v.targeting.regularMinVisitDays} дн. с визитами`;
+      }
+      return cls;
     },
   },
   {
@@ -97,6 +137,49 @@ export const FILTERS: readonly FilterDescriptor[] = [
       const s = v.targeting.search;
       const parts = [list(s?.terms), list(s?.sections)].filter(Boolean);
       return `${parts.join(' · ')} за ${s?.lookbackDays ?? 30} дн.`;
+    },
+  },
+  {
+    id: 'behavior',
+    label: 'Поведение',
+    group: 'behavior',
+    paths: ['targeting.behavior'],
+    isActive: (v) => {
+      const b = v.targeting.behavior;
+      return Boolean(b?.interest?.categories?.length)
+        || b?.hotBuyer !== undefined || b?.minSessionViews !== undefined;
+    },
+    summary: (v) => {
+      const b = v.targeting.behavior;
+      const parts: string[] = [];
+      if (b?.interest?.categories?.length) {
+        parts.push(`смотрел ${list(b.interest.categories)} за ${b.interest.lookbackDays ?? 7} дн.`);
+      }
+      if (b?.hotBuyer !== undefined) {
+        parts.push(`горячий покупатель (от ${b.hotBuyer.minPhoneViews ?? 2} телефонов)`);
+      }
+      if (b?.minSessionViews !== undefined) parts.push(`после ${b.minSessionViews} карточек за визит`);
+      return parts.join(' · ');
+    },
+  },
+  {
+    id: 'lifecycle',
+    label: 'Жизненный цикл продавца',
+    group: 'behavior',
+    paths: ['lifecycle'],
+    isActive: (v) => {
+      const l = v.lifecycle;
+      return Boolean(l?.activeInCategories?.length) || l?.soldWithinDays !== undefined
+        || l?.hasStalledActive === true || l?.firstListingWithinDays !== undefined;
+    },
+    summary: (v) => {
+      const l = v.lifecycle;
+      const parts: string[] = [];
+      if (l?.activeInCategories?.length) parts.push(`продаёт: ${list(l.activeInCategories)}`);
+      if (l?.soldWithinDays !== undefined) parts.push(`продал за ${l.soldWithinDays} дн.`);
+      if (l?.hasStalledActive === true) parts.push('объявление зависло');
+      if (l?.firstListingWithinDays !== undefined) parts.push(`первое объявление ≤ ${l.firstListingWithinDays} дн.`);
+      return parts.join(' · ');
     },
   },
   {
@@ -200,6 +283,27 @@ export const FILTERS: readonly FilterDescriptor[] = [
     paths: ['categories'],
     isActive: (v) => Boolean(v.categories?.length),
     summary: (v) => list(v.categories),
+  },
+  {
+    id: 'schedule',
+    label: 'Расписание показов',
+    group: 'time',
+    paths: ['schedule'],
+    // Отсутствие поля = круглосуточно без ограничений; карточка нужна только
+    // когда расписание реально сужает показ (to-persisted нормализует полное
+    // покрытие обратно в отсутствие поля).
+    isActive: (v) => v.schedule !== undefined,
+    summary: (v) => {
+      const s = v.schedule;
+      if (!s) return '';
+      const days = s.daysOfWeek.length === 7
+        ? 'все дни'
+        : s.daysOfWeek.map((d) => DAY_LABELS[d - 1]).join(', ');
+      const hours = s.hourStart === 0 && s.hourEnd === 24
+        ? 'круглосуточно'
+        : `${fmtHour(s.hourStart)}–${s.hourEnd === 24 ? '24:00' : fmtHour(s.hourEnd)}`;
+      return `${days} · ${hours} МСК`;
+    },
   },
 ] as const;
 
