@@ -140,12 +140,20 @@ function normalize(rawValues: Promo): Promo {
   // скипается по отсутствию правила).
   const entrySources = values.entrySources?.length ? values.entrySources : undefined;
 
+  // Волна C: снятый чекбокс (false) и пустое поле цепочки по клику — это
+  // «правила нет», а не false/'' в S3 (ReactionChecker/ChainChecker BFF
+  // скипаются по отсутствию поля; пустую строку схема бы вообще отвергла).
+  const suppressAfterClick = values.suppressAfterClick === true ? true : undefined;
+  const afterClickPromoId = values.afterClickPromoId?.trim() ? values.afterClickPromoId : undefined;
+
   return {
     ...values,
     title,
     targeting,
     schedule,
     entrySources,
+    suppressAfterClick,
+    afterClickPromoId,
     ctaColor,
     ctaTextColor,
     // ФИКС бага sanitize(): divkitJson больше не утекает в пул после

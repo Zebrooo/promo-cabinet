@@ -102,6 +102,22 @@ describe('validatePromoForm — cross-field rules', () => {
     const errors = validatePromoForm(make('inline', { id: 'p1', afterPromoId: 'p2' }));
     expect(errors.afterPromoId).toBeUndefined();
   });
+
+  it('flags afterClickPromoId referencing itself', () => {
+    const errors = validatePromoForm(make('inline', { id: 'p1', afterClickPromoId: 'p1' }));
+    expect(errors.afterClickPromoId).toBeTruthy();
+  });
+
+  it('allows afterClickPromoId referencing a different promo', () => {
+    const errors = validatePromoForm(make('inline', { id: 'p1', afterClickPromoId: 'p2' }));
+    expect(errors.afterClickPromoId).toBeUndefined();
+  });
+
+  it('allows both chain fields at once (BFF применит их как И)', () => {
+    const errors = validatePromoForm(make('inline', { id: 'p1', afterPromoId: 'p2', afterClickPromoId: 'p3' }));
+    expect(errors.afterPromoId).toBeUndefined();
+    expect(errors.afterClickPromoId).toBeUndefined();
+  });
 });
 
 describe('validatePromoForm — divkit form-only rule', () => {

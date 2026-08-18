@@ -411,6 +411,45 @@ describe('afterPromoId (цепочка показов)', () => {
   });
 });
 
+describe('afterClickPromoId (цепочка по клику) и suppressAfterClick — волна C', () => {
+  it('accepts a promo with afterClickPromoId', () => {
+    const parsed = promoSchema.parse({ ...valid, afterClickPromoId: 'intro-step-1' });
+    expect(parsed.afterClickPromoId).toBe('intro-step-1');
+  });
+
+  it('accepts a promo without afterClickPromoId (optional)', () => {
+    expect(promoSchema.parse(valid).afterClickPromoId).toBeUndefined();
+  });
+
+  it('rejects an empty afterClickPromoId', () => {
+    expect(() => promoSchema.parse({ ...valid, afterClickPromoId: '' })).toThrow();
+  });
+
+  it('rejects an afterClickPromoId longer than 64 chars', () => {
+    expect(() => promoSchema.parse({ ...valid, afterClickPromoId: 'x'.repeat(65) })).toThrow();
+    expect(() => promoSchema.parse({ ...valid, afterClickPromoId: 'x'.repeat(64) })).not.toThrow();
+  });
+
+  it('rejects a self-referencing afterClickPromoId (chain sanity)', () => {
+    expect(() => promoSchema.parse({ ...valid, afterClickPromoId: valid.id })).toThrow();
+  });
+
+  it('accepts both chain fields together (BFF применяет их как И)', () => {
+    const parsed = promoSchema.parse({ ...valid, afterPromoId: 'a', afterClickPromoId: 'a' });
+    expect(parsed.afterPromoId).toBe('a');
+    expect(parsed.afterClickPromoId).toBe('a');
+  });
+
+  it('accepts suppressAfterClick and keeps it optional', () => {
+    expect(promoSchema.parse({ ...valid, suppressAfterClick: true }).suppressAfterClick).toBe(true);
+    expect(promoSchema.parse(valid).suppressAfterClick).toBeUndefined();
+  });
+
+  it('rejects a non-boolean suppressAfterClick', () => {
+    expect(() => promoSchema.parse({ ...valid, suppressAfterClick: 'yes' })).toThrow();
+  });
+});
+
 describe('audience field', () => {
   it('accepts a promo with audience: authenticated', () => {
     expect(() => promoSchema.parse({ ...valid, audience: 'authenticated' })).not.toThrow();

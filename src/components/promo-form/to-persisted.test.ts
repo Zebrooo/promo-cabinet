@@ -425,6 +425,19 @@ describe('toPersisted — таргетинг волны A переживает �
   const schedule = { daysOfWeek: [1, 2, 3, 4, 5], hourStart: 9, hourEnd: 18 };
 
   for (const format of promoFormats) {
+    it(`${format}: suppressAfterClick и afterClickPromoId сохраняются (волна C)`, () => {
+      const draft = make(format, {
+        ...FORMAT_PATCH[format],
+        suppressAfterClick: true,
+        afterClickPromoId: 'intro-step-1',
+      });
+      const out = toPersisted(draft);
+      expect(out.suppressAfterClick).toBe(true);
+      expect(out.afterClickPromoId).toBe('intro-step-1');
+    });
+  }
+
+  for (const format of promoFormats) {
     it(`${format}: geoSegments/geoCities/visitorClass/schedule/entrySources сохраняются`, () => {
       const draft = make(format, {
         ...FORMAT_PATCH[format],
@@ -438,6 +451,35 @@ describe('toPersisted — таргетинг волны A переживает �
       expect(out.entrySources).toEqual(['telegram', 'search']);
     });
   }
+});
+
+describe('toPersisted — волна C: false/пустое вычищается', () => {
+  it('suppressAfterClick: false → undefined и не попадает в JSON (снятый чекбокс)', () => {
+    const out = toPersisted(make('inline', { suppressAfterClick: false }));
+    expect(out.suppressAfterClick).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('suppressAfterClick');
+  });
+
+  it('afterClickPromoId: пустая/пробельная строка → undefined и не попадает в JSON', () => {
+    for (const empty of ['', '   ']) {
+      const out = toPersisted(make('inline', { afterClickPromoId: empty }));
+      expect(out.afterClickPromoId).toBeUndefined();
+      expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('afterClickPromoId');
+    }
+  });
+
+  it('черновик без волновых полей проходит без изменений (back-compat)', () => {
+    const out = toPersisted(make('inline'));
+    const json = JSON.parse(JSON.stringify(out));
+    expect(json).not.toHaveProperty('suppressAfterClick');
+    expect(json).not.toHaveProperty('afterClickPromoId');
+  });
+
+  it('toPreview вычищает так же (общий normalize)', () => {
+    const out = toPreview(make('inline', { suppressAfterClick: false, afterClickPromoId: ' ' }));
+    expect(out.suppressAfterClick).toBeUndefined();
+    expect(out.afterClickPromoId).toBeUndefined();
+  });
 });
 
 describe('toPersisted — schedule normalization (полное покрытие → поле не пишется)', () => {

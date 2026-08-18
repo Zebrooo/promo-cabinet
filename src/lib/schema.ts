@@ -242,6 +242,17 @@ export const servingBlockSchema = z.object({
    *  (ChainChecker). Ограничения побайтово те же, что в catalogue-schema.ts
    *  BFF. Санити afterPromoId !== id — superRefine на promoSchema. */
   afterPromoId: z.string().min(1, 'afterPromoId не может быть пустым').max(64, 'afterPromoId — не длиннее 64 символов').optional(),
+  /** Цепочка по КЛИКУ: id промо-предшественника. BFF (ChainChecker) отдаёт
+   *  это промо только пользователям, КЛИКНУВШИМ по CTA предшественника
+   *  (afterPromoId — после показа). Оба chain-поля сразу → BFF применяет
+   *  условия как И (показ одного И клик по другому). Границы побайтово те
+   *  же, что в catalogue-schema.ts BFF (ветка волны C, promo-bff#28);
+   *  санити afterClickPromoId !== id — superRefine на promoSchema. */
+  afterClickPromoId: z.string().min(1, 'afterClickPromoId не может быть пустым').max(64, 'afterClickPromoId — не длиннее 64 символов').optional(),
+  /** Анти-таргетинг: true = не показывать промо пользователю, который уже
+   *  кликнул по его CTA (BFF ReactionChecker, зеркало promo-bff#28).
+   *  false в пул не пишется — to-persisted вычищает его в undefined. */
+  suppressAfterClick: z.boolean().optional(),
   audience: audienceSchema.optional(),
   sections: z.array(z.string().min(1)).optional(),
   categories: z.array(z.string().min(1)).optional(),
@@ -452,6 +463,9 @@ export const promoSchema = z
     }
     if (p.afterPromoId !== undefined && p.afterPromoId === p.id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'afterPromoId должен ссылаться на другое промо', path: ['afterPromoId'] });
+    }
+    if (p.afterClickPromoId !== undefined && p.afterClickPromoId === p.id) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'afterClickPromoId должен ссылаться на другое промо', path: ['afterClickPromoId'] });
     }
     // lifecycle смотрит на СОБСТВЕННЫЕ объявления зрителя — у гостя их нет,
     // условие не совпадёт никогда (BFF fail closed). Дубль правила для формы —
