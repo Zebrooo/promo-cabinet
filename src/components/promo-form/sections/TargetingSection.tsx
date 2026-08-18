@@ -9,7 +9,7 @@ import { clearFilter, filterIdsWithErrors, findFilter, visibleFilterIds } from '
 /** Таргетинг как набор подключаемых фильтров: видны только включённые,
  *  остальные добавляются из каталога. Пусто = промо показывается всем. */
 export function TargetingSection() {
-  const { values, errors, submitCount, setFieldValue } = useFormikContext<Promo>();
+  const { values, errors, touched, setFieldValue } = useFormikContext<Promo>();
 
   // Фильтры, добавленные в этой сессии, но ещё пустые: по значениям их не
   // отличить от невыбранных, поэтому держим отдельным UI-состоянием.
@@ -18,13 +18,21 @@ export function TargetingSection() {
 
   const visible = useMemo(() => visibleFilterIds(values, extraIds), [values, extraIds]);
 
-  // Ошибка внутри свёрнутой карточки не видна — раскрываем её на сабмите.
+  // Ошибка внутри свёрнутой карточки не видна — раскрываем её, как только она
+  // становится показанной (сабмит с ошибкой помечает touched всё дерево
+  // ошибок; submitCount тут не годится — форма сабмитится своим onSubmit в
+  // обход Formik, и счётчик остаётся нулевым). Карточку при этом ещё и
+  // показываем: ошибка может сидеть в поле, которое само по себе фильтр не
+  // включает (окно движения кошелька, период покупок), и без этого её было бы
+  // нечем починить.
   useEffect(() => {
-    if (submitCount === 0) return;
-    const broken = filterIdsWithErrors(errors);
+    const broken = filterIdsWithErrors(errors, touched);
     if (broken.length === 0) return;
-    setExpandedIds((cur) => [...new Set([...cur, ...broken])]);
-  }, [submitCount, errors]);
+    const add = (cur: string[]) =>
+      (broken.every((id) => cur.includes(id)) ? cur : [...new Set([...cur, ...broken])]);
+    setExtraIds(add);
+    setExpandedIds(add);
+  }, [errors, touched]);
 
   function addFilter(id: string) {
     setExtraIds((cur) => (cur.includes(id) ? cur : [...cur, id]));

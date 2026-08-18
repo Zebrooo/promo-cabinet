@@ -86,6 +86,20 @@ describe('ошибки валидации → фильтры', () => {
   it('игнорирует ошибки полей вне таргетинга', () => {
     expect(filterIdsWithErrors({ title: 'плохо', endsAt: 'плохо' })).toEqual([]);
   });
+
+  it('с touched берёт только показанные пользователю ошибки', () => {
+    const errors = { targeting: { minAge: 'плохо', balance: { movementLookbackDays: 'плохо' } } };
+    expect(filterIdsWithErrors(errors, { targeting: { balance: { movementLookbackDays: true } } }))
+      .toEqual(['balance']);
+    expect(filterIdsWithErrors(errors, {})).toEqual([]);
+  });
+
+  it('ловит ошибку в поле, которое само по себе фильтр не включает', () => {
+    // Окно движения кошелька без сумм: isActive === false, но починить
+    // ошибку без карточки нельзя — фильтр обязан попасть в список.
+    const errors = { targeting: { balance: { movementLookbackDays: 'не больше 365' } } };
+    expect(filterIdsWithErrors(errors)).toEqual(['balance']);
+  });
 });
 
 describe('видимые карточки', () => {

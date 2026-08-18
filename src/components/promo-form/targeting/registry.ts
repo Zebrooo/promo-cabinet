@@ -216,18 +216,26 @@ export function clearFilter(
   for (const path of f.paths) setFieldValue(path, f.cleared?.[path]);
 }
 
-/** FormikErrors — дерево строк; разворачиваем в плоские пути 'a.b.c'. */
-export function flattenErrorPaths(errors: unknown, prefix = ''): string[] {
-  if (!errors || typeof errors !== 'object') return prefix ? [prefix] : [];
-  return Object.entries(errors as Record<string, unknown>).flatMap(([key, value]) => {
+/** FormikErrors (дерево строк) и FormikTouched (дерево булей) — разворачиваем
+ *  в плоские пути 'a.b.c'; ветки с пустым/false-листом отбрасываем. */
+export function flattenErrorPaths(tree: unknown, prefix = ''): string[] {
+  if (tree === null || tree === undefined) return [];
+  if (typeof tree !== 'object') return tree && prefix ? [prefix] : [];
+  return Object.entries(tree as Record<string, unknown>).flatMap(([key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key;
-    return typeof value === 'string' ? [path] : flattenErrorPaths(value, path);
+    return flattenErrorPaths(value, path);
   });
 }
 
-/** Фильтры, внутри которых есть ошибка — их карточки раскрываем при сабмите. */
-export function filterIdsWithErrors(errors: unknown): string[] {
-  const paths = flattenErrorPaths(errors);
+/** Фильтры, внутри которых есть ошибка. Если передан touched, учитываются
+ *  только показанные пользователю ошибки — те же, что рисует FieldError
+ *  (сабмит с ошибкой помечает touched всё дерево ошибок). */
+export function filterIdsWithErrors(errors: unknown, touched?: unknown): string[] {
+  let paths = flattenErrorPaths(errors);
+  if (touched !== undefined) {
+    const touchedPaths = flattenErrorPaths(touched);
+    paths = paths.filter((p) => touchedPaths.some((t) => t === p || p.startsWith(`${t}.`)));
+  }
   return FILTERS
     .filter((f) => f.paths.some((own) => paths.some((p) => p === own || p.startsWith(`${own}.`))))
     .map((f) => f.id);

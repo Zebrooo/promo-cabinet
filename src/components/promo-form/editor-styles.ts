@@ -37,7 +37,10 @@ export const EDITOR_CSS = `
 .ebtn-danger:hover:not(:disabled) { background: var(--brand-coral-600); color: #fff; }
 
 /* ── AI accent button ──────────────────────────────────────── */
-/* Distinct from save/publish so the action's intent is obvious. */
+/* Distinct from save/publish so the intent of the action is obvious.
+   ВНИМАНИЕ: в этой строке-стиле нельзя использовать символы апострофа,
+   кавычки, амперсанд и угловые скобки — на сервере React их экранирует,
+   на клиенте нет, и текстовый узел не сходится при гидратации. */
 .ebtn-ai {
   background: linear-gradient(180deg, #16181D 0%, #3A3F48 100%);
   color: #fff;
