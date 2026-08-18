@@ -100,6 +100,13 @@ describe('видимые карточки', () => {
   });
 });
 
+describe('редакторы', () => {
+  it('есть ровно у каждого фильтра реестра', async () => {
+    const { FILTER_EDITORS } = await import('./editors');
+    expect(Object.keys(FILTER_EDITORS).sort()).toEqual(FILTERS.map((f) => f.id).sort());
+  });
+});
+
 /** Мини-помощник вместо formik/setIn — тест не тянет React-зависимости. */
 function setPath(obj: Promo, path: string, value: unknown): Promo {
   const [head, ...rest] = path.split('.');
