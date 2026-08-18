@@ -498,3 +498,90 @@ describe('toPersisted — visit-profile normalization', () => {
     expect(out.entrySources).toEqual(['telegram', 'search']);
   });
 });
+
+describe('toPersisted — behavior targeting (блок «Поведение»)', () => {
+  it('keeps a full behavior block as a serving field', () => {
+    const behavior = {
+      interest: { categories: ['shiny', 'diski'], lookbackDays: 7 },
+      hotBuyer: { minPhoneViews: 2 },
+      minSessionViews: 5,
+    };
+    const out = toPersisted(make('inline', { targeting: { behavior } }));
+    expect(out.targeting.behavior).toEqual(behavior);
+  });
+
+  it('strips an empty behavior block (no criteria → no key in JSON)', () => {
+    const out = toPersisted(make('inline', { targeting: { behavior: {} } }));
+    expect(out.targeting.behavior).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out.targeting))).not.toHaveProperty('behavior');
+  });
+
+  it('strips a behavior block where every field was individually cleared to undefined', () => {
+    const out = toPersisted(make('inline', {
+      targeting: { behavior: { interest: undefined, hotBuyer: undefined, minSessionViews: undefined } },
+    }));
+    expect(out.targeting.behavior).toBeUndefined();
+  });
+
+  it('drops an interest sub-block containing only lookbackDays (modifier, not a criterion)', () => {
+    const out = toPersisted(make('inline', {
+      targeting: { behavior: { interest: { lookbackDays: 7 }, minSessionViews: 3 } },
+    }));
+    expect(out.targeting.behavior).toEqual({ minSessionViews: 3 });
+  });
+
+  it('drops an interest sub-block whose categories were cleared to undefined', () => {
+    const out = toPersisted(make('inline', {
+      targeting: { behavior: { interest: { categories: undefined, lookbackDays: 14 } } },
+    }));
+    expect(out.targeting.behavior).toBeUndefined();
+  });
+
+  it('keeps a hotBuyer block without minPhoneViews (дефолт BFF = 2)', () => {
+    const out = toPersisted(make('inline', { targeting: { behavior: { hotBuyer: {} } } }));
+    expect(out.targeting.behavior).toEqual({ hotBuyer: {} });
+  });
+
+  it('keeps minSessionViews alone', () => {
+    const out = toPersisted(make('inline', { targeting: { behavior: { minSessionViews: 5 } } }));
+    expect(out.targeting.behavior).toEqual({ minSessionViews: 5 });
+  });
+
+  it('toPreview normalizes the same way (общий normalize)', () => {
+    const out = toPreview(make('popup', { targeting: { behavior: { interest: { lookbackDays: 7 } } } }));
+    expect(out.targeting.behavior).toBeUndefined();
+  });
+});
+
+describe('toPersisted — lifecycle is a serving field', () => {
+  const REQUIRED_BY_FORMAT: Partial<Record<Promo['format'], Partial<Promo>>> = {
+    tooltip: { anchor: 'home-search' },
+    multistep: { steps: [{ title: 'Шаг 1', body: 'Т1' }, { title: 'Шаг 2', body: 'Т2' }] },
+    custom: { variant: 'reklama-onboarding' },
+    divkit: { divkitUrl: 'https://s3.example.com/a.json' },
+  };
+
+  it('lifecycle survives toPersisted for every format', () => {
+    const lifecycle = { activeInCategories: ['avto'], soldWithinDays: 14 };
+    for (const format of promoFormats) {
+      const out = toPersisted(make(format, { ...REQUIRED_BY_FORMAT[format], lifecycle }));
+      expect(out.lifecycle, format).toEqual(lifecycle);
+    }
+  });
+
+  it('cleared controls (all-undefined lifecycle) → the key is absent from the persisted JSON', () => {
+    const out = toPersisted(make('popup', { lifecycle: { soldWithinDays: undefined } }));
+    expect(out.lifecycle).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('lifecycle');
+  });
+
+  it('an empty lifecycle object {} is dropped, not persisted', () => {
+    const out = toPersisted(make('popup', { lifecycle: {} as Promo['lifecycle'] }));
+    expect(out.lifecycle).toBeUndefined();
+  });
+
+  it('toPreview carries lifecycle like any serving key', () => {
+    const out = toPreview(make('popup', { lifecycle: { hasStalledActive: true } }));
+    expect(out.lifecycle).toEqual({ hasStalledActive: true });
+  });
+});

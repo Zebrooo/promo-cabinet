@@ -66,13 +66,14 @@ function SearchListInput({
   );
 }
 
-/** Возраст/регионы/подписки/поиск/пакеты/кошелёк/sections/categories/sellerStatus/объявления продавца/audience. */
+/** Возраст/регионы/подписки/поиск/поведение/пакеты/кошелёк/sections/categories/sellerStatus/объявления продавца/lifecycle/audience. */
 export function TargetingSection() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const targeting = values.targeting;
   const search = targeting.search;
   const purchases = targeting.purchases;
   const balance = targeting.balance;
+  const behavior = targeting.behavior;
   const listings = targeting.listings;
   const searchEnabled = Boolean(search?.terms?.length || search?.sections?.length);
 
@@ -256,6 +257,79 @@ export function TargetingSection() {
       </div>
       <span className="ef-hint">
         Учитываются запросы пользователя за выбранный период. Если фразы и разделы пусты, фильтр выключен.
+      </span>
+
+      {/* Поведение зрителя (спека targeting-behavior §2): интересы по РЕАЛЬНО
+          открытым объявлениям (не по поиску), горячий покупатель, вовлечённость
+          визита. Три независимых AND-условия; пустой блок вычищается в
+          to-persisted.ts. */}
+      <div className="ef-divider" />
+      <div className="ef-label">Поведение</div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Смотрел категории</label>
+          <SlugListField name="targeting.behavior.interest.categories" placeholder="shiny, avto" />
+          <FieldError name="targeting.behavior.interest.categories" />
+        </div>
+        <div className="ef-field">
+          <label>За период, дней</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={14} placeholder="7"
+            disabled={!behavior?.interest?.categories?.length}
+            value={behavior?.interest?.lookbackDays ?? ''}
+            onChange={(e) => setFieldValue('targeting.behavior.interest.lookbackDays',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="targeting.behavior.interest.lookbackDays" />
+        </div>
+      </div>
+      <span className="ef-hint">
+        Интересы — по объявлениям, которые зритель РЕАЛЬНО открывал за последние N дней
+        (пустое поле = 7). Слаги категорий каталога — как в поле «Категории». Не путать с
+        блоком «Поиск»: там — что человек набирал, здесь — что смотрел.
+      </span>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label className="ef-checkbox">
+            <input
+              type="checkbox"
+              checked={behavior?.hotBuyer !== undefined}
+              onChange={(e) =>
+                setFieldValue('targeting.behavior.hotBuyer', e.target.checked ? {} : undefined)
+              }
+            />
+            {' '}Горячий покупатель
+          </label>
+        </div>
+        {behavior?.hotBuyer !== undefined && (
+          <div className="ef-field">
+            <label>Открывал телефонов, минимум</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={50} placeholder="2"
+              value={behavior.hotBuyer.minPhoneViews ?? ''}
+              onChange={(e) => setFieldValue('targeting.behavior.hotBuyer.minPhoneViews',
+                e.target.value === '' ? undefined : Number(e.target.value))}
+            />
+            <FieldError name="targeting.behavior.hotBuyer.minPhoneViews" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>Показывать после N карточек за визит</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={100} placeholder="—"
+            value={behavior?.minSessionViews ?? ''}
+            onChange={(e) => setFieldValue('targeting.behavior.minSessionViews',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="targeting.behavior.minSessionViews" />
+        </div>
+      </div>
+      <span className="ef-hint">
+        Горячий покупатель: открывал телефон продавца не меньше N раз (разных объявлений,
+        пусто = 2) за последние 7 дней — окно фиксировано. Анонимов с историей тоже находит.
+        Карточки за визит — открытые карточки объявлений текущего визита (перерыв больше
+        30 минут = новый визит), работает и для гостей. Любое из условий сужает аудиторию:
+        без накопленной истории промо не показывается.
       </span>
 
       <div className="ef-divider" />
@@ -504,6 +578,63 @@ export function TargetingSection() {
       <span className="ef-hint">
         Пустой блок — фильтр по объявлениям продавца выключен.
       </span>
+
+      {/* Жизненный цикл продавца (спека targeting-lifecycle §2): стадия
+          собственных объявлений зрителя. Четыре независимых AND-условия;
+          пустой блок схлопывает compactLifecycle (lib/lifecycle.ts). */}
+      <div className="ef-divider" />
+      <div className="ef-label">Жизненный цикл продавца</div>
+      <div className="ef-field">
+        <span className="ef-hint">
+          Условия по собственным объявлениям зрителя; все заданные должны совпасть
+          одновременно (И). Работает только для залогиненных — анонимам такие промо
+          не показываются.
+        </span>
+        <FieldError name="lifecycle" />
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Продаёт в категориях</label>
+          <SlugListField name="lifecycle.activeInCategories" placeholder="avto" />
+          <FieldError name="lifecycle.activeInCategories" />
+        </div>
+        <div className="ef-field">
+          <label>Продал за последние N дней</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={90} placeholder="14"
+            value={values.lifecycle?.soldWithinDays ?? ''}
+            onChange={(e) => setFieldValue('lifecycle.soldWithinDays',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="lifecycle.soldWithinDays" />
+        </div>
+        <div className="ef-field">
+          <label>Первое объявление не старше N дней</label>
+          <input
+            type="number" className="ef-input mono" min={1} max={30} placeholder="7"
+            value={values.lifecycle?.firstListingWithinDays ?? ''}
+            onChange={(e) => setFieldValue('lifecycle.firstListingWithinDays',
+              e.target.value === '' ? undefined : Number(e.target.value))}
+          />
+          <FieldError name="lifecycle.firstListingWithinDays" />
+        </div>
+      </div>
+      <div className="ef-field">
+        <label className="ef-checkbox">
+          <input
+            type="checkbox"
+            checked={values.lifecycle?.hasStalledActive === true}
+            onChange={(e) => setFieldValue('lifecycle.hasStalledActive',
+              e.target.checked ? true : undefined)}
+          />
+          {' '}Объявление зависло
+        </label>
+        <span className="ef-hint">
+          Зависло = активно 30+ дней и меньше 50 просмотров; пороги — константы системы
+          (меняются деплоем BFF, не настраиваются здесь). «Продал за N дней» начинает
+          набирать аудиторию только с продаж после выката (историю не восстанавливаем).
+        </span>
+      </div>
 
       <div className="ef-row">
         <div className="ef-field">
