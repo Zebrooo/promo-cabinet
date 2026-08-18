@@ -4,13 +4,15 @@ import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { FieldError } from '../fields';
 
-/** «Показы и лимиты»: цепочка (afterPromoId — BFF/ChainChecker отдаёт это
- *  промо только после зафиксированного показа предшественника) плюс лимит
- *  показов на пользователя и кулдаун. Чекбокс выключен → afterPromoId
- *  убирается из объекта. */
+/** «Показы и лимиты»: цепочки (afterPromoId — после ПОКАЗА предшественника;
+ *  afterClickPromoId — только КЛИКНУВШИМ по предшественнику; оба условия BFF
+ *  применяет как И), анти-таргетинг suppressAfterClick (не показывать
+ *  кликнувшим по себе) плюс лимит показов и кулдаун. Чекбокс выключен →
+ *  соответствующее поле убирается из объекта. Один datalist на оба chain-поля. */
 export function FrequencySection({ poolPromos }: { poolPromos: { id: string; title: string }[] }) {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const [chainOn, setChainOn] = useState<boolean>(Boolean(values.afterPromoId));
+  const [clickChainOn, setClickChainOn] = useState<boolean>(Boolean(values.afterClickPromoId));
 
   return (
     <section className="ef-block">
@@ -52,6 +54,49 @@ export function FrequencySection({ poolPromos }: { poolPromos: { id: string; tit
           )}
         </>
       )}
+
+      <label className="ef-checkbox">
+        <input
+          type="checkbox"
+          checked={clickChainOn}
+          onChange={(e) => {
+            setClickChainOn(e.target.checked);
+            if (!e.target.checked) setFieldValue('afterClickPromoId', undefined);
+          }}
+        />
+        Показывать только кликнувшим по другому промо
+      </label>
+      {clickChainOn && (
+        <>
+          <input
+            className="ef-input mono"
+            list="chain-promo-ids"
+            value={values.afterClickPromoId ?? ''}
+            onChange={(e) => setFieldValue('afterClickPromoId', e.target.value.trim() || undefined)}
+            placeholder="id промо, по которому кликнули"
+            maxLength={64}
+          />
+          <FieldError name="afterClickPromoId" />
+          {values.afterClickPromoId && values.afterClickPromoId !== values.id &&
+            !poolPromos.some((pp) => pp.id === values.afterClickPromoId) && (
+            <div className="hint hint-warn">
+              Промо с таким id нет в пуле — это промо не будет показываться.
+            </div>
+          )}
+          {values.afterPromoId && values.afterClickPromoId && (
+            <div className="ef-sublabel">Оба условия цепочки работают как И.</div>
+          )}
+        </>
+      )}
+
+      <label className="ef-checkbox">
+        <input
+          type="checkbox"
+          checked={Boolean(values.suppressAfterClick)}
+          onChange={(e) => setFieldValue('suppressAfterClick', e.target.checked || undefined)}
+        />
+        Не показывать кликнувшим (кто уже нажал кнопку — больше не увидит)
+      </label>
 
       <div className="ef-row">
         <div className="ef-field">

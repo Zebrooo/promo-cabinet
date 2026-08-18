@@ -52,6 +52,11 @@ export function validatePromoForm(rawValues: Promo): FormikErrors<Promo> {
     errors = setIn(errors, 'afterPromoId', 'Промо не может показываться после самого себя — укажите id другого промо');
   }
 
+  // afterClickPromoId !== id — зеркало той же проверки для цепочки по клику.
+  if (values.afterClickPromoId && values.afterClickPromoId.trim() === values.id.trim()) {
+    errors = setIn(errors, 'afterClickPromoId', 'Промо не может показываться после клика по самому себе — укажите id другого промо');
+  }
+
   // DivKit: обязательность JSON/URL — правило формы (юзер должен либо
   // вставить JSON, либо уже иметь загруженный URL), а не хранимой схемы
   // (divkitUrl/divkitJson оба optional в divkitPromoSchema — divkitJson
