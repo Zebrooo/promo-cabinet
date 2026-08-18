@@ -10,6 +10,10 @@ try {
 }
 
 export default defineConfig({
+  // tsconfig ставит jsx: preserve (компилирует Next), а esbuild vitest'а без
+  // подсказки падает в classic-транформ (`React.createElement` без импорта).
+  // Автоматический runtime — как в Next; нужно компонентным тестам (.tsx).
+  esbuild: { jsx: 'automatic' },
   // Default: hermetic in-memory S3 (see vitest.setup.ts). With
   // PROMO_TEST_LIVE_S3=true the suite hits the real bucket.ru endpoint,
   // so keep the generous network timeouts.
