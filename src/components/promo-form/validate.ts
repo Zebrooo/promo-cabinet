@@ -28,6 +28,13 @@ export function validatePromoForm(values: Promo): FormikErrors<Promo> {
     errors = setIn(errors, 'endsAt', 'Дата начала должна быть раньше даты окончания');
   }
 
+  // Страховка UI-инварианта «нельзя снять последний день»: чип последнего
+  // дня в ScheduleSection задизейблен, но битый initial-state мог прийти
+  // извне — дублируем сообщение схемы явно (спека targeting-schedule §2.1).
+  if (values.schedule && values.schedule.daysOfWeek.length === 0) {
+    errors = setIn(errors, 'schedule.daysOfWeek', 'Выберите хотя бы один день');
+  }
+
   // afterPromoId !== id — та же кросс-полевая проверка, что в superRefine().
   if (values.afterPromoId && values.afterPromoId.trim() === values.id.trim()) {
     errors = setIn(errors, 'afterPromoId', 'Промо не может показываться после самого себя — укажите id другого промо');

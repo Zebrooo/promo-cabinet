@@ -140,3 +140,57 @@ it('env-таргетинг не даёт ошибок валидации фор�
     targeting: { os: ['android'], environments: ['app'], deviceBrands: ['android-other'] },
   }))).toEqual({});
 });
+
+describe('validatePromoForm — schedule (dayparting)', () => {
+  it('валидное расписание: без ошибок', () => {
+    expect(validatePromoForm(make('inline', {
+      schedule: { daysOfWeek: [1, 2, 3, 4, 5], hourStart: 9, hourEnd: 18 },
+    }))).toEqual({});
+  });
+  it('hourStart >= hourEnd → errors.schedule.hourEnd', () => {
+    const errors = validatePromoForm(make('inline', {
+      schedule: { daysOfWeek: [1], hourStart: 18, hourEnd: 9 },
+    }));
+    expect(getIn(errors, 'schedule.hourEnd')).toBe('Начальный час должен быть меньше конечного');
+  });
+  it('пустые дни → «Выберите хотя бы один день» (страховка + zod)', () => {
+    const errors = validatePromoForm(make('inline', {
+      schedule: { daysOfWeek: [], hourStart: 0, hourEnd: 24 },
+    }));
+    expect(getIn(errors, 'schedule.daysOfWeek')).toBe('Выберите хотя бы один день');
+  });
+  it('smoke на втором формате (topline наследует serving-блок)', () => {
+    const errors = validatePromoForm(make('topline', {
+      schedule: { daysOfWeek: [], hourStart: 0, hourEnd: 24 },
+    }));
+    expect(getIn(errors, 'schedule.daysOfWeek')).toBe('Выберите хотя бы один день');
+  });
+});
+
+describe('validatePromoForm — гео и профиль визита', () => {
+  it('валидные гео/visit-поля не дают ошибок', () => {
+    expect(validatePromoForm(make('inline', {
+      targeting: {
+        geoSegments: ['local', 'tourist'],
+        geoCities: ['sukhum', 'sochi'],
+        visitorClass: 'newcomer',
+        newcomerMaxAgeDays: 14,
+      },
+      entrySources: ['telegram'],
+    }))).toEqual({});
+  });
+  it('порог вне диапазона → ошибка на своём пути', () => {
+    const tooBig = validatePromoForm(make('inline', {
+      targeting: { visitorClass: 'newcomer', newcomerMaxAgeDays: 366 },
+    }));
+    expect(getIn(tooBig, 'targeting.newcomerMaxAgeDays')).toBe('Не больше 365 дней');
+    const tooSmall = validatePromoForm(make('inline', {
+      targeting: { visitorClass: 'regular', regularMinVisitDays: 0 },
+    }));
+    expect(getIn(tooSmall, 'targeting.regularMinVisitDays')).toBe('Минимум 1 день');
+  });
+  it('пустой слаг города → ошибка', () => {
+    const errors = validatePromoForm(make('inline', { targeting: { geoCities: [''] } }));
+    expect(getIn(errors, 'targeting.geoCities.0')).toBe('Город не может быть пустым');
+  });
+});

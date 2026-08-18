@@ -708,6 +708,119 @@ describe('CONTENT_KEYS_BY_FORMAT', () => {
   });
 });
 
+describe('promoSchema — IP-гео таргетинг (geoSegments + geoCities, зеркало BFF)', () => {
+  it('round-trips geoSegments + geoCities', () => {
+    const parsed = promoSchema.parse({
+      ...valid,
+      targeting: { geoSegments: ['local', 'tourist'], geoCities: ['sukhum', 'sochi'] },
+    });
+    expect(parsed.targeting.geoSegments).toEqual(['local', 'tourist']);
+    expect(parsed.targeting.geoCities).toEqual(['sukhum', 'sochi']);
+  });
+
+  it('старый JSON без гео-полей валиден, поля undefined', () => {
+    const parsed = promoSchema.parse(valid);
+    expect(parsed.targeting.geoSegments).toBeUndefined();
+    expect(parsed.targeting.geoCities).toBeUndefined();
+  });
+
+  it('rejects unknown geo segments and bad city slugs', () => {
+    expect(promoSchema.safeParse({ ...valid, targeting: { geoSegments: ['moon'] } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, targeting: { geoCities: [''] } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, targeting: { geoCities: ['x'.repeat(65)] } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, targeting: { geoCities: ['x'.repeat(64)] } }).success).toBe(true);
+  });
+});
+
+describe('promoSchema — schedule (dayparting, зеркало BFF)', () => {
+  const withSchedule = (schedule: unknown) => ({ ...valid, schedule } as Promo);
+
+  it('accepts a valid schedule block', () => {
+    const parsed = promoSchema.parse(withSchedule({ daysOfWeek: [1, 2, 3, 4, 5], hourStart: 9, hourEnd: 18 }));
+    expect(parsed.schedule).toEqual({ daysOfWeek: [1, 2, 3, 4, 5], hourStart: 9, hourEnd: 18 });
+  });
+
+  it('accepts a promo without schedule (back-compat)', () => {
+    expect(promoSchema.parse(valid).schedule).toBeUndefined();
+  });
+
+  it('rejects empty daysOfWeek with «Выберите хотя бы один день»', () => {
+    const res = promoSchema.safeParse(withSchedule({ daysOfWeek: [], hourStart: 0, hourEnd: 24 }));
+    expect(res.success).toBe(false);
+    const issue = res.success ? undefined : res.error.issues.find((i) => i.path.join('.') === 'schedule.daysOfWeek');
+    expect(issue?.message).toBe('Выберите хотя бы один день');
+  });
+
+  it('rejects hourStart >= hourEnd at path schedule.hourEnd (ночные интервалы через полночь не поддерживаются)', () => {
+    const res = promoSchema.safeParse(withSchedule({ daysOfWeek: [1], hourStart: 18, hourEnd: 9 }));
+    expect(res.success).toBe(false);
+    const issue = res.success ? undefined : res.error.issues.find((i) => i.path.join('.') === 'schedule.hourEnd');
+    expect(issue?.message).toBe('Начальный час должен быть меньше конечного');
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [1], hourStart: 9, hourEnd: 9 })).success).toBe(false);
+  });
+
+  it('rejects duplicate days, the 25th hour, the 8th day and fractional hours', () => {
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [1, 1], hourStart: 9, hourEnd: 18 })).success).toBe(false);
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [1], hourStart: 9, hourEnd: 25 })).success).toBe(false);
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [8], hourStart: 9, hourEnd: 18 })).success).toBe(false);
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [0], hourStart: 9, hourEnd: 18 })).success).toBe(false);
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [1], hourStart: 9.5, hourEnd: 18 })).success).toBe(false);
+  });
+
+  it('accepts the boundary values (0..24, вс=7)', () => {
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [7], hourStart: 0, hourEnd: 24 })).success).toBe(true);
+    expect(promoSchema.safeParse(withSchedule({ daysOfWeek: [1], hourStart: 23, hourEnd: 24 })).success).toBe(true);
+  });
+
+  it('is inherited by every union member (smoke: topline)', () => {
+    const res = promoSchema.safeParse({
+      ...valid, format: 'topline', schedule: { daysOfWeek: [], hourStart: 0, hourEnd: 24 },
+    } as Promo);
+    expect(res.success).toBe(false);
+  });
+});
+
+describe('promoSchema — профиль визита и источник захода (зеркало BFF)', () => {
+  it('accepts visitorClass with thresholds and entrySources', () => {
+    const parsed = promoSchema.parse({
+      ...valid,
+      targeting: { visitorClass: 'newcomer', newcomerMaxAgeDays: 14 },
+      entrySources: ['telegram', 'search'],
+    });
+    expect(parsed.targeting.visitorClass).toBe('newcomer');
+    expect(parsed.targeting.newcomerMaxAgeDays).toBe(14);
+    expect(parsed.entrySources).toEqual(['telegram', 'search']);
+  });
+
+  it('старый JSON без полей валиден, поля undefined', () => {
+    const parsed = promoSchema.parse(valid);
+    expect(parsed.targeting.visitorClass).toBeUndefined();
+    expect(parsed.entrySources).toBeUndefined();
+  });
+
+  it('rejects out-of-range thresholds', () => {
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'newcomer', newcomerMaxAgeDays: 0 } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'newcomer', newcomerMaxAgeDays: 366 } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'regular', regularMinVisitDays: 0 } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'regular', regularMinVisitDays: 31 } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'regular', regularMinVisitDays: 2.5 } }).success).toBe(false);
+  });
+
+  it('accepts the boundary thresholds', () => {
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'newcomer', newcomerMaxAgeDays: 365 } }).success).toBe(true);
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'regular', regularMinVisitDays: 30 } }).success).toBe(true);
+  });
+
+  it('rejects unknown visitorClass and entry source', () => {
+    expect(promoSchema.safeParse({ ...valid, targeting: { visitorClass: 'vip' } }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, entrySources: ['vk'] }).success).toBe(false);
+  });
+
+  it('accepts an empty entrySources array (нормализуется в undefined на persist)', () => {
+    expect(promoSchema.safeParse({ ...valid, entrySources: [] }).success).toBe(true);
+  });
+});
+
 describe('promoSchema — env-таргетинг (зеркало catalogue-schema BFF)', () => {
   it('round-trip трёх новых полей targeting', () => {
     const parsed = promoSchema.parse({

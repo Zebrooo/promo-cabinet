@@ -7,6 +7,7 @@
 // after a successful S3 upload.
 import { promoSchema, servingBlockSchema, CONTENT_KEYS_BY_FORMAT, type Promo } from '@/lib/schema';
 import { KNOWN_CUSTOM_VARIANTS } from '@/lib/custom-variants';
+import { isFullCoverage } from './schedule-presets';
 
 /**
  * Derive the values that must be correct before the union-validated parse,
@@ -98,10 +99,30 @@ function normalize(values: Promo): Promo {
     targeting = withoutListings;
   }
 
+  // Пороги профиля визита живут только вместе со своим классом: порог чужого
+  // класса (или совсем без класса — переключили select назад) не должен
+  // утекать в пул.
+  targeting = {
+    ...targeting,
+    newcomerMaxAgeDays: targeting.visitorClass === 'newcomer' ? targeting.newcomerMaxAgeDays : undefined,
+    regularMinVisitDays: targeting.visitorClass === 'regular' ? targeting.regularMinVisitDays : undefined,
+  };
+
+  // Полное покрытие (7 дней + 0–24) = «без ограничений» — поле в S3 не
+  // пишется вовсе; форма при загрузке промо без поля показывает то же
+  // состояние, круг замыкается (спека targeting-schedule §2.1).
+  const schedule = isFullCoverage(values.schedule) ? undefined : values.schedule;
+
+  // entrySources: [] = «любой источник» = поля нет (SourceChecker в BFF
+  // скипается по отсутствию правила).
+  const entrySources = values.entrySources?.length ? values.entrySources : undefined;
+
   return {
     ...values,
     title,
     targeting,
+    schedule,
+    entrySources,
     ctaColor,
     ctaTextColor,
     // ФИКС бага sanitize(): divkitJson больше не утекает в пул после
