@@ -407,3 +407,94 @@ describe('toPersisted — env-таргетинг переживает стрип
     });
   }
 });
+
+describe('toPersisted — таргетинг волны A переживает стрип каждого формата (geo + schedule + visit)', () => {
+  const FORMAT_PATCH: Record<Promo['format'], Partial<Promo>> = {
+    inline: {}, topline: {}, popup: {}, fullscreen: {},
+    tooltip: { anchor: 'home-search' },
+    multistep: { steps: [{ title: 'Шаг 1', body: 'Т1' }, { title: 'Шаг 2', body: 'Т2' }] },
+    divkit: { divkitUrl: 'https://s3.example.com/a.json' },
+    custom: { variant: 'reklama-onboarding' },
+  };
+  const waveTargeting = {
+    geoSegments: ['tourist' as const],
+    geoCities: ['sochi', 'moskva'],
+    visitorClass: 'regular' as const,
+    regularMinVisitDays: 7,
+  };
+  const schedule = { daysOfWeek: [1, 2, 3, 4, 5], hourStart: 9, hourEnd: 18 };
+
+  for (const format of promoFormats) {
+    it(`${format}: geoSegments/geoCities/visitorClass/schedule/entrySources сохраняются`, () => {
+      const draft = make(format, {
+        ...FORMAT_PATCH[format],
+        targeting: waveTargeting,
+        schedule,
+        entrySources: ['telegram', 'search'],
+      });
+      const out = toPersisted(draft);
+      expect(out.targeting).toEqual(waveTargeting);
+      expect(out.schedule).toEqual(schedule);
+      expect(out.entrySources).toEqual(['telegram', 'search']);
+    });
+  }
+});
+
+describe('toPersisted — schedule normalization (полное покрытие → поле не пишется)', () => {
+  it('7 дней (в любом порядке) + 0–24 → schedule undefined и не попадает в JSON', () => {
+    const out = toPersisted(make('inline', {
+      schedule: { daysOfWeek: [7, 6, 5, 4, 3, 2, 1], hourStart: 0, hourEnd: 24 },
+    }));
+    expect(out.schedule).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('schedule');
+  });
+  it('частичное покрытие сохраняется как есть', () => {
+    const schedule = { daysOfWeek: [1, 2, 3, 4, 5], hourStart: 9, hourEnd: 18 };
+    expect(toPersisted(make('inline', { schedule })).schedule).toEqual(schedule);
+  });
+  it('все дни, но усечённые часы — сохраняется', () => {
+    const schedule = { daysOfWeek: [1, 2, 3, 4, 5, 6, 7], hourStart: 9, hourEnd: 18 };
+    expect(toPersisted(make('popup', { schedule })).schedule).toEqual(schedule);
+  });
+  it('черновик без schedule проходит без изменений (back-compat)', () => {
+    const out = toPersisted(make('inline'));
+    expect(out.schedule).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('schedule');
+  });
+  it('toPreview нормализует так же (общий normalize)', () => {
+    const out = toPreview(make('inline', {
+      schedule: { daysOfWeek: [1, 2, 3, 4, 5, 6, 7], hourStart: 0, hourEnd: 24 },
+    }));
+    expect(out.schedule).toBeUndefined();
+  });
+});
+
+describe('toPersisted — visit-profile normalization', () => {
+  it('порог чужого класса вычищается', () => {
+    const out = toPersisted(make('inline', {
+      targeting: { visitorClass: 'newcomer', newcomerMaxAgeDays: 14, regularMinVisitDays: 10 },
+    }));
+    expect(out.targeting.visitorClass).toBe('newcomer');
+    expect(out.targeting.newcomerMaxAgeDays).toBe(14);
+    expect(out.targeting.regularMinVisitDays).toBeUndefined();
+  });
+  it('порог совсем без класса вычищается', () => {
+    const out = toPersisted(make('inline', { targeting: { newcomerMaxAgeDays: 14 } }));
+    expect(out.targeting.visitorClass).toBeUndefined();
+    expect(out.targeting.newcomerMaxAgeDays).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out.targeting))).not.toHaveProperty('newcomerMaxAgeDays');
+  });
+  it('entrySources: [] → undefined (пусто = любой источник)', () => {
+    const out = toPersisted(make('inline', { entrySources: [] }));
+    expect(out.entrySources).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('entrySources');
+  });
+  it('round-trip промо со всеми новыми полями', () => {
+    const out = toPersisted(make('popup', {
+      targeting: { visitorClass: 'regular', regularMinVisitDays: 7 },
+      entrySources: ['telegram', 'search'],
+    }));
+    expect(out.targeting).toEqual({ visitorClass: 'regular', regularMinVisitDays: 7 });
+    expect(out.entrySources).toEqual(['telegram', 'search']);
+  });
+});
