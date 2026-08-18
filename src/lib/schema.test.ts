@@ -845,3 +845,131 @@ describe('promoSchema — env-таргетинг (зеркало catalogue-schem
     expect(() => promoSchema.parse({ ...valid, targeting: { deviceBrands: ['nokia'] } })).toThrow();
   });
 });
+
+describe('targeting.behavior — поведение зрителя (зеркало behaviorTargetingSchema BFF)', () => {
+  const withBehavior = (behavior: unknown) =>
+    promoSchema.safeParse({ ...valid, targeting: { behavior } });
+
+  it('round-trips a full behavior block', () => {
+    const behavior = {
+      interest: { categories: ['shiny', 'diski'], lookbackDays: 7 },
+      hotBuyer: { minPhoneViews: 2 },
+      minSessionViews: 5,
+    };
+    const parsed = promoSchema.parse({ ...valid, targeting: { behavior } });
+    expect(parsed.targeting.behavior).toEqual(behavior);
+  });
+
+  it('старый JSON без behavior валиден, поле undefined (обратная совместимость)', () => {
+    expect(promoSchema.parse(valid).targeting.behavior).toBeUndefined();
+  });
+
+  it('rejects out-of-range lookbackDays (1..14 — окно RPC)', () => {
+    expect(withBehavior({ interest: { categories: ['shiny'], lookbackDays: 0 } }).success).toBe(false);
+    expect(withBehavior({ interest: { categories: ['shiny'], lookbackDays: 15 } }).success).toBe(false);
+    expect(withBehavior({ interest: { categories: ['shiny'], lookbackDays: 7.5 } }).success).toBe(false);
+    expect(withBehavior({ interest: { categories: ['shiny'], lookbackDays: 1 } }).success).toBe(true);
+    expect(withBehavior({ interest: { categories: ['shiny'], lookbackDays: 14 } }).success).toBe(true);
+  });
+
+  it('rejects out-of-range minPhoneViews (1..50)', () => {
+    expect(withBehavior({ hotBuyer: { minPhoneViews: 0 } }).success).toBe(false);
+    expect(withBehavior({ hotBuyer: { minPhoneViews: 51 } }).success).toBe(false);
+    expect(withBehavior({ hotBuyer: { minPhoneViews: 1 } }).success).toBe(true);
+    expect(withBehavior({ hotBuyer: { minPhoneViews: 50 } }).success).toBe(true);
+  });
+
+  it('rejects out-of-range minSessionViews (1..100)', () => {
+    expect(withBehavior({ minSessionViews: 0 }).success).toBe(false);
+    expect(withBehavior({ minSessionViews: 101 }).success).toBe(false);
+    expect(withBehavior({ minSessionViews: 2.5 }).success).toBe(false);
+    expect(withBehavior({ minSessionViews: 1 }).success).toBe(true);
+    expect(withBehavior({ minSessionViews: 100 }).success).toBe(true);
+  });
+
+  it('rejects an empty/oversized categories list and bad slugs', () => {
+    expect(withBehavior({ interest: { categories: [] } }).success).toBe(false);
+    expect(withBehavior({ interest: { categories: [''] } }).success).toBe(false);
+    expect(withBehavior({ interest: { categories: ['x'.repeat(65)] } }).success).toBe(false);
+    expect(withBehavior({ interest: { categories: ['x'.repeat(64)] } }).success).toBe(true);
+    expect(withBehavior({
+      interest: { categories: Array.from({ length: 21 }, (_, i) => `c${i}`) },
+    }).success).toBe(false);
+    expect(withBehavior({
+      interest: { categories: Array.from({ length: 20 }, (_, i) => `c${i}`) },
+    }).success).toBe(true);
+  });
+
+  it('trims category slugs (как в BFF: z.string().trim())', () => {
+    const parsed = promoSchema.parse({
+      ...valid,
+      targeting: { behavior: { interest: { categories: [' shiny '] } } },
+    });
+    expect(parsed.targeting.behavior?.interest?.categories).toEqual(['shiny']);
+  });
+});
+
+describe('lifecycle — жизненный цикл объявлений зрителя (зеркало BFF)', () => {
+  const withLifecycle = (lifecycle: unknown) =>
+    promoSchema.safeParse({ ...valid, lifecycle });
+
+  it('accepts a promo with a full valid lifecycle block', () => {
+    const lifecycle = {
+      activeInCategories: ['avto'],
+      soldWithinDays: 14,
+      hasStalledActive: true,
+      firstListingWithinDays: 7,
+    };
+    const parsed = promoSchema.parse({ ...valid, lifecycle });
+    expect(parsed.lifecycle).toEqual(lifecycle);
+  });
+
+  it('accepts each condition alone and the boundary values (1, 90, 30)', () => {
+    expect(withLifecycle({ soldWithinDays: 1 }).success).toBe(true);
+    expect(withLifecycle({ soldWithinDays: 90 }).success).toBe(true);
+    expect(withLifecycle({ firstListingWithinDays: 1 }).success).toBe(true);
+    expect(withLifecycle({ firstListingWithinDays: 30 }).success).toBe(true);
+    expect(withLifecycle({ hasStalledActive: true }).success).toBe(true);
+    expect(withLifecycle({ activeInCategories: ['avto'] }).success).toBe(true);
+  });
+
+  it('rejects an empty lifecycle object and an all-undefined one', () => {
+    expect(withLifecycle({}).success).toBe(false);
+    expect(withLifecycle({ soldWithinDays: undefined }).success).toBe(false);
+  });
+
+  it('rejects out-of-range days (0, 91, 31) and fractions', () => {
+    expect(withLifecycle({ soldWithinDays: 0 }).success).toBe(false);
+    expect(withLifecycle({ soldWithinDays: 91 }).success).toBe(false);
+    expect(withLifecycle({ soldWithinDays: 14.5 }).success).toBe(false);
+    expect(withLifecycle({ firstListingWithinDays: 0 }).success).toBe(false);
+    expect(withLifecycle({ firstListingWithinDays: 31 }).success).toBe(false);
+  });
+
+  it('rejects hasStalledActive: false (literal true; false не хранится) and an empty categories list', () => {
+    expect(withLifecycle({ hasStalledActive: false }).success).toBe(false);
+    expect(withLifecycle({ activeInCategories: [] }).success).toBe(false);
+    expect(withLifecycle({ activeInCategories: [''] }).success).toBe(false);
+  });
+
+  it('старый JSON без lifecycle валиден (обратная совместимость)', () => {
+    expect(promoSchema.parse(valid).lifecycle).toBeUndefined();
+  });
+
+  it('rejects audience anonymous combined with lifecycle (гейт никогда не совпадёт у гостя)', () => {
+    const res = promoSchema.safeParse({ ...valid, audience: 'anonymous', lifecycle: { soldWithinDays: 14 } });
+    expect(res.success).toBe(false);
+    const issue = res.success ? undefined : res.error.issues.find((i) => i.path.join('.') === 'lifecycle');
+    expect(issue?.message).toMatch(/гост/i);
+  });
+
+  it('accepts audience all/authenticated with lifecycle (гости просто отфильтруются)', () => {
+    expect(promoSchema.safeParse({ ...valid, audience: 'all', lifecycle: { soldWithinDays: 14 } }).success).toBe(true);
+    expect(promoSchema.safeParse({ ...valid, audience: 'authenticated', lifecycle: { soldWithinDays: 14 } }).success).toBe(true);
+  });
+
+  it('is inherited by every union member (smoke: topline)', () => {
+    const res = promoSchema.safeParse({ ...valid, format: 'topline', lifecycle: {} } as Promo);
+    expect(res.success).toBe(false);
+  });
+});

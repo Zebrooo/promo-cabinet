@@ -112,6 +112,31 @@ export const balanceTargetingSchema = z.object({
     .optional(),
 });
 
+/** Поведенческий гейт (interest / hotBuyer / minSessionViews). Байт-в-байт с
+ *  behaviorTargetingSchema в catalogue-schema.ts BFF (ветка волны B) плюс
+ *  русские сообщения об ошибках — как у остальных схем кабинета.
+ *  Между условиями — AND (как между чекерами BFF), внутри categories — OR. */
+export const behaviorTargetingSchema = z.object({
+  interest: z.object({
+    categories: z
+      .array(
+        z.string().trim()
+          .min(1, 'Категория не может быть пустой')
+          .max(64, 'Слаг категории — не длиннее 64 символов'),
+      )
+      .min(1, 'Укажите хотя бы одну категорию')
+      .max(20, 'Не больше 20 категорий')
+      .optional(),
+    /** 1..14: потолок = окно RPC promo_viewer_behavior. Дефолт BFF 7. */
+    lookbackDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(14, 'Не больше 14 дней').optional(),
+  }).optional(),
+  hotBuyer: z.object({
+    /** Разных объявлений за 7 дней (окно фиксировано в RPC). Дефолт BFF 2. */
+    minPhoneViews: z.number().int('Только целое число').min(1, 'Минимум 1 просмотр').max(50, 'Не больше 50 просмотров').optional(),
+  }).optional(),
+  minSessionViews: z.number().int('Только целое число карточек').min(1, 'Минимум 1 карточка').max(100, 'Не больше 100 карточек').optional(),
+});
+
 /** Байт-в-байт с listingsTargetingSchema в catalogue-schema.ts BFF
  *  (promo-bff, уже смержено в его main). Оба репозитория валидируют одну и
  *  ту же JSON-форму независимо. */
@@ -200,6 +225,9 @@ export const servingBlockSchema = z.object({
     search: searchTargetingSchema.optional(),
     purchases: purchasesTargetingSchema.optional(),
     balance: balanceTargetingSchema.optional(),
+    /** Поведение зрителя: интересы по просмотрам / горячий покупатель /
+     *  вовлечённость визита. Пусто/нет = гейта нет. */
+    behavior: behaviorTargetingSchema.optional(),
     listings: listingsTargetingSchema.optional(),
   }),
   // Optional per-user cap. Legacy data used 0 = unlimited; coerce that to
@@ -218,6 +246,26 @@ export const servingBlockSchema = z.object({
   sections: z.array(z.string().min(1)).optional(),
   categories: z.array(z.string().min(1)).optional(),
   sellerStatus: z.enum(['seller', 'buyer']).optional(),
+  /** Таргетинг по стадии жизненного цикла собственных объявлений зрителя
+   *  (LifecycleChecker BFF). Работает только для залогиненных — анонимам
+   *  такие промо не показываются (fail closed). Байт-в-байт с
+   *  catalogue-schema.ts BFF (ветка волны B) плюс русские сообщения.
+   *  Refine по значениям (не Object.keys): Formik-стейт может подать объект
+   *  с ключами-undefined — «пустой» он в обоих смыслах; полностью очищенный
+   *  блок схлопывает compactLifecycle (lib/lifecycle.ts) ДО валидации. */
+  lifecycle: z.object({
+    activeInCategories: z
+      .array(z.string().min(1, 'Категория не может быть пустой'))
+      .min(1, 'Укажите хотя бы одну категорию')
+      .optional(),
+    soldWithinDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(90, 'Не больше 90 дней').optional(),
+    hasStalledActive: z.literal(true).optional(),
+    firstListingWithinDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(30, 'Не больше 30 дней').optional(),
+  })
+    .refine((v) => Object.values(v).some((x) => x !== undefined), {
+      message: 'Пустой блок жизненного цикла — задайте хотя бы одно условие или очистите все поля',
+    })
+    .optional(),
   /** Классы источника захода текущей сессии (referrer/utm при входе, кука
    *  30 мин). Пусто/нет = любой источник; [] нормализуется в undefined в
    *  to-persisted.ts. */
@@ -404,6 +452,16 @@ export const promoSchema = z
     }
     if (p.afterPromoId !== undefined && p.afterPromoId === p.id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'afterPromoId должен ссылаться на другое промо', path: ['afterPromoId'] });
+    }
+    // lifecycle смотрит на СОБСТВЕННЫЕ объявления зрителя — у гостя их нет,
+    // условие не совпадёт никогда (BFF fail closed). Дубль правила для формы —
+    // в validatePromoForm() (member-схемы SCHEMA_BY_FORMAT superRefine не знают).
+    if (p.audience === 'anonymous' && p.lifecycle !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Условия по объявлениям никогда не совпадут у гостя — уберите блок жизненного цикла или смените аудиторию',
+        path: ['lifecycle'],
+      });
     }
   });
 
