@@ -4,52 +4,17 @@ import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { FieldError } from '../fields';
 
-/** maxImpressionsPerUser, cooldownHours (both inside the advanced disclosure)
- *  + afterPromoId chain toggle with the predecessor <datalist> (own top-level
- *  block, always visible — mirrors the monolith). */
-export function FrequencyCapFields() {
-  const { values, setFieldValue } = useFormikContext<Promo>();
-  return (
-    <div className="ef-row">
-      <div className="ef-field">
-        <label>Лимит показов на пользователя</label>
-        <input
-          type="number"
-          className="ef-input mono"
-          min={1}
-          value={values.maxImpressionsPerUser ?? ''}
-          onChange={(e) =>
-            setFieldValue('maxImpressionsPerUser', e.target.value === '' ? undefined : Number(e.target.value))
-          }
-          placeholder="∞"
-        />
-        <FieldError name="maxImpressionsPerUser" />
-      </div>
-      <div className="ef-field">
-        <label>Кулдаун (часов)</label>
-        <input
-          type="number"
-          className="ef-input mono"
-          min={0}
-          value={values.cooldownHours}
-          onChange={(e) => setFieldValue('cooldownHours', Number(e.target.value))}
-        />
-        <FieldError name="cooldownHours" />
-      </div>
-    </div>
-  );
-}
-
-/** Chain — «показывать только после другого промо» (все форматы). Чекбокс
- *  выключен → afterPromoId убирается из объекта. BFF (ChainChecker) отдаст
- *  это промо только после зафиксированного показа предшественника. */
+/** «Показы и лимиты»: цепочка (afterPromoId — BFF/ChainChecker отдаёт это
+ *  промо только после зафиксированного показа предшественника) плюс лимит
+ *  показов на пользователя и кулдаун. Чекбокс выключен → afterPromoId
+ *  убирается из объекта. */
 export function FrequencySection({ poolPromos }: { poolPromos: { id: string; title: string }[] }) {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const [chainOn, setChainOn] = useState<boolean>(Boolean(values.afterPromoId));
 
   return (
     <section className="ef-block">
-      <div className="ef-label">ЦЕПОЧКА ПОКАЗОВ</div>
+      <div className="ef-label">ПОКАЗЫ И ЛИМИТЫ</div>
       <label className="ef-checkbox">
         <input
           type="checkbox"
@@ -87,6 +52,34 @@ export function FrequencySection({ poolPromos }: { poolPromos: { id: string; tit
           )}
         </>
       )}
+
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Лимит показов на пользователя</label>
+          <input
+            type="number"
+            className="ef-input mono"
+            min={1}
+            value={values.maxImpressionsPerUser ?? ''}
+            onChange={(e) =>
+              setFieldValue('maxImpressionsPerUser', e.target.value === '' ? undefined : Number(e.target.value))
+            }
+            placeholder="∞"
+          />
+          <FieldError name="maxImpressionsPerUser" />
+        </div>
+        <div className="ef-field">
+          <label>Кулдаун (часов)</label>
+          <input
+            type="number"
+            className="ef-input mono"
+            min={0}
+            value={values.cooldownHours}
+            onChange={(e) => setFieldValue('cooldownHours', Number(e.target.value))}
+          />
+          <FieldError name="cooldownHours" />
+        </div>
+      </div>
     </section>
   );
 }

@@ -13,10 +13,11 @@
 //   │                                                          │
 //   │ ┌─ main editor column ────────┬─ live preview rail ─┐    │
 //   │ │ ГДЕ ПОКАЗЫВАТЬ / ТИП ПРОМО  │ ЖИВОЙ ПРЕВЬЮ        │    │
-//   │ │ Content (per format)        │ Desktop · Tablet · M │    │
+//   │ │ ОСНОВНОЕ                     │ Desktop · Tablet · M │    │
+//   │ │ Content (per format)        │                       │    │
 //   │ │ ОЧЕРЕДИ ПОКАЗА               │                       │    │
-//   │ │ ЦЕПОЧКА ПОКАЗОВ              │                       │    │
-//   │ │ Расширенные настройки ▾     │                       │    │
+//   │ │ ПОКАЗЫ И ЛИМИТЫ              │                       │    │
+//   │ │ ТАРГЕТИНГ (фильтры)          │                       │    │
 //   │ └─────────────────────────────┴───────────────────────┘    │
 //   └─────────────────────────────────────────────────────────┘
 import { useState } from 'react';
@@ -32,10 +33,10 @@ import { validatePromoForm } from './validate';
 import { toPersisted, toPreview } from './to-persisted';
 import { EDITOR_CSS } from './editor-styles';
 import { DevicePlacementSection } from './sections/DevicePlacementSection';
+import { BasicsSection } from './sections/BasicsSection';
 import { ContentSection } from './sections/ContentSection';
-import { ScheduleSection } from './sections/ScheduleSection';
 import { TargetingSection } from './sections/TargetingSection';
-import { FrequencySection, FrequencyCapFields } from './sections/FrequencySection';
+import { FrequencySection } from './sections/FrequencySection';
 import { QueuesSection } from './sections/QueuesSection';
 import { PreviewRail } from './PreviewRail';
 
@@ -126,7 +127,6 @@ function FormBody({
   const { values, setFieldValue, setTouched, validateForm } = useFormikContext<Promo>();
 
   const [error, setError] = useState('');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [aiResult, setAiResult] = useState<{ suggestions: AiSuggestions; cacheHit: boolean; model: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -338,6 +338,7 @@ function FormBody({
       <div className="editor-grid">
         <div className="editor-main">
           <DevicePlacementSection mode={mode} />
+          <BasicsSection mode={mode} />
           <ContentSection />
 
           <QueuesSection
@@ -348,27 +349,7 @@ function FormBody({
           />
 
           <FrequencySection poolPromos={poolPromos} />
-
-          {/* Advanced disclosure */}
-          <section className="ef-advanced">
-            <button
-              type="button"
-              className="ef-advanced-toggle"
-              onClick={() => setAdvancedOpen((v) => !v)}
-              aria-expanded={advancedOpen}
-            >
-              <span>Расширенные настройки</span>
-              <span className="ef-advanced-chev" aria-hidden>{advancedOpen ? '▴' : '▾'}</span>
-            </button>
-
-            {advancedOpen && (
-              <div className="ef-advanced-body">
-                <ScheduleSection mode={mode} />
-                <FrequencyCapFields />
-                <TargetingSection />
-              </div>
-            )}
-          </section>
+          <TargetingSection />
 
           {error && <div className="ef-error">{error}</div>}
         </div>
