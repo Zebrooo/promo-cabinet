@@ -6,8 +6,22 @@ import {
   OS_OPTIONS, ENVIRONMENT_OPTIONS, DEVICE_BRAND_OPTIONS,
   OS_HINT, ENVIRONMENT_HINT, DEVICE_BRAND_HINT,
 } from '../env-targeting';
-import type { Promo } from '@/lib/schema';
+import { entrySources, type EntrySource, type Promo } from '@/lib/schema';
 import { SlugListField, FieldError } from '../fields';
+
+/** IP-гео (спека targeting-geo §2): чекбоксы сегментов «где юзер СЕЙЧАС». */
+const GEO_SEGMENT_OPTIONS = [
+  { value: 'local', label: 'Местные (Абхазия)' },
+  { value: 'tourist', label: 'Туристы (Россия)' },
+  { value: 'other', label: 'Другое' },
+] as const;
+
+const ENTRY_SOURCE_LABELS: Record<EntrySource, string> = {
+  direct: 'Прямой',
+  search: 'Поиск',
+  telegram: 'Telegram',
+  other: 'Другое',
+};
 
 type SearchCriteriaKey = 'terms' | 'sections';
 
@@ -145,6 +159,40 @@ export function TargetingSection() {
           </span>
         )}
       </div>
+
+      <div className="ef-divider" />
+      <div className="ef-label">Гео по IP</div>
+      <div className="ef-field">
+        <label>Сегменты</label>
+        <div className="ef-checkbox-row">
+          {GEO_SEGMENT_OPTIONS.map((opt) => (
+            <label key={opt.value} className="ef-checkbox">
+              <input
+                type="checkbox"
+                checked={targeting.geoSegments?.includes(opt.value) ?? false}
+                onChange={(e) =>
+                  setFieldValue('targeting.geoSegments', toggleEnumValue(targeting.geoSegments, opt.value, e.target.checked))
+                }
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="ef-field">
+        <label>Города</label>
+        <SlugListField name="targeting.geoCities" placeholder="sukhum, gagra, sochi" />
+        <FieldError name="targeting.geoCities" />
+      </div>
+      <span className="ef-hint">
+        Определяется по IP в момент показа. Если гео определить не удалось (VPN, неизвестная
+        сеть), промо с гео-ограничением НЕ показывается. Ограничение метода: местный с
+        российской SIM (роуминг) определится как турист.
+      </span>
+      <span className="ef-hint">
+        Не путать с «Регионы»: там — город из ПРОФИЛЯ пользователя, здесь — где он находится
+        СЕЙЧАС по IP. Пусто = без гео-ограничения.
+      </span>
 
       <div className="ef-divider" />
       <div className="ef-label">Поиск</div>
@@ -470,6 +518,83 @@ export function TargetingSection() {
             <option value="anonymous">Только гости</option>
           </select>
         </div>
+      </div>
+
+      {/* Профиль визита + источник захода (спека targeting-visit-profile §2). */}
+      <div className="ef-divider" />
+      <div className="ef-label">Профиль визита</div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>Класс посетителя</label>
+          <select
+            className="ef-input"
+            value={targeting.visitorClass ?? ''}
+            onChange={(e) => {
+              const next = e.target.value === '' ? undefined : (e.target.value as 'newcomer' | 'regular');
+              setFieldValue('targeting.visitorClass', next);
+              // Пороги чужого класса не таскаем за собой (normalize вычистит,
+              // но форма не должна показывать устаревшее значение).
+              if (next !== 'newcomer') setFieldValue('targeting.newcomerMaxAgeDays', undefined);
+              if (next !== 'regular') setFieldValue('targeting.regularMinVisitDays', undefined);
+            }}
+          >
+            <option value="">Любой</option>
+            <option value="newcomer">Новички</option>
+            <option value="regular">Постоянные</option>
+          </select>
+        </div>
+        {targeting.visitorClass === 'newcomer' && (
+          <div className="ef-field">
+            <label>Новичок — моложе, дней</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={365} placeholder="7"
+              value={targeting.newcomerMaxAgeDays ?? ''}
+              onChange={(e) => setFieldValue('targeting.newcomerMaxAgeDays', e.target.value === '' ? undefined : Number(e.target.value))}
+            />
+            <FieldError name="targeting.newcomerMaxAgeDays" />
+          </div>
+        )}
+        {targeting.visitorClass === 'regular' && (
+          <div className="ef-field">
+            <label>Постоянный — от, дней с визитами</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={30} placeholder="5"
+              value={targeting.regularMinVisitDays ?? ''}
+              onChange={(e) => setFieldValue('targeting.regularMinVisitDays', e.target.value === '' ? undefined : Number(e.target.value))}
+            />
+            <FieldError name="targeting.regularMinVisitDays" />
+          </div>
+        )}
+      </div>
+      <span className="ef-hint">
+        Новичок: аккаунт (для залогиненных) или браузер (для гостей) моложе N дней.
+        Постоянный: заходил не менее M разных дней за последний месяц. Если сигнала о
+        посетителе нет (куки отключены) — промо с этим таргетингом просто не показывается.
+        Пустое поле порога = дефолт (7 / 5 дней).
+      </span>
+
+      <div className="ef-field">
+        <label>Источник захода</label>
+        <div className="ef-checkbox-row">
+          {entrySources.map((src) => (
+            <label key={src} className="ef-checkbox">
+              <input
+                type="checkbox"
+                checked={values.entrySources?.includes(src) ?? false}
+                onChange={(e) =>
+                  setFieldValue('entrySources', toggleEnumValue(values.entrySources, src, e.target.checked))
+                }
+              />
+              {ENTRY_SOURCE_LABELS[src]}
+            </label>
+          ))}
+        </div>
+        <span className="ef-hint">
+          Определяется по referrer/utm при входе на сайт; источник виден в течение 30 минут
+          после перехода (скользящая сессия). «Другое» — внешний переход, не опознанный как
+          поиск или Telegram. Где именно открыт сайт (приложение, WebView) — это отдельная
+          ось «Среда» ниже. Пусто = любой источник.
+        </span>
       </div>
 
       {/* Среда и устройство (спека targeting-device-env §2): три независимые
