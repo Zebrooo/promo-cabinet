@@ -194,3 +194,58 @@ describe('validatePromoForm — гео и профиль визита', () => {
     expect(getIn(errors, 'targeting.geoCities.0')).toBe('Город не может быть пустым');
   });
 });
+
+describe('validatePromoForm — behavior (блок «Поведение»)', () => {
+  it('валидный блок не даёт ошибок', () => {
+    expect(validatePromoForm(make('inline', {
+      targeting: {
+        behavior: {
+          interest: { categories: ['shiny'], lookbackDays: 7 },
+          hotBuyer: { minPhoneViews: 2 },
+          minSessionViews: 5,
+        },
+      },
+    }))).toEqual({});
+  });
+
+  it('значение вне диапазона → ошибка на своём пути', () => {
+    const errors = validatePromoForm(make('inline', {
+      targeting: { behavior: { minSessionViews: 101 } },
+    }));
+    expect(getIn(errors, 'targeting.behavior.minSessionViews')).toBeTruthy();
+    const errors2 = validatePromoForm(make('inline', {
+      targeting: { behavior: { hotBuyer: { minPhoneViews: 0 } } },
+    }));
+    expect(getIn(errors2, 'targeting.behavior.hotBuyer.minPhoneViews')).toBeTruthy();
+  });
+});
+
+describe('validatePromoForm — lifecycle (жизненный цикл продавца)', () => {
+  it('валидный блок не даёт ошибок', () => {
+    expect(validatePromoForm(make('inline', {
+      lifecycle: { activeInCategories: ['avto'], soldWithinDays: 14 },
+    }))).toEqual({});
+  });
+
+  it('flags lifecycle on an anonymous audience (правило superRefine продублировано формой)', () => {
+    const errors = validatePromoForm(make('popup', {
+      audience: 'anonymous',
+      lifecycle: { soldWithinDays: 14 },
+    }));
+    expect(errors.lifecycle).toMatch(/гост/i);
+  });
+
+  it('does not flag a fully cleared lifecycle block (даже при anonymous)', () => {
+    const errors = validatePromoForm(make('popup', {
+      audience: 'anonymous',
+      lifecycle: { soldWithinDays: undefined },
+    }));
+    expect(errors).not.toHaveProperty('lifecycle');
+    expect(validatePromoForm(make('popup', { lifecycle: {} as Promo['lifecycle'] }))).toEqual({});
+  });
+
+  it('значение вне диапазона → ошибка на своём пути', () => {
+    const errors = validatePromoForm(make('inline', { lifecycle: { soldWithinDays: 91 } }));
+    expect(getIn(errors, 'lifecycle.soldWithinDays')).toBe('Не больше 90 дней');
+  });
+});

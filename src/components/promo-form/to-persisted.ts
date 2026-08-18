@@ -7,6 +7,7 @@
 // after a successful S3 upload.
 import { promoSchema, servingBlockSchema, CONTENT_KEYS_BY_FORMAT, type Promo } from '@/lib/schema';
 import { KNOWN_CUSTOM_VARIANTS } from '@/lib/custom-variants';
+import { compactLifecycle } from '@/lib/lifecycle';
 import { isFullCoverage } from './schedule-presets';
 
 /**
@@ -16,7 +17,10 @@ import { isFullCoverage } from './schedule-presets';
  * minus the dead popupVariant/bullets fields — gone from the schema, so the
  * union already strips them for every format).
  */
-function normalize(values: Promo): Promo {
+function normalize(rawValues: Promo): Promo {
+  // Очищенные lifecycle-контролы = «гейта нет», а не пустой объект в S3
+  // (refine схемы отверг бы {} / all-undefined).
+  const values = compactLifecycle(rawValues);
   // Custom: кабинет не управляет заголовком (визуал у хоста), но title всё
   // ещё обязателен в servingBlockSchema. Деривим человекочитаемый title из
   // label варианта (fallback — name промо), как делал sanitize().
@@ -97,6 +101,25 @@ function normalize(values: Promo): Promo {
     const { listings: discardedListings, ...withoutListings } = targeting;
     void discardedListings;
     targeting = withoutListings;
+  }
+
+  // Behavior: то же правило «настоящий критерий, а не число ключей».
+  // interest без категорий — только модификатор lookbackDays, критерия нет →
+  // под-блок выкидывается целиком; hotBuyer жив самим фактом присутствия
+  // (пустой {} = «горячий покупатель» с дефолтным порогом BFF 2);
+  // minSessionViews — самостоятельный критерий. Пустой блок в promos.json
+  // не пишется.
+  const behavior = values.targeting.behavior;
+  if (behavior) {
+    const interest = behavior.interest?.categories?.length ? behavior.interest : undefined;
+    const { hotBuyer, minSessionViews } = behavior;
+    if (!interest && !hotBuyer && minSessionViews === undefined) {
+      const { behavior: discardedBehavior, ...withoutBehavior } = targeting;
+      void discardedBehavior;
+      targeting = withoutBehavior;
+    } else {
+      targeting = { ...targeting, behavior: { interest, hotBuyer, minSessionViews } };
+    }
   }
 
   // Пороги профиля визита живут только вместе со своим классом: порог чужого

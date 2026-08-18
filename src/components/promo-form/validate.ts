@@ -5,9 +5,14 @@
 import type { FormikErrors } from 'formik';
 import { setIn } from 'formik';
 import { SCHEMA_BY_FORMAT, type Promo } from '@/lib/schema';
+import { compactLifecycle } from '@/lib/lifecycle';
 
-export function validatePromoForm(values: Promo): FormikErrors<Promo> {
+export function validatePromoForm(rawValues: Promo): FormikErrors<Promo> {
   let errors: FormikErrors<Promo> = {};
+
+  // Очищенные lifecycle-контролы (ключи-undefined / пустой {}) означают
+  // «гейта нет» — refine схемы «пустой блок» не должен краснить форму.
+  const values = compactLifecycle(rawValues);
 
   const schema = SCHEMA_BY_FORMAT[values.format];
   const result = schema.safeParse(values);
@@ -33,6 +38,13 @@ export function validatePromoForm(values: Promo): FormikErrors<Promo> {
   // извне — дублируем сообщение схемы явно (спека targeting-schedule §2.1).
   if (values.schedule && values.schedule.daysOfWeek.length === 0) {
     errors = setIn(errors, 'schedule.daysOfWeek', 'Выберите хотя бы один день');
+  }
+
+  // anonymous × lifecycle — кросс-полевое правило из promoSchema.superRefine();
+  // member-схемы SCHEMA_BY_FORMAT его не знают, поэтому дублируем, как даты.
+  if (values.audience === 'anonymous' && values.lifecycle !== undefined) {
+    errors = setIn(errors, 'lifecycle',
+      'Условия по объявлениям никогда не совпадут у гостя — уберите блок жизненного цикла или смените аудиторию');
   }
 
   // afterPromoId !== id — та же кросс-полевая проверка, что в superRefine().
