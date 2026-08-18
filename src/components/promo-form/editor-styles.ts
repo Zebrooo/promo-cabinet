@@ -37,7 +37,10 @@ export const EDITOR_CSS = `
 .ebtn-danger:hover:not(:disabled) { background: var(--brand-coral-600); color: #fff; }
 
 /* ── AI accent button ──────────────────────────────────────── */
-/* Distinct from save/publish so the action's intent is obvious. */
+/* Distinct from save/publish so the intent of the action is obvious.
+   ВНИМАНИЕ: в этой строке-стиле нельзя использовать символы апострофа,
+   кавычки, амперсанд и угловые скобки — на сервере React их экранирует,
+   на клиенте нет, и текстовый узел не сходится при гидратации. */
 .ebtn-ai {
   background: linear-gradient(180deg, #16181D 0%, #3A3F48 100%);
   color: #fff;
@@ -245,26 +248,60 @@ export const EDITOR_CSS = `
   color: #fff;
 }
 
-/* Advanced disclosure */
-.ef-advanced {
-  background: #fff; border: 1px solid var(--app-border);
-  border-radius: 14px; overflow: hidden;
+/* Targeting filters */
+.ef-flt-list { display: flex; flex-direction: column; gap: 10px; }
+.ef-flt-card {
+  border: 1px solid var(--app-border); border-radius: 12px;
+  background: var(--app-bg); overflow: hidden;
 }
-.ef-advanced-toggle {
-  width: 100%; background: none; border: 0;
-  padding: 16px 20px;
-  display: flex; align-items: center; justify-content: space-between;
-  font-family: inherit; font-size: 14px; font-weight: 600;
-  color: var(--app-fg1);
-  cursor: pointer;
+.ef-flt-card.is-open { border-color: var(--app-border2); }
+.ef-flt-head { display: flex; align-items: center; }
+.ef-flt-title {
+  flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px;
+  padding: 12px 14px; background: none; border: 0; cursor: pointer;
+  font-family: inherit; text-align: left;
 }
-.ef-advanced-toggle:hover { background: var(--app-surface2); }
-.ef-advanced-chev { color: var(--app-fg4); font-size: 12px; }
-.ef-advanced-body {
-  padding: 18px 20px 22px;
-  border-top: 1px solid var(--app-border);
+.ef-flt-title:hover { background: var(--app-surface2); }
+.ef-flt-name { font-size: 13px; font-weight: 600; color: var(--app-fg1); }
+.ef-flt-summary {
+  font-size: 12px; color: var(--app-fg3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ef-flt-remove {
+  background: none; border: 0; cursor: pointer;
+  padding: 12px 14px; font-size: 13px; color: var(--app-fg4);
+}
+.ef-flt-remove:hover { color: var(--app-fg1); }
+.ef-flt-body {
+  padding: 4px 14px 16px;
   display: flex; flex-direction: column; gap: 14px;
 }
+.ef-flt-add {
+  align-self: flex-start;
+  padding: 10px 14px; border-radius: 10px;
+  border: 1px dashed var(--app-border2); background: none;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--app-fg2);
+  cursor: pointer;
+}
+.ef-flt-add:hover { background: var(--app-surface2); color: var(--app-fg1); }
+.ef-flt-catalog {
+  border: 1px solid var(--app-border2); border-radius: 12px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 12px;
+  background: var(--app-bg);
+}
+.ef-flt-catalog-head { display: flex; align-items: center; gap: 6px; }
+.ef-flt-catalog-head .ef-input { flex: 1; height: 36px; font-size: 13px; }
+.ef-flt-group { display: flex; flex-direction: column; gap: 2px; }
+.ef-flt-option {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 8px; border: 0; border-radius: 8px; background: none;
+  font-family: inherit; font-size: 13px; color: var(--app-fg1);
+  text-align: left; cursor: pointer;
+}
+.ef-flt-option:hover:not(:disabled) { background: var(--app-surface2); }
+.ef-flt-option:disabled { color: var(--app-fg4); cursor: not-allowed; }
+.ef-flt-added { font-size: 11px; color: var(--app-fg4); }
+.ef-flt-empty { font-size: 13px; color: var(--app-fg3); }
 .ef-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 .ef-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ef-field label {
@@ -368,7 +405,7 @@ export const EDITOR_CSS = `
   font: italic 700 10.5px/1 Georgia, serif;
   cursor: pointer; padding: 0;
 }
-.hint-icon:hover, .hint-icon[aria-expanded="true"] {
+.hint-icon:hover, .hint-icon[aria-expanded=true] {
   border-color: var(--brand-sea-700); color: var(--brand-sea-700);
 }
 .hint-popover {
