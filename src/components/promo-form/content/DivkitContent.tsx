@@ -1,6 +1,7 @@
 'use client';
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
+import { HintIcon } from '../HintIcon';
 import { FieldError } from '../fields';
 
 /** divkit: divkitUrl, divkitJson (transit preview-only) — ничего больше. */
@@ -10,11 +11,12 @@ export function DivkitContent() {
     <section className="ef-field" style={{ gridColumn: '1 / -1' }}>
       <label>
         DivKit JSON
-        <span className="ef-hint">
-          {values.divkitUrl
-            ? ' (загружено в S3, можно отредактировать и пересохранить)'
-            : ' (улетит в S3 при «Сохранить промо»)'}
-        </span>
+        <HintIcon
+          label="DivKit JSON"
+          text={values.divkitUrl
+            ? 'Загружено в S3, можно отредактировать и пересохранить.'
+            : 'Вставьте корректный DivKit JSON-tree — он улетит в S3 при «Сохранить промо».'}
+        />
       </label>
       <textarea
         className="ef-input"
@@ -38,13 +40,8 @@ export function DivkitContent() {
         }}
         style={{ fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.5 }}
       />
-      {!values.divkitJson && !values.divkitUrl && (
-        <span className="ef-hint" style={{ color: 'var(--app-fg2)' }}>
-          Вставьте корректный DivKit JSON-tree. После сохранения промо файл уедет в S3.
-        </span>
-      )}
       {values.divkitUrl && (
-        <span className="ef-hint">
+        <span className="ef-sublabel">
           URL: <a href={values.divkitUrl} target="_blank" rel="noreferrer">{values.divkitUrl}</a>
         </span>
       )}

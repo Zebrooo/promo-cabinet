@@ -351,8 +351,34 @@ export const EDITOR_CSS = `
   flex-wrap: wrap;
 }
 .ef-gradient-row .ef-color { width: 60px; height: 44px; flex-shrink: 0; }
-.ef-hint {
+/* Мелкий вспомогательный текст, который ДОЛЖЕН оставаться в потоке
+   (мини-подписи полей шагов, URL, компактные строки-статусы). Поясняющие
+   же тексты живут в HintIcon (.hint-*) — по клику, не в потоке. */
+.ef-sublabel {
   font-weight: 500; color: var(--app-fg2); font-size: 11.5px;
+}
+
+/* HintIcon: иконка (i) у заголовка поля/группы, текст — popover по клику. */
+.hint-wrap { position: relative; display: inline-flex; margin-left: 6px; vertical-align: middle; }
+.hint-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1px solid var(--app-border2); background: #fff;
+  color: var(--app-fg2);
+  font: italic 700 10.5px/1 Georgia, serif;
+  cursor: pointer; padding: 0;
+}
+.hint-icon:hover, .hint-icon[aria-expanded="true"] {
+  border-color: var(--brand-sea-700); color: var(--brand-sea-700);
+}
+.hint-popover {
+  position: absolute; z-index: 30; top: calc(100% + 6px); left: -8px;
+  width: max-content; max-width: 320px;
+  background: #fff; border: 1px solid var(--app-border);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+  padding: 10px 12px;
+  font-weight: 500; color: var(--app-fg2); font-size: 11.5px; line-height: 1.5;
+  white-space: normal; text-align: left; text-transform: none; letter-spacing: normal;
 }
 .ef-link-btn {
   background: none; border: 0; padding: 4px 0;

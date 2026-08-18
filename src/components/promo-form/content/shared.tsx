@@ -4,6 +4,7 @@
 // multiple primitives + read values (not pure useField wrappers).
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
+import { HintIcon } from '../HintIcon';
 
 /** CTA href (+ optional label) row. `withLabel=false` mirrors topline's
  *  action shape (href only — the renderer never shows a topline CTA label). */
@@ -102,7 +103,7 @@ export function GradientField() {
   const g = values.backgroundGradient;
   return (
     <div className="ef-field" style={{ gridColumn: '1 / -1' }}>
-      <label>Градиент фона <span className="ef-hint">(перекрывает «цвет фона», если задан)</span></label>
+      <label>Градиент фона <HintIcon label="Градиент фона" text="Перекрывает «цвет фона», если задан." /></label>
       <div className="ef-gradient-row">
         <input
           type="color"

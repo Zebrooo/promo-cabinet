@@ -497,6 +497,14 @@ describe('toPersisted — visit-profile normalization', () => {
     expect(out.targeting).toEqual({ visitorClass: 'regular', regularMinVisitDays: 7 });
     expect(out.entrySources).toEqual(['telegram', 'search']);
   });
+  it('entrySources из ранее сохранённого промо переживает save, хотя блока в форме больше нет (обратная совместимость)', () => {
+    // Блок «Источник захода» убран из UI (дублировал ось «Среда»), но поле
+    // остаётся в схеме и НЕ должно молча теряться при read-modify-write
+    // промо, у которого оно уже задано.
+    const out = toPersisted(make('inline', { entrySources: ['direct', 'other'] }));
+    expect(out.entrySources).toEqual(['direct', 'other']);
+    expect(JSON.parse(JSON.stringify(out)).entrySources).toEqual(['direct', 'other']);
+  });
 });
 
 describe('toPersisted — behavior targeting (блок «Поведение»)', () => {

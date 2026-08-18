@@ -2,25 +2,13 @@
 import { useFormikContext } from 'formik';
 import type { Promo, PromoSchedule } from '@/lib/schema';
 import { FieldError } from '../fields';
-import {
-  fullCoverage, weekdays9to18, weekendsOnly, roundTheClock,
-  tyreSeasonWindow, resortSeasonWindow,
-} from '../schedule-presets';
+import { HintIcon } from '../HintIcon';
+import { fullCoverage, weekdays9to18, weekendsOnly, roundTheClock } from '../schedule-presets';
 
 const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']; // индекс i → ISO-день i+1
 const HOURS_FROM = Array.from({ length: 24 }, (_, h) => h);     // 0..23
 const HOURS_TO = Array.from({ length: 24 }, (_, h) => h + 1);   // 1..24
 const fmtHour = (h: number) => `${String(h % 24).padStart(2, '0')}:00`;
-
-/** Диапазон дат в МСК для подписи под сезонными пресетами. Display-only. */
-function mskRange(startsAt: string, endsAt: string): string | null {
-  const start = new Date(startsAt);
-  const end = new Date(endsAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-  const fmt = (d: Date) =>
-    d.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', year: 'numeric' });
-  return `${fmt(start)} — ${fmt(end)} (МСК)`;
-}
 
 function isoToLocalInput(iso: string): string {
   if (!iso) return '';
@@ -94,46 +82,14 @@ export function ScheduleSection({ mode }: { mode: 'create' | 'edit' }) {
         </div>
       </div>
 
-      {/* Сезонные пресеты дат: трогают ТОЛЬКО startsAt/endsAt, расписание не
-          трогают. «Сезон шин» календарно двугорбый (апрель / окт–ноя) — кнопка
-          подставляет ближайшую фазу, фактический диапазон виден в подписи. */}
-      <div className="ef-field">
-        <label>Сезонные пресеты дат</label>
-        <div className="ef-queues">
-          <button
-            type="button"
-            className="qchip"
-            onClick={() => {
-              const w = tyreSeasonWindow(new Date());
-              setFieldValue('startsAt', w.startsAt);
-              setFieldValue('endsAt', w.endsAt);
-            }}
-          >
-            Сезон шин
-          </button>
-          <button
-            type="button"
-            className="qchip"
-            onClick={() => {
-              const w = resortSeasonWindow(new Date());
-              setFieldValue('startsAt', w.startsAt);
-              setFieldValue('endsAt', w.endsAt);
-            }}
-          >
-            Курортный сезон
-          </button>
-        </div>
-        {values.startsAt && values.endsAt && mskRange(values.startsAt, values.endsAt) && (
-          <span className="ef-hint">Окно показа: {mskRange(values.startsAt, values.endsAt)}</span>
-        )}
-        <span className="ef-hint">
-          Кнопка заполняет ближайшее (текущее или наступающее) окно сезона; «Сезон шин» —
-          одну из двух фаз (1–30 апреля либо 1 октября – 30 ноября). Даты можно поправить руками.
-        </span>
-      </div>
-
       <div className="ef-divider" />
-      <div className="ef-label">Расписание показов (МСК)</div>
+      <div className="ef-label">
+        Расписание показов (МСК)
+        <HintIcon
+          label="Расписание показов"
+          text="Время московское (МСК, UTC+3). «До» — исключающая граница: с 9 до 18 = показы в 9:00–17:59. Интервалы через полночь не поддерживаются — делайте два промо. Все дни и 0–24 = без ограничений (поле не сохраняется)."
+        />
+      </div>
       {(() => {
         // Источник истины один — Formik: отсутствие поля рисуем как полное
         // покрытие (все дни, 0–24); любое взаимодействие пишет цельный объект.
@@ -212,11 +168,6 @@ export function ScheduleSection({ mode }: { mode: 'create' | 'edit' }) {
                 <FieldError name="schedule.hourEnd" />
               </div>
             </div>
-            <span className="ef-hint">
-              Время московское (МСК, UTC+3). «До» — исключающая граница: с 9 до 18 = показы
-              в 9:00–17:59. Интервалы через полночь не поддерживаются — делайте два промо.
-              Все дни и 0–24 = без ограничений (поле не сохраняется).
-            </span>
           </>
         );
       })()}
