@@ -6,6 +6,7 @@ import { readEnvMode } from '@/lib/env-mode';
 import { readQueuesIndex, readQueue } from '@/lib/catalogue';
 import {
   LEAD_COLUMNS,
+  LEADS_LIMIT,
   queuesByPromo,
   reportFileName,
   toRows,
@@ -35,7 +36,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   let rows;
   try {
-    const leads = await getLeads({ promoId, from, to });
+    // Тот же потолок, что у страницы: расхождение «на экране 5000, в файле 500»
+    // было бы худшим из вариантов. Страница предупреждает, когда упёрлись.
+    const leads = await getLeads({ promoId, from, to, limit: LEADS_LIMIT });
     // Очередь промо знает только кабинет — сайт её в заявке не передаёт.
     // Падение S3 не должно ронять выгрузку: тогда колонка «Очередь» пустая.
     const queues = await readAllQueues(readEnvMode(req.cookies)).catch(() => new Map<string, string[]>());

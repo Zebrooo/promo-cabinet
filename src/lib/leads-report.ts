@@ -84,6 +84,31 @@ export function toSheetMatrix(rows: LeadRow[]): string[][] {
   ];
 }
 
+/** Границы периода для запроса в bff.
+ *
+ * Форма даёт дни (`YYYY-MM-DD`), а таблица и отчёт показывают МОСКОВСКОЕ время.
+ * Поэтому и границы московские: без явного `+03:00` день считался бы по UTC, и
+ * заявка, поданная в 01:00 МСК, попадала бы в предыдущий день — в отчёте она
+ * стоит 20-м числом, а в фильтре «с 20-го» её бы не было.
+ * `to` в форме включительный, в запрос уходит начало следующего дня.
+ */
+export function moscowDayRange(from?: string, to?: string): { from?: string; to?: string } {
+  return { from: startOfMoscowDay(from), to: startOfMoscowDay(to, 1) };
+}
+
+function startOfMoscowDay(day: string | undefined, plusDays = 0): string | undefined {
+  if (!day) return undefined;
+  const date = new Date(`${day}T00:00:00+03:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  date.setUTCDate(date.getUTCDate() + plusDays);
+  return date.toISOString();
+}
+
+/** Потолок выдачи bff. Столько строк максимум увидит и таблица, и выгрузка;
+ *  если пришло ровно столько — данные могли обрезаться, и об этом надо сказать
+ *  вслух, а не отдать рекламодателю молча урезанный отчёт. */
+export const LEADS_LIMIT = 5000;
+
 /** Имя файла выгрузки: с фильтром по промо — с его id, иначе общий. */
 export function reportFileName(promoId?: string): string {
   const suffix = promoId ? `-${promoId.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';

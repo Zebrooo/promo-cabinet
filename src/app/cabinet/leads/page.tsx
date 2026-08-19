@@ -3,7 +3,7 @@ import { requireSession } from '@/lib/require-session';
 import { getLeads } from '@/lib/bff-client';
 import { readEnvMode } from '@/lib/env-mode';
 import { readQueue, readQueuesIndex } from '@/lib/catalogue';
-import { LEAD_COLUMNS, queuesByPromo, toRows } from '@/lib/leads-report';
+import { LEAD_COLUMNS, LEADS_LIMIT, moscowDayRange, queuesByPromo, toRows } from '@/lib/leads-report';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,16 +24,13 @@ export default async function LeadsPage({
 
   const env = readEnvMode(cookies());
   const promoId = searchParams.promoId?.trim() || undefined;
-  // Границы периода приходят из <input type="date"> (YYYY-MM-DD). `to`
-  // включительно по смыслу пользователя, а в запросе граница строгая — поэтому
-  // берём начало следующего дня.
-  const from = searchParams.from ? `${searchParams.from}T00:00:00.000Z` : undefined;
-  const to = searchParams.to ? nextDayIso(searchParams.to) : undefined;
+  // Границы — московские, как и время в таблице (moscowDayRange).
+  const { from, to } = moscowDayRange(searchParams.from, searchParams.to);
 
   let rows: ReturnType<typeof toRows> = [];
   let failed = false;
   try {
-    const leads = await getLeads({ promoId, from, to });
+    const leads = await getLeads({ promoId, from, to, limit: LEADS_LIMIT });
     // Очередь знает только кабинет — сайт её в заявке не передаёт. Падение S3
     // не должно ронять страницу: тогда колонка «Очередь» просто пустая.
     const queues = await readAllQueues(env).catch(() => new Map<string, string[]>());
@@ -95,6 +92,12 @@ export default async function LeadsPage({
               ? 'За этот период заявок нет.'
               : `${rows.length} ${plural(rows.length, 'заявка', 'заявки', 'заявок')} за выбранный период.`}
           </p>
+          {rows.length >= LEADS_LIMIT && (
+            <div className="hint hint-warn">
+              Показаны первые {LEADS_LIMIT} заявок — их больше. Сузьте период или
+              выберите промо, иначе и в таблице, и в выгрузке не хватает части лидов.
+            </div>
+          )}
           {rows.length > 0 && (
             <div className="aa-table-wrap">
               <table className="aa-table">
@@ -121,14 +124,6 @@ export default async function LeadsPage({
       )}
     </div>
   );
-}
-
-/** `to` в форме — включительный день; в запрос уходит начало следующего. */
-function nextDayIso(day: string): string | undefined {
-  const date = new Date(`${day}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) return undefined;
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString();
 }
 
 async function readAllQueues(env: ReturnType<typeof readEnvMode>): Promise<Map<string, string[]>> {

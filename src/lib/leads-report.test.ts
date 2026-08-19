@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   escapeForSpreadsheet,
   formatWhen,
+  moscowDayRange,
   queuesByPromo,
   reportFileName,
   toRows,
@@ -91,5 +92,22 @@ describe('reportFileName', () => {
 
   it('чистит небезопасные символы id из имени файла', () => {
     expect(reportFileName('../../etc/passwd')).toBe('leads-______etc_passwd.xlsx');
+  });
+});
+
+describe('moscowDayRange', () => {
+  it('день считается по Москве, как и время в таблице', () => {
+    // 20.08 00:00 МСК = 19.08 21:00 UTC. По UTC-границе заявка, поданная
+    // в 01:00 МСК 20-го, выпала бы из фильтра «с 20-го».
+    expect(moscowDayRange('2026-08-20').from).toBe('2026-08-19T21:00:00.000Z');
+  });
+
+  it('верхняя граница включает весь выбранный день', () => {
+    expect(moscowDayRange(undefined, '2026-08-20').to).toBe('2026-08-20T21:00:00.000Z');
+  });
+
+  it('пустые и кривые значения дают отсутствие границы, а не Invalid Date', () => {
+    expect(moscowDayRange()).toEqual({ from: undefined, to: undefined });
+    expect(moscowDayRange('вчера', 'завтра')).toEqual({ from: undefined, to: undefined });
   });
 });
