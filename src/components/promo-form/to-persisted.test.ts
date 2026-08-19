@@ -635,3 +635,44 @@ describe('toPersisted — lifecycle is a serving field', () => {
     expect(out.lifecycle).toEqual({ hasStalledActive: true });
   });
 });
+
+describe('лид-режим (leadCapture)', () => {
+  it('включённый лид-режим кладёт заглушку href и осмысленную подпись', () => {
+    const out = toPersisted(make('popup', { leadCapture: true, action: undefined }));
+    expect(out.leadCapture).toBe(true);
+    expect(out.action).toEqual({ href: '#', label: 'Связаться' });
+  });
+
+  it('подпись рекламодателя сохраняется, ссылка всё равно заглушка', () => {
+    const out = toPersisted(make('popup', {
+      leadCapture: true,
+      action: { href: 'https://divany.ru', label: 'Оставить заявку' },
+    }));
+    expect(out.action).toEqual({ href: '#', label: 'Оставить заявку' });
+  });
+
+  it('снятый чекбокс в пул не пишется (правила нет), ссылка остаётся прежней', () => {
+    const out = toPersisted(make('popup', {
+      leadCapture: false,
+      action: { href: 'https://divany.ru', label: 'Подробнее' },
+    }));
+    expect(out.leadCapture).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('leadCapture');
+    expect(out.action).toEqual({ href: 'https://divany.ru', label: 'Подробнее' });
+  });
+
+  it('лид-режим переживает toPersisted во всех форматах', () => {
+    // Те же обязательные по формату поля, что и в блоке про lifecycle: без них
+    // promoSchema.parse внутри toPersisted отвергнет промо ещё до leadCapture.
+    const requiredByFormat: Partial<Record<Promo['format'], Partial<Promo>>> = {
+      tooltip: { anchor: 'home-search' },
+      multistep: { steps: [{ title: 'Шаг 1', body: 'Т1' }, { title: 'Шаг 2', body: 'Т2' }] },
+      custom: { variant: 'reklama-onboarding' },
+      divkit: { divkitUrl: 'https://s3.example.com/a.json' },
+    };
+    for (const format of promoFormats) {
+      const out = toPersisted(make(format, { ...requiredByFormat[format], leadCapture: true }));
+      expect(out.leadCapture, format).toBe(true);
+    }
+  });
+});
