@@ -144,6 +144,14 @@ function normalize(rawValues: Promo): Promo {
   // «правила нет», а не false/'' в S3 (ReactionChecker/ChainChecker BFF
   // скипаются по отсутствию поля; пустую строку схема бы вообще отвергла).
   const suppressAfterClick = values.suppressAfterClick === true ? true : undefined;
+
+  // Лид-режим: кнопка отправляет телефон и НИКУДА не ведёт, но href в схемах
+  // (и здесь, и в BFF) обязателен внутри action — пишем заглушку '#', а подпись
+  // по умолчанию делаем осмысленной: человек должен понимать, на что жмёт.
+  const leadCapture = values.leadCapture === true ? true : undefined;
+  const action = leadCapture
+    ? { href: '#', label: values.action?.label?.trim() || 'Связаться' }
+    : values.action;
   const afterClickPromoId = values.afterClickPromoId?.trim() ? values.afterClickPromoId : undefined;
 
   return {
@@ -153,6 +161,8 @@ function normalize(rawValues: Promo): Promo {
     schedule,
     entrySources,
     suppressAfterClick,
+    leadCapture,
+    action,
     afterClickPromoId,
     ctaColor,
     ctaTextColor,

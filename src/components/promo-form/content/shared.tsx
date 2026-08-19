@@ -12,34 +12,70 @@ export function CtaFields({ withLabel }: { withLabel: boolean }) {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const href = values.action?.href ?? '';
   const label = values.action?.label ?? '';
+  // Лид-режим: кнопка отправляет рекламодателю телефон пользователя и никуда
+  // не ведёт, поэтому поле ссылки прячем — сохраняется заглушка '#'
+  // (to-persisted). Подпись остаётся: ею объясняем человеку, что произойдёт.
+  const lead = values.leadCapture === true;
   return (
     <section className="ef-block">
       <div className="ef-label">CTA</div>
+      <label className="ef-checkbox">
+        <input
+          type="checkbox"
+          checked={lead}
+          onChange={(e) => {
+            const on = e.target.checked;
+            setFieldValue('leadCapture', on || undefined);
+            setFieldValue(
+              'action',
+              on
+                ? { href: '#', label: label || 'Связаться' }
+                : href && href !== '#'
+                  ? { href, label: label || undefined }
+                  : undefined,
+            );
+          }}
+        />
+        Собирать лиды: кнопка отправляет телефон рекламодателю
+        <HintIcon
+          label="Сбор лидов"
+          text="Кнопка не ведёт по ссылке: залогиненный пользователь по нажатию отправляет рекламодателю свой номер из профиля. Анониму сайт предложит войти. Отправившему заявку это промо больше не показывается. Лиды и выгрузка Excel — в разделе «Лиды»."
+        />
+      </label>
       <div className="ef-cta-row">
         {withLabel && (
           <input
             className="ef-input"
             value={label}
-            disabled={!href}
+            disabled={!lead && !href}
             onChange={(e) =>
-              setFieldValue('action', href ? { href, label: e.target.value || undefined } : undefined)
+              setFieldValue(
+                'action',
+                lead
+                  ? { href: '#', label: e.target.value || 'Связаться' }
+                  : href
+                    ? { href, label: e.target.value || undefined }
+                    : undefined,
+              )
             }
             placeholder="Подробнее"
           />
         )}
-        <input
-          className="ef-input mono"
-          value={href}
-          onChange={(e) =>
-            setFieldValue(
-              'action',
-              e.target.value
-                ? { href: e.target.value, label: withLabel ? label || undefined : undefined }
-                : undefined,
-            )
-          }
-          placeholder="https://abkhaz-auto.ru/…"
-        />
+        {!lead && (
+          <input
+            className="ef-input mono"
+            value={href}
+            onChange={(e) =>
+              setFieldValue(
+                'action',
+                e.target.value
+                  ? { href: e.target.value, label: withLabel ? label || undefined : undefined }
+                  : undefined,
+              )
+            }
+            placeholder="https://abkhaz-auto.ru/…"
+          />
+        )}
       </div>
     </section>
   );

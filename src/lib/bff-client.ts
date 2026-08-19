@@ -54,6 +54,48 @@ async function bffPost<T>(path: string, body: Record<string, unknown> = {}): Pro
   return (await res.json()) as T;
 }
 
+async function bffGet<T>(path: string, params: Record<string, string | undefined> = {}): Promise<T> {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') qs.set(key, value);
+  }
+  const query = qs.toString();
+  const res = await fetch(`${bffUrl()}${path}${query ? `?${query}` : ''}`, {
+    headers: { [SERVICE_TICKET_HEADER]: ticket() },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error(`BFF ${path} returned ${res.status}`);
+  return (await res.json()) as T;
+}
+
+/** Одна заявка «Связаться» из промо (спека 2026-08-19-promo-hot-lead).
+ *  ⚠️ ПДн: телефон и имя человека. Не логировать, не отдавать наружу кабинета. */
+export interface Lead {
+  createdAt: string;
+  promoId: string;
+  promoTitle: string;
+  page: string;
+  name: string;
+  phone: string;
+}
+
+/** Лиды за период (по убыванию времени). from/to — ISO; промо не задано = все. */
+export async function getLeads(params: {
+  promoId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}): Promise<Lead[]> {
+  const data = await bffGet<{ leads?: Lead[] }>('/leads', {
+    promoId: params.promoId,
+    from: params.from,
+    to: params.to,
+    limit: params.limit ? String(params.limit) : undefined,
+  });
+  return data.leads ?? [];
+}
+
 // Показы по промке — derived from user_action_events where event_name LIKE
 // 'promo_%' (migration 0066). Продуктовые метрики → Яндекс.Метрика.
 export interface PromoTimelineRow {

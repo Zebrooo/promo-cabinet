@@ -253,6 +253,11 @@ export const servingBlockSchema = z.object({
    *  кликнул по его CTA (BFF ReactionChecker, зеркало promo-bff#28).
    *  false в пул не пишется — to-persisted вычищает его в undefined. */
   suppressAfterClick: z.boolean().optional(),
+  /** Лид-режим: CTA не ведёт по ссылке, а отправляет рекламодателю телефон
+   *  пользователя (сайт, /api/fp/o/lead; спека 2026-08-19-promo-hot-lead).
+   *  Такое промо гасится тому, кто уже отправил заявку, — отдельный
+   *  suppressAfterClick для этого не нужен. false в пул не пишется. */
+  leadCapture: z.boolean().optional(),
   audience: audienceSchema.optional(),
   sections: z.array(z.string().min(1)).optional(),
   categories: z.array(z.string().min(1)).optional(),
