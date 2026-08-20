@@ -149,6 +149,9 @@ function normalize(rawValues: Promo): Promo {
   // (и здесь, и в BFF) обязателен внутри action — пишем заглушку '#', а подпись
   // по умолчанию делаем осмысленной: человек должен понимать, на что жмёт.
   const leadCapture = values.leadCapture === true ? true : undefined;
+  // Номер живёт только вместе с включённым сбором: выключили галочку — поле
+  // из пула уходит, чтобы не хранить чужой телефон без нужды.
+  const leadPhone = leadCapture ? normalizeLeadPhone(values.leadPhone) : undefined;
   const action = leadCapture
     ? { href: '#', label: values.action?.label?.trim() || 'Связаться' }
     : values.action;
@@ -162,6 +165,7 @@ function normalize(rawValues: Promo): Promo {
     entrySources,
     suppressAfterClick,
     leadCapture,
+    leadPhone,
     action,
     afterClickPromoId,
     ctaColor,
@@ -203,4 +207,17 @@ export function toPreview(values: Promo): Promo {
     Object.entries(normalized).filter(([key]) => allowedKeys.has(key)),
   );
   return projected as Promo;
+}
+
+/** Приводит введённый номер к E.164 (+7…): человек печатает как привык —
+ *  «8 999 …», «+7 (999) …», — а в пул и в доставку уходит один формат, иначе
+ *  привязка чата по номеру не найдётся. Неразбираемое значение отдаём как
+ *  есть: его завернёт схема и покажет ошибку в форме. */
+export function normalizeLeadPhone(raw: string | undefined): string | undefined {
+  const value = (raw ?? '').trim();
+  if (!value) return undefined;
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 11 && (digits[0] === '8' || digits[0] === '7')) return `+7${digits.slice(1)}`;
+  if (digits.length === 10) return `+7${digits}`;
+  return value.startsWith('+') ? `+${digits}` : value;
 }

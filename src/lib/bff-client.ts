@@ -78,6 +78,9 @@ export interface Lead {
   page: string;
   name: string;
   phone: string;
+  /** Доставка рекламодателю: pending | sent | no_subscriber | failed. */
+  notifyStatus?: string;
+  notifiedAt?: string | null;
 }
 
 /** Лиды за период (по убыванию времени). from/to — ISO; промо не задано = все. */

@@ -168,6 +168,11 @@ export default async function LeadsPage({
                           : <span className="leads-muted">—</span>}
                       </td>
                       <td className="leads-muted mono">{row.page || '—'}</td>
+                      <td>
+                        <span className={`badge ${row.delivery === 'Доставлен' ? 'badge-active' : 'badge-inactive'}`}>
+                          {row.delivery}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

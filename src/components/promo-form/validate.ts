@@ -57,6 +57,13 @@ export function validatePromoForm(rawValues: Promo): FormikErrors<Promo> {
     errors = setIn(errors, 'afterClickPromoId', 'Промо не может показываться после клика по самому себе — укажите id другого промо');
   }
 
+  // Сбор лидов без номера доставки бессмыслен: заявка сохранится, но улетать
+  // ей некуда — рекламодатель узнает о ней из отчёта через день. Правило
+  // кросс-полевое (зависит от leadCapture), поэтому живёт здесь, а не в схеме.
+  if (values.leadCapture === true && !values.leadPhone) {
+    errors = setIn(errors, 'leadPhone', 'Укажите номер: на него уйдёт заявка сразу после нажатия');
+  }
+
   // DivKit: обязательность JSON/URL — правило формы (юзер должен либо
   // вставить JSON, либо уже иметь загруженный URL), а не хранимой схемы
   // (divkitUrl/divkitJson оба optional в divkitPromoSchema — divkitJson
