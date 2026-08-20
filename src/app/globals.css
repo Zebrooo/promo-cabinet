@@ -886,3 +886,37 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
 .aa-help-body ol { margin: 8px 0 8px 18px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .aa-help-body code { font-size: 12px; background: var(--app-bg); border: 1px solid var(--app-border2); border-radius: 5px; padding: 1px 5px; }
 .aa-help-body a { color: inherit; text-decoration: underline; }
+
+/* ═══ ЛИДЫ ═══════════════════════════════════════════════════ */
+/* Раздел «Лиды»: фильтр по кампании и периоду + таблица заявок.
+   Собран из общих примитивов (.toolbar/.filter-select/.aa-table/.badge),
+   здесь — только то, чего в них нет: подписи у полей фильтра, карточка вокруг
+   таблицы и приглушённые служебные ячейки. */
+.leads-filter { display: flex; align-items: center; gap: 6px; }
+.leads-filter-label {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--app-fg3);
+}
+.leads-filter .filter-select { min-width: 150px; }
+
+.leads-table-card {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 10px; box-shadow: var(--card-shadow); overflow: hidden;
+}
+.leads-table th { background: var(--app-surface2); }
+.leads-table td { white-space: nowrap; }
+.leads-when { font-variant-numeric: tabular-nums; color: var(--app-fg2); }
+.leads-phone { color: var(--app-fg1); font-weight: 600; text-decoration: none; }
+.leads-phone:hover { text-decoration: underline; }
+.leads-muted { color: var(--app-fg3); }
+.leads-table .badge + .badge { margin-left: 4px; }
+
+.leads-warn {
+  margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; font-size: 13px;
+  background: var(--status-warning-bg); border: 1px solid var(--status-warning);
+  color: var(--status-warning);
+}
+
+/* Выгрузка без строк бессмысленна — кнопка гаснет, но остаётся на месте,
+   чтобы шапка не прыгала. */
+.btn.is-disabled { opacity: .45; pointer-events: none; }
