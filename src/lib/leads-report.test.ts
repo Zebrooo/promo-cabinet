@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  campaignOptions,
   escapeForSpreadsheet,
   formatWhen,
   moscowDayRange,
@@ -109,5 +110,42 @@ describe('moscowDayRange', () => {
   it('пустые и кривые значения дают отсутствие границы, а не Invalid Date', () => {
     expect(moscowDayRange()).toEqual({ from: undefined, to: undefined });
     expect(moscowDayRange('вчера', 'завтра')).toEqual({ from: undefined, to: undefined });
+  });
+});
+
+describe('campaignOptions', () => {
+  const promos = [
+    { id: 'divany', title: 'Диваны от 20 000 ₽', leadCapture: true },
+    { id: 'shiny', title: 'Шины', leadCapture: true },
+    { id: 'obychnoe', title: 'Обычное промо' },
+  ];
+
+  it('в фильтр попадают только промо со сбором лидов', () => {
+    const opts = campaignOptions(promos, []);
+    expect(opts.map((o) => o.id)).toEqual(['divany', 'shiny']);
+    expect(opts.every((o) => !o.archived)).toBe(true);
+  });
+
+  it('кампания с заявками остаётся в фильтре, даже если сбор выключили', () => {
+    const opts = campaignOptions(promos, [{ promoId: 'staroe', promoTitle: 'Старая кампания' }]);
+    const old = opts.find((o) => o.id === 'staroe');
+    expect(old).toEqual({ id: 'staroe', title: 'Старая кампания', archived: true });
+    // архивные — в конце списка, чтобы не мешались среди действующих
+    expect(opts[opts.length - 1].id).toBe('staroe');
+  });
+
+  it('выбранная кампания не исчезает из селекта, даже если её нигде нет', () => {
+    const opts = campaignOptions([], [], 'udalennoe');
+    expect(opts).toEqual([{ id: 'udalennoe', title: 'udalennoe', archived: true }]);
+  });
+
+  it('промо без названия показывается по id, а не пустой строкой', () => {
+    const opts = campaignOptions([{ id: 'bez-imeni', leadCapture: true }], []);
+    expect(opts[0].title).toBe('bez-imeni');
+  });
+
+  it('действующие кампании отсортированы по названию', () => {
+    const opts = campaignOptions(promos, []);
+    expect(opts.map((o) => o.title)).toEqual(['Диваны от 20 000 ₽', 'Шины']);
   });
 });

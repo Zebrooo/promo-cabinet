@@ -7,6 +7,7 @@ import { readQueuesIndex, readQueue } from '@/lib/catalogue';
 import {
   LEAD_COLUMNS,
   LEADS_LIMIT,
+  moscowDayRange,
   queuesByPromo,
   reportFileName,
   toRows,
@@ -29,10 +30,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  // Параметры — те же, что у страницы /cabinet/leads: id кампании и ДНИ
+  // (YYYY-MM-DD). Границы периода считает та же moscowDayRange, поэтому файл
+  // повторяет ровно то, что видно на экране, а ссылку можно скопировать
+  // из адресной строки.
   const params = req.nextUrl.searchParams;
-  const promoId = params.get('promoId') ?? undefined;
-  const from = params.get('from') ?? undefined;
-  const to = params.get('to') ?? undefined;
+  const promoId = params.get('promoId')?.trim() || undefined;
+  const { from, to } = moscowDayRange(
+    params.get('from') ?? undefined,
+    params.get('to') ?? undefined,
+  );
 
   let rows;
   try {

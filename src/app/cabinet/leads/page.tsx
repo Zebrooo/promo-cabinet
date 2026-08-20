@@ -2,16 +2,24 @@ import { cookies } from 'next/headers';
 import { requireSession } from '@/lib/require-session';
 import { getLeads } from '@/lib/bff-client';
 import { readEnvMode } from '@/lib/env-mode';
-import { readQueue, readQueuesIndex } from '@/lib/catalogue';
-import { LEAD_COLUMNS, LEADS_LIMIT, moscowDayRange, queuesByPromo, toRows } from '@/lib/leads-report';
+import { readPool, readQueue, readQueuesIndex } from '@/lib/catalogue';
+import {
+  campaignOptions,
+  LEAD_COLUMNS,
+  LEADS_LIMIT,
+  moscowDayRange,
+  queuesByPromo,
+  toRows,
+} from '@/lib/leads-report';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * «Лиды» — заявки, которые пользователи витрины отправили из промо кнопкой
  * «Связаться» (спека 2026-08-19-promo-hot-lead-design). Здесь мы видим, сколько
- * лидов принесли рекламодателю; сам отчёт отдаём файлом (кнопка «Скачать
- * Excel» — /api/leads/export с теми же фильтрами).
+ * лидов принесли рекламодателю; сам отчёт отдаём файлом — кнопка «Скачать
+ * Excel» ведёт в /api/leads/export С ТЕМИ ЖЕ параметрами, что стоят в фильтрах,
+ * поэтому файл всегда повторяет то, что видно на экране.
  *
  * Телефоны — ПДн: страница за сессией кабинета, наружу ничего не отдаёт.
  */
@@ -28,79 +36,110 @@ export default async function LeadsPage({
   const { from, to } = moscowDayRange(searchParams.from, searchParams.to);
 
   let rows: ReturnType<typeof toRows> = [];
+  let campaigns: ReturnType<typeof campaignOptions> = [];
   let failed = false;
   try {
     const leads = await getLeads({ promoId, from, to, limit: LEADS_LIMIT });
-    // Очередь знает только кабинет — сайт её в заявке не передаёт. Падение S3
-    // не должно ронять страницу: тогда колонка «Очередь» просто пустая.
-    const queues = await readAllQueues(env).catch(() => new Map<string, string[]>());
+    // Очередь и список кампаний знает только кабинет — сайт их в заявке не
+    // передаёт. Падение S3 не должно ронять страницу: тогда колонка «Очередь»
+    // пустая, а в фильтре останутся кампании, по которым уже есть заявки.
+    const [queues, promos] = await Promise.all([
+      readAllQueues(env).catch(() => new Map<string, string[]>()),
+      readPool(env).catch(() => []),
+    ]);
     rows = toRows(leads, queues);
+    campaigns = campaignOptions(promos, leads, promoId);
   } catch {
     failed = true;
   }
 
+  // Выгрузка получает СЫРЫЕ параметры фильтра (дни, а не ISO): границы периода
+  // считает та же moscowDayRange на стороне роута, поэтому ссылку можно просто
+  // скопировать из адресной строки и получить тот же набор.
   const exportQuery = new URLSearchParams();
   if (promoId) exportQuery.set('promoId', promoId);
-  if (searchParams.from) exportQuery.set('from', from ?? '');
-  if (searchParams.to) exportQuery.set('to', to ?? '');
+  if (searchParams.from) exportQuery.set('from', searchParams.from);
+  if (searchParams.to) exportQuery.set('to', searchParams.to);
+  const exportHref = `/api/leads/export${exportQuery.toString() ? `?${exportQuery}` : ''}`;
+  const filtered = Boolean(promoId || searchParams.from || searchParams.to);
 
   return (
     <div>
       <div className="page-header">
         <div className="left">
           <div className="eyebrow">АДМИНКА</div>
-          <h1>Лиды</h1>
+          <h1>
+            Лиды
+            {!failed && <span className="count-chip">{rows.length}</span>}
+          </h1>
         </div>
         <div className="right">
           <a
-            className="btn"
-            href={`/api/leads/export${exportQuery.toString() ? `?${exportQuery}` : ''}`}
+            className={`btn btn-primary${rows.length === 0 ? ' is-disabled' : ''}`}
+            href={exportHref}
+            aria-disabled={rows.length === 0}
           >
             Скачать Excel
           </a>
         </div>
       </div>
 
-      <form className="ef-row" method="get" style={{ alignItems: 'flex-end', marginBottom: 16 }}>
-        <div className="ef-field">
-          <label htmlFor="lead-promo">Промо</label>
-          <input
-            id="lead-promo"
-            className="ef-input mono"
-            name="promoId"
-            defaultValue={promoId ?? ''}
-            placeholder="id промо — пусто = все"
-          />
-        </div>
-        <div className="ef-field">
-          <label htmlFor="lead-from">С</label>
-          <input id="lead-from" className="ef-input" type="date" name="from" defaultValue={searchParams.from ?? ''} />
-        </div>
-        <div className="ef-field">
-          <label htmlFor="lead-to">По</label>
-          <input id="lead-to" className="ef-input" type="date" name="to" defaultValue={searchParams.to ?? ''} />
-        </div>
-        <button type="submit" className="btn">Показать</button>
+      <form className="toolbar" method="get">
+        <label className="leads-filter">
+          <span className="leads-filter-label">Кампания</span>
+          <select className="filter-select" name="promoId" defaultValue={promoId ?? ''}>
+            <option value="">Все кампании</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+                {c.archived ? ' · архив' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="leads-filter">
+          <span className="leads-filter-label">С</span>
+          <input className="filter-select" type="date" name="from" defaultValue={searchParams.from ?? ''} />
+        </label>
+
+        <label className="leads-filter">
+          <span className="leads-filter-label">По</span>
+          <input className="filter-select" type="date" name="to" defaultValue={searchParams.to ?? ''} />
+        </label>
+
+        <button type="submit" className="btn btn-secondary">Показать</button>
+        {filtered && (
+          <a className="btn btn-ghost" href="/cabinet/leads">Сбросить</a>
+        )}
+
+        {!failed && (
+          <span className="result-count">
+            {rows.length} {plural(rows.length, 'заявка', 'заявки', 'заявок')}
+            {filtered ? ' по фильтру' : ' всего'}
+          </span>
+        )}
       </form>
 
       {failed ? (
-        <div className="hint hint-warn">Не удалось получить лиды — BFF недоступен.</div>
+        <div className="empty">Не удалось получить лиды — BFF недоступен.</div>
+      ) : rows.length === 0 ? (
+        <div className="empty">
+          {filtered
+            ? 'По этому фильтру заявок нет — попробуйте другую кампанию или период.'
+            : 'Заявок пока нет. Включите у промо «Собирать лиды» в блоке CTA, и они появятся здесь.'}
+        </div>
       ) : (
         <>
-          <p className="metrics-intro">
-            {rows.length === 0
-              ? 'За этот период заявок нет.'
-              : `${rows.length} ${plural(rows.length, 'заявка', 'заявки', 'заявок')} за выбранный период.`}
-          </p>
           {rows.length >= LEADS_LIMIT && (
-            <div className="hint hint-warn">
+            <div className="leads-warn">
               Показаны первые {LEADS_LIMIT} заявок — их больше. Сузьте период или
-              выберите промо, иначе и в таблице, и в выгрузке не хватает части лидов.
+              выберите кампанию, иначе и в таблице, и в выгрузке не хватает части лидов.
             </div>
           )}
-          {rows.length > 0 && (
+          <div className="leads-table-card">
             <div className="aa-table-wrap">
-              <table className="aa-table">
+              <table className="aa-table leads-table">
                 <thead>
                   <tr>
                     {LEAD_COLUMNS.map((c) => (
@@ -111,15 +150,30 @@ export default async function LeadsPage({
                 <tbody>
                   {rows.map((row, i) => (
                     <tr key={`${row.promoId}-${row.phone}-${i}`}>
-                      {LEAD_COLUMNS.map((c) => (
-                        <td key={c.key}>{row[c.key]}</td>
-                      ))}
+                      <td className="leads-when">{row.when}</td>
+                      <td>{row.name || <span className="leads-muted">без имени</span>}</td>
+                      <td>
+                        {/* tel: — чтобы звонить прямо из отчёта, а не копировать руками */}
+                        <a className="leads-phone" href={`tel:${row.phone.replace(/[^\d+]/g, '')}`}>
+                          {row.phone}
+                        </a>
+                      </td>
+                      <td className="leads-muted mono">{row.promoId}</td>
+                      <td>{row.promoTitle || <span className="leads-muted">—</span>}</td>
+                      <td>
+                        {row.queues
+                          ? row.queues.split(', ').map((q) => (
+                              <span key={q} className="badge badge-tag">{q}</span>
+                            ))
+                          : <span className="leads-muted">—</span>}
+                      </td>
+                      <td className="leads-muted mono">{row.page || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
+          </div>
         </>
       )}
     </div>

@@ -104,6 +104,49 @@ function startOfMoscowDay(day: string | undefined, plusDays = 0): string | undef
   return date.toISOString();
 }
 
+/** Кампания в фильтре раздела «Лиды» — промо, по которому мог прийти лид. */
+export interface CampaignOption {
+  id: string;
+  title: string;
+  /** Промо больше не собирает лиды, но его заявки в базе есть — из фильтра
+   *  такое убирать нельзя, иначе старый отчёт станет недостижим. */
+  archived: boolean;
+}
+
+/**
+ * Список кампаний для фильтра: все промо с включённым сбором лидов + те, по
+ * которым заявки уже есть (даже если галочку потом сняли или промо удалили).
+ * `selected` добавляется всегда — иначе выбранное значение пропало бы из
+ * селекта после смены фильтра, и фильтр «залипал» бы молча.
+ */
+export function campaignOptions(
+  promos: Array<{ id: string; title?: string; leadCapture?: boolean }>,
+  leads: Array<{ promoId: string; promoTitle: string }>,
+  selected?: string,
+): CampaignOption[] {
+  const collecting = new Map<string, string>();
+  for (const promo of promos) {
+    if (promo.leadCapture === true) collecting.set(promo.id, promo.title?.trim() || promo.id);
+  }
+
+  const known = new Map<string, CampaignOption>();
+  for (const [id, title] of collecting) known.set(id, { id, title, archived: false });
+
+  for (const lead of leads) {
+    if (known.has(lead.promoId)) continue;
+    known.set(lead.promoId, { id: lead.promoId, title: lead.promoTitle.trim() || lead.promoId, archived: true });
+  }
+
+  if (selected && !known.has(selected)) {
+    known.set(selected, { id: selected, title: selected, archived: true });
+  }
+
+  // Действующие кампании выше архивных, внутри группы — по названию.
+  return [...known.values()].sort((a, b) =>
+    a.archived === b.archived ? a.title.localeCompare(b.title, 'ru') : a.archived ? 1 : -1,
+  );
+}
+
 /** Потолок выдачи bff. Столько строк максимум увидит и таблица, и выгрузка;
  *  если пришло ровно столько — данные могли обрезаться, и об этом надо сказать
  *  вслух, а не отдать рекламодателю молча урезанный отчёт. */
