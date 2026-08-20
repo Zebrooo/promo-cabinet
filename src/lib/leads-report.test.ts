@@ -54,6 +54,7 @@ describe('toRows', () => {
       promoTitle: 'Диваны от 20 000 ₽',
       queues: 'main, mebel',
       page: '/mebel',
+      delivery: 'Не отправлен',
     });
   });
 
@@ -78,7 +79,9 @@ describe('escapeForSpreadsheet', () => {
 describe('toSheetMatrix', () => {
   it('первая строка — шапка, дальше данные в том же порядке колонок', () => {
     const matrix = toSheetMatrix(toRows([lead], new Map([['divany', ['main']]])));
-    expect(matrix[0]).toEqual(['Когда', 'Имя', 'Телефон', 'Промо (id)', 'Промо', 'Очередь', 'Страница']);
+    expect(matrix[0]).toEqual([
+      'Когда', 'Имя', 'Телефон', 'Промо (id)', 'Промо', 'Очередь', 'Страница', 'Доставка',
+    ]);
     expect(matrix[1]).toHaveLength(matrix[0].length);
     // телефон начинается с «+» — в Excel это формула, поэтому апостроф
     expect(matrix[1][2]).toBe("'+79781234567");
@@ -147,5 +150,24 @@ describe('campaignOptions', () => {
   it('действующие кампании отсортированы по названию', () => {
     const opts = campaignOptions(promos, []);
     expect(opts.map((o) => o.title)).toEqual(['Диваны от 20 000 ₽', 'Шины']);
+  });
+});
+
+describe('колонка доставки', () => {
+  it('переводит статусы витрины в человеческие подписи', () => {
+    expect(toRows([{ ...lead, notifyStatus: 'sent' }], new Map())[0].delivery).toBe('Доставлен');
+    expect(toRows([{ ...lead, notifyStatus: 'no_subscriber' }], new Map())[0].delivery).toBe('Нет подключения');
+    expect(toRows([{ ...lead, notifyStatus: 'failed' }], new Map())[0].delivery).toBe('Ошибка');
+  });
+
+  it('старые заявки без статуса не ломают отчёт', () => {
+    expect(toRows([lead], new Map())[0].delivery).toBe('Не отправлен');
+    expect(toRows([{ ...lead, notifyStatus: 'что-то новое' }], new Map())[0].delivery).toBe('Не отправлен');
+  });
+
+  it('колонка попадает и в Excel', () => {
+    const matrix = toSheetMatrix(toRows([{ ...lead, notifyStatus: 'sent' }], new Map()));
+    expect(matrix[0]).toContain('Доставка');
+    expect(matrix[1]).toContain('Доставлен');
   });
 });

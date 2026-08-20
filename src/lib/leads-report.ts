@@ -6,6 +6,18 @@
 import type { Lead } from '@/lib/bff-client';
 import type { QueueObject } from '@/lib/schema';
 
+/** Человеческие подписи статусов доставки (миграция 0307 витрины). */
+export const DELIVERY_LABELS: Record<string, string> = {
+  sent: 'Доставлен',
+  pending: 'Не отправлен',
+  no_subscriber: 'Нет подключения',
+  failed: 'Ошибка',
+};
+
+export function deliveryLabel(status: string | undefined): string {
+  return DELIVERY_LABELS[status ?? 'pending'] ?? 'Не отправлен';
+}
+
 export interface LeadRow {
   /** Дата и время заявки в Europe/Moscow — рекламодателю нужен звонок «по часам». */
   when: string;
@@ -16,6 +28,8 @@ export interface LeadRow {
   /** Очереди, в которых лежит промо; вычисляет кабинет — сайт очередь не знает. */
   queues: string;
   page: string;
+  /** Дошла ли заявка до рекламодателя — по нему видно, кого надо добить руками. */
+  delivery: string;
 }
 
 export const LEAD_COLUMNS = [
@@ -26,6 +40,7 @@ export const LEAD_COLUMNS = [
   { key: 'promoTitle', header: 'Промо', width: 32 },
   { key: 'queues', header: 'Очередь', width: 18 },
   { key: 'page', header: 'Страница', width: 24 },
+  { key: 'delivery', header: 'Доставка', width: 16 },
 ] as const;
 
 const MOSCOW_FORMAT = new Intl.DateTimeFormat('ru-RU', {
@@ -64,6 +79,7 @@ export function toRows(leads: Lead[], queues: Map<string, string[]>): LeadRow[] 
     promoTitle: lead.promoTitle,
     queues: (queues.get(lead.promoId) ?? []).join(', '),
     page: lead.page,
+    delivery: deliveryLabel(lead.notifyStatus),
   }));
 }
 

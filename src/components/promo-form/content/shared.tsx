@@ -5,6 +5,7 @@
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { HintIcon } from '../HintIcon';
+import { normalizeLeadPhone } from '../to-persisted';
 
 /** CTA href (+ optional label) row. `withLabel=false` mirrors topline's
  *  action shape (href only — the renderer never shows a topline CTA label). */
@@ -42,6 +43,8 @@ export function CtaFields({ withLabel }: { withLabel: boolean }) {
           text="Кнопка не ведёт по ссылке: залогиненный пользователь по нажатию отправляет рекламодателю свой номер из профиля. Анониму сайт предложит войти. Отправившему заявку это промо больше не показывается. Лиды и выгрузка Excel — в разделе «Лиды»."
         />
       </label>
+
+      {lead && <LeadPhoneField />}
       <div className="ef-cta-row">
         {withLabel && (
           <input
@@ -78,6 +81,46 @@ export function CtaFields({ withLabel }: { withLabel: boolean }) {
         )}
       </div>
     </section>
+  );
+}
+
+/** Номер рекламодателя + инструкция по подключению Telegram. Показывается
+ *  только при включённом сборе лидов: без него заявке некуда лететь. */
+function LeadPhoneField() {
+  const { values, setFieldValue, errors, touched } = useFormikContext<Promo>();
+  const error = touched.leadPhone && typeof errors.leadPhone === 'string' ? errors.leadPhone : '';
+  const bot = process.env.NEXT_PUBLIC_LEAD_BOT_USERNAME ?? '';
+  return (
+    <div className="lead-phone-block">
+      <div className="field">
+        <label htmlFor="lead-phone">
+          Телефон для лидов
+          <HintIcon
+            label="Телефон для лидов"
+            text="На этот номер рекламодатель получает заявку в Telegram сразу после нажатия — чтобы перезвонить в первые 15 минут, пока человек выбирает. В самом объявлении номер не показывается."
+          />
+        </label>
+        <input
+          id="lead-phone"
+          className="input mono-input"
+          value={values.leadPhone ?? ''}
+          onChange={(e) => setFieldValue('leadPhone', e.target.value || undefined)}
+          onBlur={(e) => setFieldValue('leadPhone', normalizeLeadPhone(e.target.value))}
+          placeholder="+79991234567"
+        />
+        {error && <div className="error">{error}</div>}
+      </div>
+      <div className="lead-phone-hint">
+        Рекламодателю нужно один раз открыть{' '}
+        {bot ? (
+          <a href={`https://t.me/${bot}`} target="_blank" rel="noopener noreferrer">@{bot}</a>
+        ) : (
+          'нашего Telegram-бота'
+        )}{' '}
+        и отправить свой номер кнопкой — тогда заявки начнут приходить ему в чат.
+        Одно подключение работает для всех его кампаний с этим номером.
+      </div>
+    </div>
   );
 }
 

@@ -258,6 +258,11 @@ export const servingBlockSchema = z.object({
    *  Такое промо гасится тому, кто уже отправил заявку, — отдельный
    *  suppressAfterClick для этого не нужен. false в пул не пишется. */
   leadCapture: z.boolean().optional(),
+  /** Номер рекламодателя, на который витрина мгновенно доставляет заявку
+   *  (спека 2026-08-20-lead-delivery-design). E.164; обязателен при
+   *  leadCapture — проверяется в validate.ts, потому что зависит от другого
+   *  поля. Server-only: BFF не отдаёт его в креативе. */
+  leadPhone: z.string().regex(/^\+\d{11,15}$/, 'Номер в формате +79991234567').optional(),
   audience: audienceSchema.optional(),
   sections: z.array(z.string().min(1)).optional(),
   categories: z.array(z.string().min(1)).optional(),
