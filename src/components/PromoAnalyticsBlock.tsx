@@ -1,8 +1,8 @@
 // Per-promo показы. Server component — тянет 30-дневный timeline из BFF
 // /analytics/promos/timeline и показывает ТОЛЬКО количество показов по этой
 // промке. Продуктовая аналитика (события/воронки/CTR) переехала в Яндекс.Метрику;
-// в кабинете остаётся лишь счётчик показов. Best-effort: нет данных/BFF недоступен
-// → «нет показов», не блокирует редактор.
+// в кабинете остаётся лишь счётчик показов. Ошибка BFF не блокирует редактор,
+// но отличается от настоящего отсутствия показов, чтобы не вводить в заблуждение.
 
 import { getPromoTimeline, type PromoTimelineRow } from '@/lib/bff-client';
 
@@ -10,10 +10,11 @@ const DAYS = 30;
 
 export async function PromoAnalyticsBlock({ promoId }: { promoId: string }) {
   let rows: PromoTimelineRow[] = [];
+  let unavailable = false;
   try {
     rows = await getPromoTimeline(promoId, DAYS);
   } catch {
-    rows = [];
+    unavailable = true;
   }
 
   const totalViews = rows.reduce((a, b) => a + b.views, 0);
@@ -23,7 +24,9 @@ export async function PromoAnalyticsBlock({ promoId }: { promoId: string }) {
   return (
     <section className="ppa">
       <div className="ppa-overline mono">ПОКАЗОВ · {DAYS} ДНЕЙ</div>
-      {hasData ? (
+      {unavailable ? (
+        <div className="ppa-empty">Статистика временно недоступна</div>
+      ) : hasData ? (
         <div className="ppa-count-row">
           <div className="ppa-count mono">{totalVisible.toLocaleString('ru-RU')}</div>
           <div className="ppa-count-cap mono">видимых · из {totalViews.toLocaleString('ru-RU')} рендеров</div>
