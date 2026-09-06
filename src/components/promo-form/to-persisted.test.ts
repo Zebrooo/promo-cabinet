@@ -18,7 +18,7 @@ function make(format: Promo['format'], patch: Partial<Promo> = {}): Promo {
 }
 
 describe('toPersisted — strips cross-format junk (equivalent to the old sanitize() CAPS table)', () => {
-  it('popup carries multistep junk (steps) → stripped', () => {
+  it('popup preserves its divkitUrl fallback and strips cross-format junk', () => {
     const draft = make('popup', {
       description: 'desc',
       steps: [
@@ -36,7 +36,7 @@ describe('toPersisted — strips cross-format junk (equivalent to the old saniti
     expect(out).not.toHaveProperty('presentation');
     expect(out).not.toHaveProperty('variant');
     expect(out).not.toHaveProperty('anchor');
-    expect(out).not.toHaveProperty('divkitUrl');
+    expect(out.divkitUrl).toBe('https://s3.example.com/a.json');
     expect(out).not.toHaveProperty('divkitJson');
     expect(out.description).toBe('desc');
   });
@@ -355,14 +355,14 @@ describe('toPreview — lenient projection for the mid-edit/invalid preview rail
     expect(out.description).toBe('desc');
   });
 
-  it('strips cross-format junk the same way toPersisted does (divkit fields on a popup draft)', () => {
+  it('keeps the popup divkitUrl fallback while stripping cross-format junk', () => {
     const draft = make('popup', {
       divkitUrl: 'https://s3.example.com/a.json',
       divkitJson: { card: {} },
       anchor: 'home-search',
     });
     const out = toPreview(draft);
-    expect(out).not.toHaveProperty('divkitUrl');
+    expect(out.divkitUrl).toBe('https://s3.example.com/a.json');
     expect(out).not.toHaveProperty('divkitJson');
     expect(out).not.toHaveProperty('anchor');
   });

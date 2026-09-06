@@ -32,6 +32,18 @@ describe('promoSchema', () => {
     expect(() => promoSchema.parse(valid)).not.toThrow();
   });
 
+  it('preserves a valid divkitUrl on a popup promo', () => {
+    const divkitUrl = 'https://cdn.example.com/parts-rfq-divkit.json';
+    expect(promoSchema.parse({ ...valid, divkitUrl })).toMatchObject({
+      format: 'popup',
+      divkitUrl,
+    });
+  });
+
+  it('rejects an invalid divkitUrl on a popup promo', () => {
+    expect(() => promoSchema.parse({ ...valid, divkitUrl: 'not-a-url' })).toThrow();
+  });
+
   it('accepts a minimal promo (only required fields)', () => {
     expect(() =>
       promoSchema.parse({
@@ -716,6 +728,10 @@ describe('regression shield: every format parses with all fields valid today', (
 });
 
 describe('CONTENT_KEYS_BY_FORMAT', () => {
+  it('popup contains divkitUrl', () => {
+    expect(CONTENT_KEYS_BY_FORMAT.popup).toContain('divkitUrl');
+  });
+
   it('tooltip contains anchor', () => {
     expect(CONTENT_KEYS_BY_FORMAT.tooltip).toContain('anchor');
   });
