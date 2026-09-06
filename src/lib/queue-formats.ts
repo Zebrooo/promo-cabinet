@@ -2,10 +2,11 @@
  * Human-readable queue metadata used by the cabinet.
  *
  * Queues accept promos independently of format. Storefront consumers decide
- * which surface can render a selected promo, so the cabinet intentionally
- * keeps no queue → format compatibility table and emits no mismatch warnings.
+ * which surface can render a selected promo. Only fixed-format queues declare
+ * `servedFormats`; the cabinet does not infer restrictions for other queues.
  */
 import { DEVICE_QUEUE_CATALOGS, QUEUE_DEVICES } from './catalogue';
+import type { Promo } from './schema';
 
 export interface QueueMeta {
   name: string;
@@ -13,6 +14,8 @@ export interface QueueMeta {
   label: string;
   /** One-liner describing the section served by this queue. */
   sectionHint: string;
+  /** Exact formats requested from a fixed-format queue. */
+  servedFormats?: Promo['format'][];
   /** true for queues the storefront no longer requests. */
   legacy?: boolean;
 }
@@ -67,6 +70,18 @@ export const QUEUE_META: Record<string, QueueMeta> = {
     name: 'cabinet-onboarding',
     label: 'Онбординг кабинета',
     sectionHint: 'Онбординг рекламного кабинета',
+  },
+  'persistent-topline': {
+    name: 'persistent-topline',
+    label: 'Персистентный топлайн',
+    sectionHint: 'Постоянный топлайн-слот витрины',
+    servedFormats: ['topline'],
+  },
+  'persistent-inline': {
+    name: 'persistent-inline',
+    label: 'Персистентный inline',
+    sectionHint: 'Постоянный inline-слот витрины',
+    servedFormats: ['inline'],
   },
   'home-banner': {
     name: 'home-banner',
