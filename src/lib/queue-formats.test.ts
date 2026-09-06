@@ -20,11 +20,28 @@ describe('QUEUE_META', () => {
     }
   });
 
-  it('keeps only display metadata and no format restrictions', () => {
+  it('defines exact metadata for fixed-format persistent queues', () => {
+    expect(QUEUE_META['persistent-topline']).toEqual({
+      name: 'persistent-topline',
+      label: 'Персистентный топлайн',
+      sectionHint: 'Постоянный топлайн-слот витрины',
+      servedFormats: ['topline'],
+    });
+    expect(QUEUE_META['persistent-inline']).toEqual({
+      name: 'persistent-inline',
+      label: 'Персистентный inline',
+      sectionHint: 'Постоянный inline-слот витрины',
+      servedFormats: ['inline'],
+    });
+  });
+
+  it('keeps other queues as display-only metadata without format restrictions', () => {
     for (const [key, meta] of Object.entries(QUEUE_META)) {
       expect(meta.label, `${key}.label`).toBeTruthy();
       expect(meta.sectionHint, `${key}.sectionHint`).toBeTruthy();
-      expect(meta).not.toHaveProperty('servedFormats');
+      if (key !== 'persistent-topline' && key !== 'persistent-inline') {
+        expect(meta).not.toHaveProperty('servedFormats');
+      }
     }
   });
 });
