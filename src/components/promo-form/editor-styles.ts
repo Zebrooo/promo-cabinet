@@ -169,6 +169,66 @@ export const EDITOR_CSS = `
 .ef-textarea { height: auto; min-height: 92px; padding: 14px 16px; line-height: 1.45; resize: vertical; }
 .ef-color { height: 44px; padding: 4px 6px; cursor: pointer; }
 
+/* promo-renderer 0.14 does not read inline surface/text colours or the new
+   descriptionColor field yet. Keep the live cabinet preview truthful while
+   the additive renderer contract rolls out; unset vars leave package defaults. */
+.promo-preview-surface[data-format=inline] .zr-inline,
+.promo-preview-surface[data-format=topline] .zr-topline {
+  background: var(--promo-preview-background) !important;
+}
+.promo-preview-surface[data-format=inline] .zr-inline__title,
+.promo-preview-surface[data-format=topline] .zr-topline__title {
+  color: var(--promo-preview-title) !important;
+}
+.promo-preview-surface[data-format=inline] .zr-inline__description,
+.promo-preview-surface[data-format=topline] .zr-topline__description {
+  color: var(--promo-preview-description) !important;
+}
+.promo-preview-surface[data-format=topline][data-has-description-color=true]
+  .zr-topline__description {
+  opacity: 1;
+}
+.promo-preview-surface[data-format=topline] .zr-topline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 2px;
+  min-height: 64px;
+  padding: 8px 16px;
+  text-align: left;
+}
+.promo-preview-surface[data-format=topline] .zr-topline::after,
+.promo-preview-surface[data-format=topline] .zr-topline__cta {
+  display: inline-flex;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--promo-preview-cta-bg) !important;
+  color: var(--promo-preview-cta-color) !important;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.promo-preview-surface[data-format=topline][data-topline-cta-bridge=true]
+  .zr-topline::after {
+  content: var(--promo-preview-cta-label);
+}
+.promo-preview-surface[data-format=topline] .zr-topline__title {
+  grid-column: 1;
+  grid-row: 1;
+}
+.promo-preview-surface[data-format=topline] .zr-topline__description {
+  grid-column: 1;
+  grid-row: 2;
+}
+
 /* Device target — segmented pill row, выбирается первым */
 .device-target {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;

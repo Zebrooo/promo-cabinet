@@ -303,7 +303,7 @@ export const servingBlockSchema = z.object({
 
 /** Общий шейп CTA-кнопки — расшаривается через `.extend()` форматами, у
  *  которых рендерер реально читает action/ctaColor/ctaTextColor
- *  (inline/popup/fullscreen/tooltip/multistep). Не самостоятельная схема члена union —
+ *  (inline/topline/popup/fullscreen/tooltip/multistep). Не самостоятельная схема члена union —
  *  только объект полей для extend. */
 const ctaBlockShape = {
   action: z.object({
@@ -333,24 +333,27 @@ const overlayContentShape = {
 };
 
 /** Слой 2, член 1/8: inline. БЕЗ backgroundGradient — рендерер inline его не
- *  читает. */
+ *  читает. textColor — цвет заголовка, descriptionColor — отдельный цвет описания. */
 export const inlinePromoSchema = servingBlockSchema.extend({
   format: z.literal('inline'),
   description: z.string().optional(),
   imageUrl: z.string().url('Некорректный URL картинки').optional(),
+  backgroundColor: z.string().optional(),
+  textColor: z.string().optional(),
+  descriptionColor: z.string().optional(),
   textAlign: textAlignSchema.optional(),
   ...ctaBlockShape,
 });
 
-/** Слой 2, член 2/8: topline. Урезанный контент — рендерер topline не читает
- *  imageUrl/ctaColor/ctaTextColor/backgroundGradient/textAlign, а action без
- *  label (topline не рисует подпись кнопки). */
+/** Слой 2, член 2/8: topline. БЕЗ imageUrl/backgroundGradient/textAlign.
+ *  textColor — цвет заголовка, descriptionColor — отдельный цвет описания. */
 export const toplinePromoSchema = servingBlockSchema.extend({
   format: z.literal('topline'),
   description: z.string().optional(),
   backgroundColor: z.string().optional(),
   textColor: z.string().optional(),
-  action: z.object({ href: z.string().min(1, 'Укажите ссылку') }).optional(),
+  descriptionColor: z.string().optional(),
+  ...ctaBlockShape,
 });
 
 /** Слой 2, член 3/8: popup. */
@@ -504,6 +507,7 @@ export const promoDraftSchema = servingBlockSchema.extend({
   backgroundColor: z.string().optional(),
   backgroundGradient: backgroundGradientSchema.optional(),
   textColor: z.string().optional(),
+  descriptionColor: z.string().optional(),
   backgroundImage: z.string().optional(),
   textAlign: textAlignSchema.optional(),
   divkitUrl: z.string().url('Некорректный URL верстки').optional(),

@@ -3,14 +3,21 @@ import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { TextareaField, ColorField } from '../fields';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
-import { CtaFields, TextAlignField } from './shared';
+import { ColorsRow, CtaFields, TextAlignField } from './shared';
 
-/** inline: description, imageUrl, textAlign, action{href,label}, ctaColor, ctaTextColor. */
+/** inline: description, surface/title/description colors, imageUrl, textAlign,
+ *  action{href,label}, ctaColor, ctaTextColor. */
 export function InlineContent() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   return (
     <>
       <TextareaField name="description" label="ОПИСАНИЕ" placeholder="Дополнительный текст под заголовком" />
+      <ColorsRow
+        withDescription
+        backgroundFallback="#ffffff"
+        textFallback="#16181D"
+        descriptionFallback="#555555"
+      />
       <section className="ef-block">
         <div className="ef-label">ИЗОБРАЖЕНИЕ</div>
         <PromoImageUpload

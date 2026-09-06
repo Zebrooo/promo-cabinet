@@ -4,11 +4,11 @@
 // multiple primitives + read values (not pure useField wrappers).
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
+import { ColorField } from '../fields';
 import { HintIcon } from '../HintIcon';
 import { normalizeLeadPhone } from '../to-persisted';
 
-/** CTA href (+ optional label) row. `withLabel=false` mirrors topline's
- *  action shape (href only — the renderer never shows a topline CTA label). */
+/** CTA href (+ optional label) row shared by formats with a rendered button. */
 export function CtaFields({ withLabel }: { withLabel: boolean }) {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const href = values.action?.href ?? '';
@@ -148,29 +148,37 @@ export function TextAlignField() {
   );
 }
 
-/** Background color + text color pair — popup/fullscreen/tooltip/topline/multistep. */
-export function ColorsRow() {
-  const { values, setFieldValue } = useFormikContext<Promo>();
+type ColorsRowProps = {
+  withDescription?: boolean;
+  backgroundFallback?: string;
+  textFallback?: string;
+  descriptionFallback?: string;
+};
+
+/** Surface/text colors. Inline and topline split title and description;
+ *  other formats keep their existing single text-color control. */
+export function ColorsRow({
+  withDescription = false,
+  backgroundFallback = '#E11D2A',
+  textFallback = '#ffffff',
+  descriptionFallback = '#ffffff',
+}: ColorsRowProps = {}) {
+  const { values } = useFormikContext<Promo>();
   return (
     <div className="ef-row">
-      <div className="ef-field">
-        <label>Цвет фона</label>
-        <input
-          type="color"
-          className="ef-input ef-color"
-          value={values.backgroundColor ?? '#E11D2A'}
-          onChange={(e) => setFieldValue('backgroundColor', e.target.value)}
+      <ColorField name="backgroundColor" label="Цвет фона" fallback={backgroundFallback} />
+      <ColorField
+        name="textColor"
+        label={withDescription ? 'Цвет заголовка' : 'Цвет текста'}
+        fallback={textFallback}
+      />
+      {withDescription && (
+        <ColorField
+          name="descriptionColor"
+          label="Цвет описания"
+          fallback={values.textColor ?? descriptionFallback}
         />
-      </div>
-      <div className="ef-field">
-        <label>Цвет текста</label>
-        <input
-          type="color"
-          className="ef-input ef-color"
-          value={values.textColor ?? '#ffffff'}
-          onChange={(e) => setFieldValue('textColor', e.target.value)}
-        />
-      </div>
+      )}
     </div>
   );
 }
