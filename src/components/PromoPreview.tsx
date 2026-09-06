@@ -1,11 +1,82 @@
 'use client';
 import { KNOWN_CUSTOM_VARIANTS } from '@/lib/custom-variants';
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PromoProvider, PromoRenderer, type Advertisement } from '@zebrooo/promo-renderer';
 import type { Promo } from '@/lib/schema';
 import { FORMAT_LABEL } from '@/lib/format-labels';
 
 const noop = (_href: string) => {};
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+type AdvertisementWithDescriptionColor = Advertisement & {
+  /** Supported by promo-renderer >=0.15. Kept as an additive field so the
+   *  cabinet remains build-compatible with the currently pinned 0.14 types. */
+  descriptionColor?: string;
+};
+
+type PreviewSurfaceStyle = React.CSSProperties & {
+  '--promo-preview-background': string;
+  '--promo-preview-title': string;
+  '--promo-preview-description': string;
+  '--promo-preview-cta-bg': string;
+  '--promo-preview-cta-color': string;
+  '--promo-preview-cta-label': string;
+};
+
+const SAFE_HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+function safeColor(value: unknown): string | null {
+  return typeof value === 'string' && SAFE_HEX_COLOR.test(value.trim())
+    ? value.trim()
+    : null;
+}
+
+function cssContentString(value: unknown, fallback: string): string {
+  const normalized = typeof value === 'string'
+    ? value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()
+    : '';
+  const label = normalized || fallback;
+  return `"${label.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+export function promoPreviewSurfaceFlags(promo: Promo) {
+  return {
+    hasDescriptionColor: safeColor(promo.descriptionColor) !== null,
+    usesToplineCtaBridge:
+      promo.format === 'topline' &&
+      typeof promo.action?.label === 'string' &&
+      promo.action.label.trim().length > 0,
+  };
+}
+
+export function shouldUseToplineCtaBridge(
+  promo: Promo,
+  hasNativeToplineCta: boolean | null,
+): boolean {
+  return (
+    promoPreviewSurfaceFlags(promo).usesToplineCtaBridge &&
+    hasNativeToplineCta === false
+  );
+}
+
+/** Safe variables also bridge fields that promo-renderer 0.14 does not read. */
+export function promoPreviewSurfaceStyle(promo: Promo): PreviewSurfaceStyle {
+  const topline = promo.format === 'topline';
+  const defaults = topline
+    ? { background: '#2563EB', title: '#FFFFFF', description: '#FFFFFF' }
+    : { background: '#FFFFFF', title: '#16181D', description: '#555555' };
+  const configuredTitle = safeColor(promo.textColor);
+
+  return {
+    '--promo-preview-background': safeColor(promo.backgroundColor) ?? defaults.background,
+    '--promo-preview-title': configuredTitle ?? defaults.title,
+    '--promo-preview-description':
+      safeColor(promo.descriptionColor) ?? configuredTitle ?? defaults.description,
+    '--promo-preview-cta-bg': safeColor(promo.ctaColor) ?? '#E11D2A',
+    '--promo-preview-cta-color': safeColor(promo.ctaTextColor) ?? '#FFFFFF',
+    '--promo-preview-cta-label': cssContentString(promo.action?.label, 'Подробнее'),
+  };
+}
 
 /** Formats that render as a full-viewport portal overlay (and lock page scroll). */
 const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen', 'multistep']);
@@ -18,7 +89,7 @@ const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen', 'multis
  *
  *  DivKit: пробрасываем divkitJson (inline) ИЛИ divkitUrl. Renderer
  *  сам разберётся (inline → используется сразу, иначе fetch'ит URL). */
-export function toAdvertisement(p: Promo): Advertisement {
+export function toAdvertisement(p: Promo): AdvertisementWithDescriptionColor {
   const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
     id: p.id || 'preview',
@@ -34,6 +105,7 @@ export function toAdvertisement(p: Promo): Advertisement {
     dismissible: p.dismissible,
     backgroundColor: hasImage ? undefined : p.backgroundColor,
     textColor: p.textColor,
+    descriptionColor: p.descriptionColor,
     backgroundImage: p.backgroundImage,
     backgroundGradient: p.backgroundGradient,
     divkitUrl: p.divkitUrl,
@@ -45,6 +117,17 @@ export function toAdvertisement(p: Promo): Advertisement {
 export function PromoPreview({ promo }: { promo: Promo }) {
   // Bumping the key remounts the overlay so it can be reopened after being closed.
   const [openKey, setOpenKey] = useState(0);
+  const [hasNativeToplineCta, setHasNativeToplineCta] = useState<boolean | null>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+
+  // Renderer 0.14 needs the CSS CTA bridge. Renderer 0.15 renders the real
+  // node synchronously; the layout effect removes the bridge before paint so
+  // package upgrades cannot produce a duplicate CTA.
+  useIsoLayoutEffect(() => {
+    setHasNativeToplineCta(
+      Boolean(surfaceRef.current?.querySelector('.zr-topline__cta')),
+    );
+  }, [promo.action?.label, promo.format, promo.title]);
 
   // Multistep: живой визард пакета (renderer ≥0.10.0). Для рендера пакету
   // нужно ≥2 валидных шагов (validSteps), до того — подсказка вместо пустоты.
@@ -96,6 +179,8 @@ export function PromoPreview({ promo }: { promo: Promo }) {
   }
 
   const ad = toAdvertisement(promo);
+  const previewSurfaceStyle = promoPreviewSurfaceStyle(promo);
+  const previewSurfaceFlags = promoPreviewSurfaceFlags(promo);
 
   // popup/fullscreen render as full-viewport portal overlays that lock page scroll, so
   // they are opened on demand instead of auto-mounting (which would freeze the cabinet).
@@ -144,7 +229,18 @@ export function PromoPreview({ promo }: { promo: Promo }) {
 
   // inline/topline render in flow — safe to show live.
   return (
-    <div className="preview-panel">
+    <div
+      className="preview-panel promo-preview-surface"
+      data-format={promo.format}
+      data-has-description-color={previewSurfaceFlags.hasDescriptionColor ? 'true' : undefined}
+      data-topline-cta-bridge={
+        shouldUseToplineCtaBridge(promo, hasNativeToplineCta)
+          ? 'true'
+          : undefined
+      }
+      ref={surfaceRef}
+      style={previewSurfaceStyle}
+    >
       <PromoProvider config={{ navigate: noop }}>
         <PromoRenderer ad={ad} />
       </PromoProvider>

@@ -582,21 +582,24 @@ describe('dead fields are stripped, not rejected (strip semantics of the union)'
     expect(parsed).not.toHaveProperty('bullets');
   });
 
-  it('topline with backgroundGradient/textAlign parses, fields are stripped', () => {
+  it('topline strips unsupported media/layout fields and keeps its CTA colors', () => {
     const parsed = promoSchema.parse({
       id: 'tl-dead', name: 'TL', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-02-01T00:00:00.000Z',
       targeting: {}, cooldownHours: 0, format: 'topline' as const, title: 'T',
       backgroundGradient: { from: '#fff' },
       textAlign: 'center',
       imageUrl: 'https://cdn.example.com/x.png',
+      action: { href: '/x', label: 'Go' },
       ctaColor: '#000',
       ctaTextColor: '#fff',
     });
     expect(parsed).not.toHaveProperty('backgroundGradient');
     expect(parsed).not.toHaveProperty('textAlign');
     expect(parsed).not.toHaveProperty('imageUrl');
-    expect(parsed).not.toHaveProperty('ctaColor');
-    expect(parsed).not.toHaveProperty('ctaTextColor');
+    if (parsed.format !== 'topline') throw new Error('expected topline promo');
+    expect(parsed.action).toEqual({ href: '/x', label: 'Go' });
+    expect(parsed.ctaColor).toBe('#000');
+    expect(parsed.ctaTextColor).toBe('#fff');
   });
 
   it('inline with backgroundGradient is stripped', () => {
@@ -635,6 +638,7 @@ describe('regression shield: every format parses with all fields valid today', (
       promoSchema.parse({
         ...base, id: 'inline-x', format: 'inline',
         description: 'desc', imageUrl: 'https://cdn.example.com/x.png', textAlign: 'center',
+        backgroundColor: '#fff', textColor: '#111', descriptionColor: '#555',
         action: { href: '/x', label: 'Go' }, ctaColor: '#111', ctaTextColor: '#fff',
       }),
     ).not.toThrow();
@@ -644,7 +648,8 @@ describe('regression shield: every format parses with all fields valid today', (
     expect(() =>
       promoSchema.parse({
         ...base, id: 'topline-x', format: 'topline',
-        description: 'desc', backgroundColor: '#fff', textColor: '#000', action: { href: '/x' },
+        description: 'desc', backgroundColor: '#fff', textColor: '#000', descriptionColor: '#555',
+        action: { href: '/x', label: 'Go' }, ctaColor: '#E11D2A', ctaTextColor: '#fff',
       }),
     ).not.toThrow();
   });
@@ -739,6 +744,20 @@ describe('CONTENT_KEYS_BY_FORMAT', () => {
   it('divkit does not contain description', () => {
     expect(CONTENT_KEYS_BY_FORMAT.divkit).not.toContain('description');
   });
+
+  it.each(['inline', 'topline'] as const)(
+    '%s contains independent surface/title/description colors and the full CTA block',
+    (format) => {
+      expect(CONTENT_KEYS_BY_FORMAT[format]).toEqual(expect.arrayContaining([
+        'backgroundColor',
+        'textColor',
+        'descriptionColor',
+        'action',
+        'ctaColor',
+        'ctaTextColor',
+      ]));
+    },
+  );
 
   it('no format contains popupVariant (dead field, removed everywhere)', () => {
     for (const keys of Object.values(CONTENT_KEYS_BY_FORMAT)) {

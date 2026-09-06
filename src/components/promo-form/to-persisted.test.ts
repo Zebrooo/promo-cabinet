@@ -41,21 +41,31 @@ describe('toPersisted — strips cross-format junk (equivalent to the old saniti
     expect(out.description).toBe('desc');
   });
 
-  it('inline strips popup-only overlay fields (dismissible, backgroundImage, backgroundGradient)', () => {
+  it('inline keeps its surface/text colors and strips popup-only overlay fields', () => {
     const draft = make('inline', {
       dismissible: true,
       backgroundImage: 'https://cdn.example.com/bg.png',
       backgroundGradient: { from: '#111', to: '#222' },
+      backgroundColor: '#F6F7F8',
+      textColor: '#16181D',
+      descriptionColor: '#646A73',
     });
     const out = toPersisted(draft);
     expect(out).not.toHaveProperty('dismissible');
     expect(out).not.toHaveProperty('backgroundImage');
     expect(out).not.toHaveProperty('backgroundGradient');
+    expect(out.backgroundColor).toBe('#F6F7F8');
+    expect(out.textColor).toBe('#16181D');
+    expect(out.descriptionColor).toBe('#646A73');
   });
 
-  it('topline strips imageUrl/ctaColor/ctaTextColor/textAlign and action.label (topline CTA has no label)', () => {
+  it('topline keeps its colors and full CTA while stripping unsupported image/layout fields', () => {
     const draft = make('topline', {
       imageUrl: 'https://cdn.example.com/x.png',
+      backgroundGradient: { from: '#111', to: '#222' },
+      backgroundColor: '#ffffff',
+      textColor: '#16181D',
+      descriptionColor: '#646A73',
       ctaColor: '#E11D2A',
       ctaTextColor: '#fff',
       textAlign: 'center',
@@ -63,10 +73,14 @@ describe('toPersisted — strips cross-format junk (equivalent to the old saniti
     });
     const out = toPersisted(draft);
     expect(out).not.toHaveProperty('imageUrl');
-    expect(out).not.toHaveProperty('ctaColor');
-    expect(out).not.toHaveProperty('ctaTextColor');
+    expect(out).not.toHaveProperty('backgroundGradient');
     expect(out).not.toHaveProperty('textAlign');
-    expect(out.action).toEqual({ href: '/x' });
+    expect(out.backgroundColor).toBe('#ffffff');
+    expect(out.textColor).toBe('#16181D');
+    expect(out.descriptionColor).toBe('#646A73');
+    expect(out.ctaColor).toBe('#E11D2A');
+    expect(out.ctaTextColor).toBe('#fff');
+    expect(out.action).toEqual({ href: '/x', label: 'Подробнее' });
   });
 
   it('divkit strips all content fields (title still required, kept)', () => {
@@ -386,6 +400,33 @@ describe('toPreview — lenient projection for the mid-edit/invalid preview rail
     expect(out.name).toBe('Summer Sale');
     expect(out.format).toBe('tooltip');
     expect(out.anchor).toBe('nav-search');
+  });
+
+  it.each(['inline', 'topline'] as const)(
+    '%s keeps independently configurable surface, title and description colors',
+    (format) => {
+      const out = toPreview(make(format, {
+        backgroundColor: '#F6F7F8',
+        textColor: '#16181D',
+        descriptionColor: '#646A73',
+      }));
+
+      expect(out.backgroundColor).toBe('#F6F7F8');
+      expect(out.textColor).toBe('#16181D');
+      expect(out.descriptionColor).toBe('#646A73');
+    },
+  );
+
+  it('topline preview keeps the CTA label and button colors', () => {
+    const out = toPreview(make('topline', {
+      action: { href: '/parts/request', label: 'Запросить' },
+      ctaColor: '#E11D2A',
+      ctaTextColor: '#ffffff',
+    }));
+
+    expect(out.action).toEqual({ href: '/parts/request', label: 'Запросить' });
+    expect(out.ctaColor).toBe('#E11D2A');
+    expect(out.ctaTextColor).toBe('#ffffff');
   });
 });
 
