@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Promo } from '@/lib/schema';
+import { promoFormats } from '@/lib/schema';
 import {
   promoPreviewSurfaceFlags,
   promoPreviewSurfaceStyle,
@@ -7,7 +8,7 @@ import {
 } from './PromoPreview';
 
 describe('toAdvertisement', () => {
-  it.each(['inline', 'topline'] as const)(
+  it.each(['inline', 'promoline', 'topline'] as const)(
     'passes %s surface, title and description colors to promo-renderer',
     (format) => {
       const promo: Promo = {
@@ -32,6 +33,49 @@ describe('toAdvertisement', () => {
       expect(ad.descriptionColor).toBe('#646A73');
     },
   );
+
+  // @zebrooo/promo-renderer формата promoline не знает — витрина рисует эту
+  // строку inline-рендерером, поэтому кабинет мапит формат на inline на
+  // границе с пакетом. В самом промо (схема/пул/очереди) формат остаётся своим.
+  it('maps promoline to inline for the renderer, keeping the inline content', () => {
+    const promo: Promo = {
+      id: 'parts-rfq-promoline',
+      name: 'Запчасти — строка в ленте',
+      title: 'Запчасть найдут магазины',
+      description: 'Опишите её один раз',
+      startsAt: '2026-01-01T00:00:00.000Z',
+      endsAt: '2027-01-01T00:00:00.000Z',
+      targeting: {},
+      cooldownHours: 5,
+      format: 'promoline',
+      imageUrl: 'https://cdn.example.com/part.png',
+      action: { href: '/parts/request', label: 'Оставить заявку' },
+    };
+
+    const ad = toAdvertisement(promo);
+
+    expect(ad.format).toBe('inline');
+    expect(ad.title).toBe('Запчасть найдут магазины');
+    expect(ad.description).toBe('Опишите её один раз');
+    expect(ad.imageUrl).toBe('https://cdn.example.com/part.png');
+    expect(ad.action).toEqual({ href: '/parts/request', label: 'Оставить заявку' });
+  });
+
+  it('does not rewrite the format of any other promo type', () => {
+    for (const format of promoFormats) {
+      const ad = toAdvertisement({
+        id: `id-${format}`,
+        name: format,
+        title: 'T',
+        startsAt: '2026-01-01T00:00:00.000Z',
+        endsAt: '2027-01-01T00:00:00.000Z',
+        targeting: {},
+        cooldownHours: 0,
+        format,
+      });
+      expect(ad.format, format).toBe(format === 'promoline' ? 'inline' : format);
+    }
+  });
 
   it('passes multistep action and CTA colors to promo-renderer', () => {
     const promo: Promo = {
@@ -107,6 +151,31 @@ describe('promoPreviewSurfaceStyle', () => {
       '--promo-preview-cta-bg': '#E11D2A',
       '--promo-preview-cta-color': '#FFFFFF',
     });
+  });
+});
+
+describe('promoPreviewSurfaceStyle — promoline', () => {
+  const base: Omit<Promo, 'format'> = {
+    id: 'parts-rfq-promoline',
+    name: 'Запчасти — строка в ленте',
+    title: 'Запчасть найдут магазины',
+    startsAt: '2026-01-01T00:00:00.000Z',
+    endsAt: '2027-01-01T00:00:00.000Z',
+    targeting: {},
+    cooldownHours: 5,
+  };
+
+  it('uses the inline defaults, not the topline palette', () => {
+    expect(promoPreviewSurfaceStyle({ ...base, format: 'promoline' }))
+      .toEqual(promoPreviewSurfaceStyle({ ...base, format: 'inline' }));
+    expect(promoPreviewSurfaceStyle({ ...base, format: 'promoline' })['--promo-preview-background'])
+      .toBe('#FFFFFF');
+  });
+
+  it('honours configured colors exactly like inline', () => {
+    const colors = { backgroundColor: '#F6F7F8', textColor: '#112233', descriptionColor: '#445566' };
+    expect(promoPreviewSurfaceStyle({ ...base, ...colors, format: 'promoline' }))
+      .toEqual(promoPreviewSurfaceStyle({ ...base, ...colors, format: 'inline' }));
   });
 });
 

@@ -29,7 +29,7 @@ export const QUEUE_META: Record<string, QueueMeta> = {
   transport: {
     name: 'transport',
     label: 'Транспорт',
-    sectionHint: 'Авто, шины, диски и запчасти',
+    sectionHint: 'Авто, шины, диски и запчасти — сюда же идёт promoline (строка между объявлениями в ленте)',
   },
   realty: {
     name: 'realty',

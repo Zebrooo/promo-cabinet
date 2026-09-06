@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
 
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
-export const promoFormatSchema = z.enum(['inline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip', 'multistep', 'custom']);
+export const promoFormatSchema = z.enum(['inline', 'promoline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip', 'multistep', 'custom']);
 export const promoFormats = promoFormatSchema.options;
 export type PromoFormat = z.infer<typeof promoFormatSchema>;
 export const audienceSchema = z.enum(['all', 'authenticated', 'anonymous']);
@@ -303,7 +303,7 @@ export const servingBlockSchema = z.object({
 
 /** Общий шейп CTA-кнопки — расшаривается через `.extend()` форматами, у
  *  которых рендерер реально читает action/ctaColor/ctaTextColor
- *  (inline/topline/popup/fullscreen/tooltip/multistep). Не самостоятельная схема члена union —
+ *  (inline/promoline/topline/popup/fullscreen/tooltip/multistep). Не самостоятельная схема члена union —
  *  только объект полей для extend. */
 const ctaBlockShape = {
   action: z.object({
@@ -332,7 +332,7 @@ const overlayContentShape = {
   ...ctaBlockShape,
 };
 
-/** Слой 2, член 1/8: inline. БЕЗ backgroundGradient — рендерер inline его не
+/** Слой 2, член 1/9: inline. БЕЗ backgroundGradient — рендерер inline его не
  *  читает. textColor — цвет заголовка, descriptionColor — отдельный цвет описания. */
 export const inlinePromoSchema = servingBlockSchema.extend({
   format: z.literal('inline'),
@@ -345,7 +345,25 @@ export const inlinePromoSchema = servingBlockSchema.extend({
   ...ctaBlockShape,
 });
 
-/** Слой 2, член 2/8: topline. БЕЗ imageUrl/backgroundGradient/textAlign.
+/** Слой 2, член 2/9: promoline. Строка-карточка между объявлениями в ленте
+ *  каталога (авто/шины/диски, после четвёртой органической карточки, один
+ *  показ на документ). Контент байт-в-байт как у inline: витрина рендерит его
+ *  тем же inline-рендерером — @zebrooo/promo-renderer формата `promoline` не
+ *  знает, поэтому кабинет мапит его на `inline` в toAdvertisement
+ *  (PromoPreview.tsx). Отдельный член union нужен, чтобы поверхность можно
+ *  было адресовать очередью/фильтром, а не хардкодом префикса id. */
+export const promolinePromoSchema = servingBlockSchema.extend({
+  format: z.literal('promoline'),
+  description: z.string().optional(),
+  imageUrl: z.string().url('Некорректный URL картинки').optional(),
+  backgroundColor: z.string().optional(),
+  textColor: z.string().optional(),
+  descriptionColor: z.string().optional(),
+  textAlign: textAlignSchema.optional(),
+  ...ctaBlockShape,
+});
+
+/** Слой 2, член 3/9: topline. БЕЗ imageUrl/backgroundGradient/textAlign.
  *  textColor — цвет заголовка, descriptionColor — отдельный цвет описания. */
 export const toplinePromoSchema = servingBlockSchema.extend({
   format: z.literal('topline'),
@@ -356,21 +374,21 @@ export const toplinePromoSchema = servingBlockSchema.extend({
   ...ctaBlockShape,
 });
 
-/** Слой 2, член 3/8: popup. */
+/** Слой 2, член 4/9: popup. */
 export const popupPromoSchema = servingBlockSchema.extend({
   format: z.literal('popup'),
   divkitUrl: z.string().url('Некорректный URL верстки').optional(),
   ...overlayContentShape,
 });
 
-/** Слой 2, член 4/8: fullscreen. Контент идентичен popup (тот же
+/** Слой 2, член 5/9: fullscreen. Контент идентичен popup (тот же
  *  overlayContentShape) — отличается только literal формата. */
 export const fullscreenPromoSchema = servingBlockSchema.extend({
   format: z.literal('fullscreen'),
   ...overlayContentShape,
 });
 
-/** Слой 2, член 5/8: tooltip. anchor — id якоря из CANONICAL_ANCHORS, к
+/** Слой 2, член 6/9: tooltip. anchor — id якоря из CANONICAL_ANCHORS, к
  *  элементу которого привязан пузырёк (хост помечает элемент
  *  data-promo-anchor="<id>"). Теперь обязательное поле схемы члена —
  *  отдельный refine больше не нужен. БЕЗ backgroundImage/backgroundGradient
@@ -387,7 +405,7 @@ export const tooltipPromoSchema = servingBlockSchema.extend({
   ...ctaBlockShape,
 });
 
-/** Слой 2, член 6/8: multistep. steps — обязательное поле (2..6 шагов),
+/** Слой 2, член 7/9: multistep. steps — обязательное поле (2..6 шагов),
  *  отдельный refine больше не нужен. action рендерится CTA-кнопкой
  *  на последнем шаге; цвета кнопки тоже читаются рендерером. */
 export const multistepPromoSchema = servingBlockSchema.extend({
@@ -402,7 +420,7 @@ export const multistepPromoSchema = servingBlockSchema.extend({
   ...ctaBlockShape,
 });
 
-/** Слой 2, член 7/8: divkit. divkitUrl — URL на JSON-верстку в S3
+/** Слой 2, член 8/9: divkit. divkitUrl — URL на JSON-верстку в S3
  *  (production-вариант), опционален в storage-схеме — обязательность
  *  проверяется на форме. divkitJson — транзитное inline JSON для preview ДО
  *  сохранения промо; при save кабинет улетит им в S3, заполнит divkitUrl,
@@ -433,7 +451,7 @@ const referralInviteShape = {
   dailyBudgetKopecks: z.number().int('Только целое число копеек').nonnegative('Не может быть отрицательным').optional(),
 };
 
-/** Слой 2, член 8/8: custom. variant — id варианта host-side рендер-функции
+/** Слой 2, член 9/9: custom. variant — id варианта host-side рендер-функции
  *  из KNOWN_CUSTOM_VARIANTS; field-level refine (не object-level!) — того
  *  требует z.discriminatedUnion в zod 3.23: сам объект члена обязан
  *  остаться чистым ZodObject, а не ZodEffects. */
@@ -463,6 +481,7 @@ export const customPromoSchema = servingBlockSchema.extend({
 export const promoSchema = z
   .discriminatedUnion('format', [
     inlinePromoSchema,
+    promolinePromoSchema,
     toplinePromoSchema,
     popupPromoSchema,
     fullscreenPromoSchema,
@@ -552,6 +571,7 @@ export type QueueObject = z.infer<typeof queueObjectSchema>;
  *  сборка упадёт здесь, а не где-то в PromoForm. */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 const _inlineAssignable: Promo = {} as z.infer<typeof inlinePromoSchema>;
+const _promolineAssignable: Promo = {} as z.infer<typeof promolinePromoSchema>;
 const _toplineAssignable: Promo = {} as z.infer<typeof toplinePromoSchema>;
 const _popupAssignable: Promo = {} as z.infer<typeof popupPromoSchema>;
 const _fullscreenAssignable: Promo = {} as z.infer<typeof fullscreenPromoSchema>;
@@ -566,6 +586,7 @@ const _customAssignable: Promo = {} as z.infer<typeof customPromoSchema>;
  *  per-field валидации в Formik), не завязываясь на весь promoSchema. */
 export const SCHEMA_BY_FORMAT: Record<PromoFormat, z.ZodObject<any>> = {
   inline: inlinePromoSchema,
+  promoline: promolinePromoSchema,
   topline: toplinePromoSchema,
   popup: popupPromoSchema,
   fullscreen: fullscreenPromoSchema,

@@ -169,16 +169,21 @@ export const EDITOR_CSS = `
 .ef-textarea { height: auto; min-height: 92px; padding: 14px 16px; line-height: 1.45; resize: vertical; }
 .ef-color { height: 44px; padding: 4px 6px; cursor: pointer; }
 
-/* Keep the live renderer preview palette scoped to the selected surface. */
+/* Keep the live renderer preview palette scoped to the selected surface.
+   promoline рисуется тем же inline-рендерером (toAdvertisement мапит формат
+   на inline), поэтому у него та же .zr-inline разметка — селекторы общие. */
 .promo-preview-surface[data-format=inline] .zr-inline,
+.promo-preview-surface[data-format=promoline] .zr-inline,
 .promo-preview-surface[data-format=topline] .zr-topline {
   background: var(--promo-preview-background) !important;
 }
 .promo-preview-surface[data-format=inline] .zr-inline__title,
+.promo-preview-surface[data-format=promoline] .zr-inline__title,
 .promo-preview-surface[data-format=topline] .zr-topline__title {
   color: var(--promo-preview-title) !important;
 }
 .promo-preview-surface[data-format=inline] .zr-inline__description,
+.promo-preview-surface[data-format=promoline] .zr-inline__description,
 .promo-preview-surface[data-format=topline] .zr-topline__description {
   color: var(--promo-preview-description) !important;
 }

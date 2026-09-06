@@ -9,6 +9,7 @@ function estimateReach(fmt: Promo['format']): number {
   switch (fmt) {
     case 'topline':    return 4200;
     case 'inline':     return 2800;
+    case 'promoline':  return 2000;  // строка между объявлениями — как inline, но только в лентах авто/шин/дисков
     case 'popup':      return 1600;
     case 'fullscreen': return 900;
     case 'divkit':     return 1600;  // примерно как popup — JSON может рендериться где угодно

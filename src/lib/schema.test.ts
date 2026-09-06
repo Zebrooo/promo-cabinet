@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   promoSchema,
+  promoFormats,
+  promolinePromoSchema,
+  SCHEMA_BY_FORMAT,
   catalogueSchema,
   queueSchema,
   audienceSchema,
@@ -146,6 +149,94 @@ describe('promoSchema', () => {
 
   it('does not require anchor for non-tooltip formats', () => {
     expect(() => promoSchema.parse({ ...valid, anchor: undefined })).not.toThrow();
+  });
+});
+
+/** promoline — строка между объявлениями в ленте каталога. Отдельный член
+ *  union с контентом inline: до него поверхность собиралась из inline-промо с
+ *  захардкоженным префиксом id, из кабинета такую запись завести было нельзя. */
+describe('promoline format', () => {
+  const promoline: Promo = {
+    id: 'parts-rfq-promoline',
+    name: 'Запчасти — строка в ленте',
+    startsAt: '2026-01-01T00:00:00.000Z',
+    endsAt: '2027-01-01T00:00:00.000Z',
+    targeting: {},
+    cooldownHours: 0,
+    format: 'promoline',
+    title: 'Запчасть найдут магазины',
+  };
+
+  it('accepts a minimal promoline promo', () => {
+    expect(() => promoSchema.parse(promoline)).not.toThrow();
+  });
+
+  it('keeps the whole inline content block (description, image, colors, align, CTA)', () => {
+    const parsed = promoSchema.parse({
+      ...promoline,
+      description: 'Опишите её один раз',
+      imageUrl: 'https://cdn.example.com/part.png',
+      backgroundColor: '#FFFFFF',
+      textColor: '#16181D',
+      descriptionColor: '#646A73',
+      textAlign: 'center',
+      action: { href: '/parts/request', label: 'Оставить заявку' },
+      ctaColor: '#E11D2A',
+      ctaTextColor: '#FFFFFF',
+    });
+    expect(parsed).toMatchObject({
+      format: 'promoline',
+      description: 'Опишите её один раз',
+      imageUrl: 'https://cdn.example.com/part.png',
+      backgroundColor: '#FFFFFF',
+      textColor: '#16181D',
+      descriptionColor: '#646A73',
+      textAlign: 'center',
+      action: { href: '/parts/request', label: 'Оставить заявку' },
+      ctaColor: '#E11D2A',
+      ctaTextColor: '#FFFFFF',
+    });
+  });
+
+  it('strips fields no inline-shaped format has (как у inline)', () => {
+    const parsed = promoSchema.parse({
+      ...promoline,
+      dismissible: true,
+      backgroundImage: 'https://cdn.example.com/bg.png',
+      backgroundGradient: { from: '#111', to: '#222' },
+      anchor: 'home-search',
+      steps: [{ title: 'Ш1', body: 'Т1' }, { title: 'Ш2', body: 'Т2' }],
+    });
+    expect(parsed).not.toHaveProperty('dismissible');
+    expect(parsed).not.toHaveProperty('backgroundImage');
+    expect(parsed).not.toHaveProperty('backgroundGradient');
+    expect(parsed).not.toHaveProperty('anchor');
+    expect(parsed).not.toHaveProperty('steps');
+  });
+
+  it('rejects an invalid imageUrl like every other format', () => {
+    expect(() => promoSchema.parse({ ...promoline, imageUrl: 'not-a-url' })).toThrow();
+  });
+
+  it('keeps the serving block (targeting/schedule/frequency) intact', () => {
+    const parsed = promoSchema.parse({
+      ...promoline,
+      sections: ['avto'],
+      maxImpressionsPerUser: 3,
+      cooldownHours: 12,
+      schedule: { daysOfWeek: [1, 2, 3], hourStart: 9, hourEnd: 21 },
+    });
+    expect(parsed.sections).toEqual(['avto']);
+    expect(parsed.maxImpressionsPerUser).toBe(3);
+    expect(parsed.cooldownHours).toBe(12);
+    expect(parsed.schedule).toEqual({ daysOfWeek: [1, 2, 3], hourStart: 9, hourEnd: 21 });
+  });
+
+  it('is exposed through promoFormats, SCHEMA_BY_FORMAT and CONTENT_KEYS_BY_FORMAT', () => {
+    expect(promoFormats).toContain('promoline');
+    expect(SCHEMA_BY_FORMAT.promoline).toBe(promolinePromoSchema);
+    // Контент — байт-в-байт inline: витрина рендерит promoline тем же рендерером.
+    expect([...CONTENT_KEYS_BY_FORMAT.promoline]).toEqual([...CONTENT_KEYS_BY_FORMAT.inline]);
   });
 });
 
@@ -745,7 +836,7 @@ describe('CONTENT_KEYS_BY_FORMAT', () => {
     expect(CONTENT_KEYS_BY_FORMAT.divkit).not.toContain('description');
   });
 
-  it.each(['inline', 'topline'] as const)(
+  it.each(['inline', 'promoline', 'topline'] as const)(
     '%s contains independent surface/title/description colors and the full CTA block',
     (format) => {
       expect(CONTENT_KEYS_BY_FORMAT[format]).toEqual(expect.arrayContaining([

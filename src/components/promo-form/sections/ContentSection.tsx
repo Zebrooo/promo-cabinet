@@ -47,7 +47,7 @@ export function ContentSection() {
   return (
     <>
       {values.format !== 'custom' && <TitleField />}
-      {values.format === 'inline' && <InlineContent />}
+      {(values.format === 'inline' || values.format === 'promoline') && <InlineContent />}
       {values.format === 'topline' && <ToplineContent />}
       {(values.format === 'popup' || values.format === 'fullscreen') && <OverlayContent />}
       {values.format === 'tooltip' && <TooltipContent />}
