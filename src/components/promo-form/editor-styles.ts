@@ -169,9 +169,7 @@ export const EDITOR_CSS = `
 .ef-textarea { height: auto; min-height: 92px; padding: 14px 16px; line-height: 1.45; resize: vertical; }
 .ef-color { height: 44px; padding: 4px 6px; cursor: pointer; }
 
-/* promo-renderer 0.14 does not read inline surface/text colours or the new
-   descriptionColor field yet. Keep the live cabinet preview truthful while
-   the additive renderer contract rolls out; unset vars leave package defaults. */
+/* Keep the live renderer preview palette scoped to the selected surface. */
 .promo-preview-surface[data-format=inline] .zr-inline,
 .promo-preview-surface[data-format=topline] .zr-topline {
   background: var(--promo-preview-background) !important;
@@ -199,7 +197,6 @@ export const EDITOR_CSS = `
   padding: 8px 16px;
   text-align: left;
 }
-.promo-preview-surface[data-format=topline] .zr-topline::after,
 .promo-preview-surface[data-format=topline] .zr-topline__cta {
   display: inline-flex;
   grid-column: 2;
@@ -215,10 +212,6 @@ export const EDITOR_CSS = `
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
-}
-.promo-preview-surface[data-format=topline][data-topline-cta-bridge=true]
-  .zr-topline::after {
-  content: var(--promo-preview-cta-label);
 }
 .promo-preview-surface[data-format=topline] .zr-topline__title {
   grid-column: 1;
