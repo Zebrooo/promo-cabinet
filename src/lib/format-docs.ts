@@ -83,8 +83,8 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   ctaTextColor: 'Цвет текста на CTA-кнопке (пусто = белый)',
   dismissible: 'Можно ли закрыть промо крестиком',
   backgroundColor: 'Цвет фона промо',
-  textColor: 'Основной цвет текста (для inline/topline — цвет заголовка)',
-  descriptionColor: 'Цвет описания inline/topline (пусто = textColor)',
+  textColor: 'Основной цвет текста (для inline/promoline/topline — цвет заголовка)',
+  descriptionColor: 'Цвет описания inline/promoline/topline (пусто = textColor)',
   backgroundImage: 'URL фоновой картинки промо',
   backgroundGradient: 'Линейный градиент фона (каскадом с backgroundImage/backgroundColor)',
   'backgroundGradient.from': 'Начальный цвет градиента',
@@ -221,6 +221,10 @@ function renderTable(rows: FieldRow[]): string {
 /** Формат-специфичные примечания об обязательности, которая проверяется не
  *  самой schema.ts-схемой, а формой/бизнес-логикой поверх неё. */
 const FORMAT_NOTES: Partial<Record<PromoFormat, string[]>> = {
+  promoline: [
+    'Контент байт-в-байт совпадает с `inline` — витрина рендерит promoline тем же inline-рендерером (`@zebrooo/promo-renderer` формата `promoline` не знает, кабинет мапит его на `inline` в `toAdvertisement`).',
+    'Поверхность: строка между объявлениями в ленте авто/шин/дисков — после четвёртой органической карточки, один показ на документ, участвует в frequency-капах.',
+  ],
   tooltip: ['`anchor` — обязательное поле схемы (не просто форма): якорь должен существовать в CANONICAL_ANCHORS.'],
   multistep: ['`steps` — обязателен, от 2 до 6 шагов (ограничение схемы: `.min(2).max(6)`).'],
   custom: [
@@ -242,7 +246,7 @@ export function generateFormatDocs(): string {
   lines.push('# Схемы промо-форматов');
   lines.push('');
   lines.push(
-    'Справочник по полям каждого из 8 типов промо (`src/lib/schema.ts`, `SCHEMA_BY_FORMAT`/`CONTENT_KEYS_BY_FORMAT`). ' +
+    'Справочник по полям каждого из 9 типов промо (`src/lib/schema.ts`, `SCHEMA_BY_FORMAT`/`CONTENT_KEYS_BY_FORMAT`). ' +
       'Документ описывает форму zod-схемы «как есть»: тип поля, обязательность на уровне схемы и русское описание назначения.',
   );
   lines.push('');

@@ -59,6 +59,44 @@ describe('toPersisted — strips cross-format junk (equivalent to the old saniti
     expect(out.descriptionColor).toBe('#646A73');
   });
 
+  it('promoline keeps the full inline content block and strips overlay-only fields', () => {
+    const draft = make('promoline', {
+      description: 'Опишите её один раз',
+      imageUrl: 'https://cdn.example.com/part.png',
+      backgroundColor: '#FFFFFF',
+      textColor: '#16181D',
+      descriptionColor: '#646A73',
+      textAlign: 'center',
+      action: { href: '/parts/request', label: 'Оставить заявку' },
+      ctaColor: '#E11D2A',
+      ctaTextColor: '#FFFFFF',
+      // мусор от других форматов, оставшийся на драфте после смены типа
+      dismissible: true,
+      backgroundImage: 'https://cdn.example.com/bg.png',
+      backgroundGradient: { from: '#111', to: '#222' },
+      anchor: 'home-search',
+      divkitUrl: 'https://s3.example.com/a.json',
+      variant: 'reklama-onboarding',
+    });
+    const out = toPersisted(draft);
+    expect(out.format).toBe('promoline');
+    expect(out.description).toBe('Опишите её один раз');
+    expect(out.imageUrl).toBe('https://cdn.example.com/part.png');
+    expect(out.backgroundColor).toBe('#FFFFFF');
+    expect(out.textColor).toBe('#16181D');
+    expect(out.descriptionColor).toBe('#646A73');
+    expect(out.textAlign).toBe('center');
+    expect(out.action).toEqual({ href: '/parts/request', label: 'Оставить заявку' });
+    expect(out.ctaColor).toBe('#E11D2A');
+    expect(out.ctaTextColor).toBe('#FFFFFF');
+    expect(out).not.toHaveProperty('dismissible');
+    expect(out).not.toHaveProperty('backgroundImage');
+    expect(out).not.toHaveProperty('backgroundGradient');
+    expect(out).not.toHaveProperty('anchor');
+    expect(out).not.toHaveProperty('divkitUrl');
+    expect(out).not.toHaveProperty('variant');
+  });
+
   it('topline keeps its colors and full CTA while stripping unsupported image/layout fields', () => {
     const draft = make('topline', {
       imageUrl: 'https://cdn.example.com/x.png',
@@ -432,7 +470,7 @@ describe('toPreview — lenient projection for the mid-edit/invalid preview rail
 
 describe('toPersisted — env-таргетинг переживает стрип каждого формата', () => {
   const FORMAT_PATCH: Record<Promo['format'], Partial<Promo>> = {
-    inline: {}, topline: {}, popup: {}, fullscreen: {},
+    inline: {}, promoline: {}, topline: {}, popup: {}, fullscreen: {},
     tooltip: { anchor: 'home-search' },
     multistep: { steps: [{ title: 'Шаг 1', body: 'Т1' }, { title: 'Шаг 2', body: 'Т2' }] },
     divkit: { divkitUrl: 'https://s3.example.com/a.json' },
@@ -451,7 +489,7 @@ describe('toPersisted — env-таргетинг переживает стрип
 
 describe('toPersisted — таргетинг волны A переживает стрип каждого формата (geo + schedule + visit)', () => {
   const FORMAT_PATCH: Record<Promo['format'], Partial<Promo>> = {
-    inline: {}, topline: {}, popup: {}, fullscreen: {},
+    inline: {}, promoline: {}, topline: {}, popup: {}, fullscreen: {},
     tooltip: { anchor: 'home-search' },
     multistep: { steps: [{ title: 'Шаг 1', body: 'Т1' }, { title: 'Шаг 2', body: 'Т2' }] },
     divkit: { divkitUrl: 'https://s3.example.com/a.json' },

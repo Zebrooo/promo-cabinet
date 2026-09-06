@@ -30,6 +30,8 @@ export function promoPreviewSurfaceFlags(promo: Promo) {
 
 /** Safe variables keep the preview palette scoped to the selected surface. */
 export function promoPreviewSurfaceStyle(promo: Promo): PreviewSurfaceStyle {
+  // Только topline имеет собственную палитру по умолчанию; promoline берёт
+  // inline-дефолты (белая строка-карточка), как и сам inline.
   const topline = promo.format === 'topline';
   const defaults = topline
     ? { background: '#2563EB', title: '#FFFFFF', description: '#FFFFFF' }
@@ -56,12 +58,17 @@ const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen', 'multis
  *  с abkhaz-auto где та же нормализация в lib/promo.ts.
  *
  *  DivKit: пробрасываем divkitJson (inline) ИЛИ divkitUrl. Renderer
- *  сам разберётся (inline → используется сразу, иначе fetch'ит URL). */
+ *  сам разберётся (inline → используется сразу, иначе fetch'ит URL).
+ *
+ *  promoline: формата с таким именем @zebrooo/promo-renderer не знает —
+ *  витрина рисует эту строку тем же inline-рендерером. Поэтому в
+ *  Advertisement он уезжает как 'inline'; в схеме/пуле/очередях промо
+ *  остаётся promoline. */
 export function toAdvertisement(p: Promo): Advertisement {
   const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
     id: p.id || 'preview',
-    format: p.format as Advertisement['format'],
+    format: (p.format === 'promoline' ? 'inline' : p.format) as Advertisement['format'],
     steps: p.steps,
     presentation: p.presentation,
     title: p.title,
@@ -184,7 +191,7 @@ export function PromoPreview({ promo }: { promo: Promo }) {
     );
   }
 
-  // inline/topline render in flow — safe to show live.
+  // inline/promoline/topline render in flow — safe to show live.
   return (
     <div
       className="preview-panel promo-preview-surface"
@@ -192,6 +199,11 @@ export function PromoPreview({ promo }: { promo: Promo }) {
       data-has-description-color={previewSurfaceFlags.hasDescriptionColor ? 'true' : undefined}
       style={previewSurfaceStyle}
     >
+      {promo.format === 'promoline' && (
+        <p className="preview-note">
+          Показывается строкой между объявлениями в ленте авто/шин/дисков после четвёртой карточки.
+        </p>
+      )}
       <PromoProvider config={{ navigate: noop }}>
         <PromoRenderer ad={ad} />
       </PromoProvider>
