@@ -42,6 +42,16 @@ describe('pool', () => {
     await writePool([make('a'), make('b')]);
     expect((await readPool()).map((p) => p.id)).toEqual(['a', 'b']);
   });
+  it('preserves a popup divkitUrl across a read-modify-write roundtrip', async () => {
+    const popup = {
+      ...make('parts-rfq-divkit'),
+      format: 'popup' as const,
+      divkitUrl: 'https://cdn.example.com/parts-rfq-divkit.json',
+    };
+    await writePool([popup]);
+    expect(await mutatePool((promos) => promos)).toEqual([popup]);
+    expect(await readPool()).toEqual([popup]);
+  });
   it('reads empty when the object is missing', async () => {
     expect(await readPool()).toEqual([]);
   });

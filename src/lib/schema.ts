@@ -356,6 +356,7 @@ export const toplinePromoSchema = servingBlockSchema.extend({
 /** Слой 2, член 3/8: popup. */
 export const popupPromoSchema = servingBlockSchema.extend({
   format: z.literal('popup'),
+  divkitUrl: z.string().url('Некорректный URL верстки').optional(),
   ...overlayContentShape,
 });
 
