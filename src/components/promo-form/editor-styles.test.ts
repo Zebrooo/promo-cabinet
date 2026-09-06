@@ -14,14 +14,14 @@ describe('editor sticky action bar geometry', () => {
   });
 });
 
-describe('topline preview bridge for promo-renderer 0.14', () => {
-  it('renders the configured CTA label and colors only through the explicit 0.14 bridge', () => {
+describe('topline preview with promo-renderer 0.15', () => {
+  it('styles the renderer CTA with the configured colors', () => {
     expect(EDITOR_CSS).toContain('--promo-preview-cta-bg');
     expect(EDITOR_CSS).toContain('--promo-preview-cta-color');
     expect(EDITOR_CSS).toMatch(
-      /\[data-format=topline\]\[data-topline-cta-bridge=true\][\s\S]*\.zr-topline::after\s*\{[^}]*content:\s*var\(--promo-preview-cta-label\)/,
+      /\[data-format=topline\] \.zr-topline__cta\s*\{[^}]*background:\s*var\(--promo-preview-cta-bg\)/,
     );
-    expect(EDITOR_CSS).not.toContain(':has(');
+    expect(EDITOR_CSS).not.toContain('.zr-topline::after');
   });
 
   it('shows an explicit description color without renderer opacity blending', () => {
@@ -34,7 +34,7 @@ describe('topline preview bridge for promo-renderer 0.14', () => {
     expect(EDITOR_CSS).toMatch(
       /\[data-format=topline\] \.zr-topline\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/,
     );
-    expect(EDITOR_CSS).toMatch(/\.zr-topline::after,[^}]*min-height:\s*44px;/);
+    expect(EDITOR_CSS).toMatch(/\.zr-topline__cta\s*\{[^}]*min-height:\s*44px;/);
   });
 });
 

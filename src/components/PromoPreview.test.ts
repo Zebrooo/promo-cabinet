@@ -3,7 +3,6 @@ import type { Promo } from '@/lib/schema';
 import {
   promoPreviewSurfaceFlags,
   promoPreviewSurfaceStyle,
-  shouldUseToplineCtaBridge,
   toAdvertisement,
 } from './PromoPreview';
 
@@ -74,7 +73,7 @@ describe('promoPreviewSurfaceStyle', () => {
     format: 'topline',
   };
 
-  it('passes validated colors and an escaped CTA label to the 0.14 preview bridge', () => {
+  it('passes validated colors to the renderer preview surface', () => {
     expect(promoPreviewSurfaceStyle({
       ...topline,
       backgroundColor: '#FDFCFB',
@@ -89,7 +88,6 @@ describe('promoPreviewSurfaceStyle', () => {
       '--promo-preview-description': '#445566',
       '--promo-preview-cta-bg': '#AABBCCDD',
       '--promo-preview-cta-color': '#fff',
-      '--promo-preview-cta-label': '"Цена \\"сейчас\\" \\\\"',
     });
   });
 
@@ -108,16 +106,7 @@ describe('promoPreviewSurfaceStyle', () => {
       '--promo-preview-description': '#334455',
       '--promo-preview-cta-bg': '#E11D2A',
       '--promo-preview-cta-color': '#FFFFFF',
-      '--promo-preview-cta-label': '"Подробнее"',
     });
-  });
-
-  it('keeps the complete persisted CTA label in the preview', () => {
-    const label = 'Получить предложения от нескольких проверенных магазинов';
-    expect(promoPreviewSurfaceStyle({
-      ...topline,
-      action: { href: '/parts/request', label },
-    })['--promo-preview-cta-label']).toBe(`"${label}"`);
   });
 });
 
@@ -133,17 +122,6 @@ describe('promoPreviewSurfaceFlags', () => {
     format: 'topline',
   };
 
-  it('bridges a CTA only for an explicit non-empty topline label', () => {
-    expect(promoPreviewSurfaceFlags({
-      ...topline,
-      action: { href: '/parts/request' },
-    }).usesToplineCtaBridge).toBe(false);
-    expect(promoPreviewSurfaceFlags({
-      ...topline,
-      action: { href: '/parts/request', label: 'Запросить цену' },
-    }).usesToplineCtaBridge).toBe(true);
-  });
-
   it('resets opacity only for a valid explicit description color', () => {
     expect(promoPreviewSurfaceFlags({
       ...topline,
@@ -153,16 +131,5 @@ describe('promoPreviewSurfaceFlags', () => {
       ...topline,
       descriptionColor: 'not-a-color',
     }).hasDescriptionColor).toBe(false);
-  });
-
-  it('enables the 0.14 CTA bridge only after native support is known to be absent', () => {
-    const promo = {
-      ...topline,
-      action: { href: '/parts/request', label: 'Запросить цену' },
-    };
-
-    expect(shouldUseToplineCtaBridge(promo, null)).toBe(false);
-    expect(shouldUseToplineCtaBridge(promo, true)).toBe(false);
-    expect(shouldUseToplineCtaBridge(promo, false)).toBe(true);
   });
 });
