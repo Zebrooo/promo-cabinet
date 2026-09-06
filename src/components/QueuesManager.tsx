@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { QueuesIndex } from '@/lib/schema';
+import { QUEUE_META } from '@/lib/queue-formats';
 
 export function QueuesManager({ initial }: { initial: QueuesIndex }) {
   const router = useRouter();
@@ -95,43 +96,53 @@ export function QueuesManager({ initial }: { initial: QueuesIndex }) {
         <div className="empty">Очередей пока нет.</div>
       ) : (
         <div className="queue-list" style={{ marginBottom: 28 }}>
-          {queues.map((q) => (
-            <div className="queue-row" key={q.name}>
-              <span className="queue-name">{q.name}</span>
-              <span className={`badge ${q.persist ? 'badge-persist' : 'badge-no-persist'}`}>
-                {q.persist ? 'persist' : 'не persist'}
-              </span>
-              <div className="queue-actions">
-                <Link
-                  href={`/cabinet/queues/${encodeURIComponent(q.name)}`}
-                  className="btn btn-secondary btn-sm"
-                >
-                  Управлять
-                </Link>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  disabled={busy}
-                  onClick={() => togglePersist(q.name, q.persist)}
-                  title={q.persist ? 'Снять флаг persist' : 'Включить persist'}
-                  data-track="queue_toggle_persist"
-                  data-track-name={q.name}
-                >
-                  {q.persist ? 'Выкл persist' : 'Вкл persist'}
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  disabled={busy}
-                  onClick={() => deleteQueue(q.name)}
-                  data-track="queue_delete"
-                  data-track-name={q.name}
-                >
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M6 2h4a1 1 0 0 0-2 0H6a1 1 0 0 0-2 0H2v1h12V2h-2a1 1 0 0 0-2 0zM3 5l1 8h8l1-8H3z" fill="currentColor"/>
-                  </svg>
-                </button>
+          {queues.map((q) => {
+            const meta = QUEUE_META[q.name];
+            return (
+              <div className="queue-row" key={q.name}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span className="queue-name" style={{ display: 'block' }}>{meta?.label ?? q.name}</span>
+                  {meta && (
+                    <span style={{ display: 'block', marginTop: 3, color: 'var(--app-fg3)', fontSize: 12 }}>
+                      {meta.sectionHint} · <code>{q.name}</code>
+                    </span>
+                  )}
+                </div>
+                <span className={`badge ${q.persist ? 'badge-persist' : 'badge-no-persist'}`}>
+                  {q.persist ? 'persist' : 'не persist'}
+                </span>
+                <div className="queue-actions">
+                  <Link
+                    href={`/cabinet/queues/${encodeURIComponent(q.name)}`}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    Управлять
+                  </Link>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    disabled={busy}
+                    onClick={() => togglePersist(q.name, q.persist)}
+                    title={q.persist ? 'Снять флаг persist' : 'Включить persist'}
+                    data-track="queue_toggle_persist"
+                    data-track-name={q.name}
+                  >
+                    {q.persist ? 'Выкл persist' : 'Вкл persist'}
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    disabled={busy}
+                    onClick={() => deleteQueue(q.name)}
+                    data-track="queue_delete"
+                    data-track-name={q.name}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <path d="M6 2h4a1 1 0 0 0-2 0H6a1 1 0 0 0-2 0H2v1h12V2h-2a1 1 0 0 0-2 0zM3 5l1 8h8l1-8H3z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -3,6 +3,7 @@ import { isAuthed } from '@/lib/api-auth';
 import { readPool, mutateQueue, readQueuesIndex } from '@/lib/catalogue';
 import { enqueue, dequeue } from '@/lib/mutations';
 import { readEnvMode } from '@/lib/env-mode';
+import { QUEUE_META, queueAllowsFormat } from '@/lib/queue-formats';
 
 export const runtime = 'nodejs';
 
@@ -19,8 +20,17 @@ export async function POST(req: NextRequest, { params }: Ctx): Promise<NextRespo
     if (!index.some((e) => e.name === params.name)) {
       return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
     }
-    if (!pool.some((promo) => promo.id === params.id)) {
+    const promo = pool.find((item) => item.id === params.id);
+    if (!promo) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    }
+    if (!queueAllowsFormat(params.name, promo.format)) {
+      return NextResponse.json({
+        error: 'format_not_allowed',
+        queue: params.name,
+        promoFormat: promo.format,
+        allowedFormats: QUEUE_META[params.name]?.servedFormats ?? [],
+      }, { status: 409 });
     }
     await mutateQueue(params.name, (q) => ({ ...q, ids: enqueue(q.ids, params.id) }), envMode);
     return NextResponse.json({ ok: true });

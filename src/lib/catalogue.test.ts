@@ -157,11 +157,11 @@ describe('ensureMainQueue', () => {
   it('bootstraps all canonical queues + main on an empty store', async () => {
     await ensureMainQueue();
     const idx = await readQueuesIndex();
-    expect(idx).toHaveLength(15 + DEVICE_QUEUES.length); // main + 14 canonical (4 legacy + 8 catalog + 2 persistent) + 24 device
+    expect(idx).toHaveLength(16 + DEVICE_QUEUES.length); // main + 15 canonical (4 legacy + 8 catalog + 3 persistent) + 24 device
     const names = new Set(idx.map((q) => q.name));
     for (const name of [
       'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
-      'persistent-topline', 'persistent-inline',
+      'persistent-topline', 'persistent-inline', 'persistent-promoline',
     ]) {
       expect(names.has(name), `canonical queue "${name}" must be bootstrapped`).toBe(true);
     }

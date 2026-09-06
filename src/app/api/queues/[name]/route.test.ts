@@ -144,16 +144,16 @@ describe('PATCH /api/queues/[name]', () => {
   });
 
   it('409 prod_served_queue when renaming a queue the storefront requests', async () => {
-    await seedIndex([{ name: 'home-banner', persist: true }]);
-    await seedQueue('home-banner', true, ['a']);
-    const res = await PATCH(authed('home-banner', { method: 'PATCH', body: JSON.stringify({ rename: 'renamed' }) }), ctx('home-banner'));
+    await seedIndex([{ name: 'persistent-promoline', persist: true }]);
+    await seedQueue('persistent-promoline', true, ['a']);
+    const res = await PATCH(authed('persistent-promoline', { method: 'PATCH', body: JSON.stringify({ rename: 'renamed' }) }), ctx('persistent-promoline'));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toBe('prod_served_queue');
     expect(body.message).toMatch(/обслуживает прод/);
     // Nothing changed
     const idx = await readQueuesIndex();
-    expect(idx.some((e) => e.name === 'home-banner')).toBe(true);
+    expect(idx.some((e) => e.name === 'persistent-promoline')).toBe(true);
     expect(idx.some((e) => e.name === 'renamed')).toBe(false);
   });
 
@@ -178,15 +178,15 @@ describe('DELETE /api/queues/[name]', () => {
   });
 
   it('409 prod_served_queue when deleting a queue the storefront requests', async () => {
-    await seedIndex([{ name: 'main', persist: false }, { name: 'home-banner', persist: true }]);
-    await seedQueue('home-banner', true, ['a']);
-    const res = await DELETE(authed('home-banner', { method: 'DELETE' }), ctx('home-banner'));
+    await seedIndex([{ name: 'main', persist: false }, { name: 'persistent-promoline', persist: true }]);
+    await seedQueue('persistent-promoline', true, ['a']);
+    const res = await DELETE(authed('persistent-promoline', { method: 'DELETE' }), ctx('persistent-promoline'));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toBe('prod_served_queue');
     expect(body.message).toMatch(/обслуживает прод/);
     const idx = await readQueuesIndex();
-    expect(idx.some((e) => e.name === 'home-banner')).toBe(true);
+    expect(idx.some((e) => e.name === 'persistent-promoline')).toBe(true);
   });
 
   it('404 when deleting an unknown queue name', async () => {
