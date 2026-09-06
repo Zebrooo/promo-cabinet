@@ -18,9 +18,9 @@ const authed = (name: string, id: string, method = 'POST') =>
   });
 const ctx = (name: string, id: string) => ({ params: { name, id } });
 
-const promo = (id: string) => ({
+const promo = (id: string, format: 'inline' | 'promoline' = 'inline') => ({
   id, name: id, startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z',
-  targeting: {}, cooldownHours: 0, format: 'inline' as const, title: id,
+  targeting: {}, cooldownHours: 0, format, title: id,
 });
 
 const seedPool = (promos: unknown[]) =>
@@ -116,6 +116,40 @@ describe('POST /api/queues/[name]/[id]', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
     expect((await readQueue('home')).ids).toContain('ms1');
+  });
+
+  it('enqueues the declared format into a fixed-format queue', async () => {
+    await seedIndex([{ name: 'persistent-promoline', persist: true }]);
+    await seedQueue('persistent-promoline', true, []);
+    await seedPool([promo('promoline-1', 'promoline')]);
+
+    const res = await POST(
+      authed('persistent-promoline', 'promoline-1'),
+      ctx('persistent-promoline', 'promoline-1'),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await readQueue('persistent-promoline')).ids).toEqual(['promoline-1']);
+  });
+
+  it('rejects another format for a fixed-format queue without mutating it', async () => {
+    await seedIndex([{ name: 'persistent-promoline', persist: true }]);
+    await seedQueue('persistent-promoline', true, []);
+    await seedPool([promo('inline-1')]);
+
+    const res = await POST(
+      authed('persistent-promoline', 'inline-1'),
+      ctx('persistent-promoline', 'inline-1'),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: 'format_not_allowed',
+      queue: 'persistent-promoline',
+      promoFormat: 'inline',
+      allowedFormats: ['promoline'],
+    });
+    expect(await readQueue('persistent-promoline')).toEqual({ persist: true, ids: [] });
   });
 });
 

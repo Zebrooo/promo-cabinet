@@ -1,9 +1,9 @@
 /**
  * Human-readable queue metadata used by the cabinet.
  *
- * Queues accept promos independently of format. Storefront consumers decide
- * which surface can render a selected promo. Only fixed-format queues declare
- * `servedFormats`; the cabinet does not infer restrictions for other queues.
+ * Most queues accept promos independently of format. Fixed-format queues
+ * declare `servedFormats`; the cabinet uses that contract in both the picker
+ * and enqueue API, without inferring restrictions for other queues.
  */
 import { DEVICE_QUEUE_CATALOGS, QUEUE_DEVICES } from './catalogue';
 import type { Promo } from './schema';
@@ -29,7 +29,7 @@ export const QUEUE_META: Record<string, QueueMeta> = {
   transport: {
     name: 'transport',
     label: 'Транспорт',
-    sectionHint: 'Авто, шины, диски и запчасти — сюда же идёт promoline (строка между объявлениями в ленте)',
+    sectionHint: 'Авто, шины, диски и запчасти; promoline — в очереди «Персистентный промолайн»',
   },
   realty: {
     name: 'realty',
@@ -83,6 +83,12 @@ export const QUEUE_META: Record<string, QueueMeta> = {
     sectionHint: 'Постоянный inline-слот витрины',
     servedFormats: ['inline'],
   },
+  'persistent-promoline': {
+    name: 'persistent-promoline',
+    label: 'Персистентный промолайн',
+    sectionHint: 'Постоянный промолайн между объявлениями витрины',
+    servedFormats: ['promoline'],
+  },
   'home-banner': {
     name: 'home-banner',
     label: 'Главная (лег. баннер)',
@@ -96,6 +102,12 @@ export const QUEUE_META: Record<string, QueueMeta> = {
     legacy: true,
   },
 };
+
+/** Fixed-format queues accept only the formats declared by their consumer. */
+export function queueAllowsFormat(queueName: string, format: Promo['format']): boolean {
+  const servedFormats = QUEUE_META[queueName]?.servedFormats;
+  return servedFormats === undefined || servedFormats.includes(format);
+}
 
 const DEVICE_QUEUE_LABEL: Record<(typeof QUEUE_DEVICES)[number], string> = {
   web: 'веб',

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { formatName } from '@/lib/format-labels';
-import { QUEUE_META } from '@/lib/queue-formats';
+import { QUEUE_META, queueAllowsFormat } from '@/lib/queue-formats';
 
 function isActive(p: Promo): boolean {
   const now = Date.now();
@@ -46,6 +46,7 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
   const [busy, setBusy] = useState(false);
   const [addId, setAddId] = useState('');
   const [dangling, setDangling] = useState<string[]>(danglingIds);
+  const queueMeta = QUEUE_META[name];
 
   /** Remove every dangling id from the queue file via DELETE /[name]/[id].
    *  One round-trip per id (the API is per-id and idempotent); usually 0–3
@@ -67,10 +68,13 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
   }
 
   const inQueueIds = new Set(order.map((p) => p.id));
-  const available = poolPromos.filter((p) => !inQueueIds.has(p.id));
+  const available = poolPromos.filter((p) => !inQueueIds.has(p.id) && queueAllowsFormat(name, p.format));
+  const hasIncompatibleCandidates = poolPromos.some(
+    (p) => !inQueueIds.has(p.id) && !queueAllowsFormat(name, p.format),
+  );
 
   // Sync addId default when available list changes
-  const effectiveAddId = addId && !inQueueIds.has(addId) ? addId : (available[0]?.id ?? '');
+  const effectiveAddId = available.some((p) => p.id === addId) ? addId : (available[0]?.id ?? '');
 
   async function move(index: number, dir: -1 | 1) {
     const target = index + dir;
@@ -136,8 +140,8 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
 
   const activeCount = order.filter((p) => isActive(p)).length;
 
-  // Format breakdown for the stats panel shows the queue composition without
-  // imposing format compatibility rules on placement.
+  // Existing incompatible records remain visible and removable; restrictions
+  // apply only when adding a new promo to a fixed-format queue.
   const formatCounts = order.reduce<Record<string, number>>((acc, p) => {
     acc[p.format] = (acc[p.format] ?? 0) + 1;
     return acc;
@@ -148,8 +152,8 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
       <div className="page-header">
         <div className="left">
           <div className="eyebrow">ОЧЕРЕДЬ</div>
-          <h1 style={{ fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            {name}
+          <h1 style={{ fontFamily: queueMeta ? 'var(--font-sans)' : 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            {queueMeta?.label ?? name}
             {QUEUE_META[name]?.legacy && (
               <span
                 style={{
@@ -169,6 +173,11 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
               </span>
             )}
           </h1>
+          {queueMeta && (
+            <div style={{ marginTop: 5, color: 'var(--app-fg3)', fontSize: 13 }}>
+              {queueMeta.sectionHint} · <code>{name}</code>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span className={`badge ${persist ? 'badge-persist' : 'badge-no-persist'}`}>
@@ -318,6 +327,11 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
                       </option>
                     ))}
                   </select>
+                  {queueMeta?.servedFormats && (
+                    <div className="hint">
+                      Для этой очереди доступны только форматы: {queueMeta.servedFormats.map(formatName).join(', ')}.
+                    </div>
+                  )}
                 </div>
                 <button
                   className="btn btn-primary"
@@ -331,7 +345,13 @@ export function QueueEditor({ name, persist: initialPersist, promos: initialProm
             </div>
           )}
 
-          {available.length === 0 && order.length > 0 && (
+          {available.length === 0 && hasIncompatibleCandidates && queueMeta?.servedFormats && (
+            <p style={{ fontSize: 12, color: 'var(--app-fg3)', marginTop: 12 }}>
+              В пуле нет свободных промо подходящего формата ({queueMeta.servedFormats.map(formatName).join(', ')}).
+            </p>
+          )}
+
+          {available.length === 0 && !hasIncompatibleCandidates && order.length > 0 && (
             <p style={{ fontSize: 12, color: 'var(--app-fg3)', marginTop: 12 }}>
               Все промо из пула уже в этой очереди.
             </p>

@@ -119,6 +119,7 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   { name: 'cabinet-onboarding', persist: false }, // ad-cabinet onboarding tooltips (editor lead-by-hand)
   { name: 'persistent-topline', persist: true },
   { name: 'persistent-inline',  persist: true },
+  { name: 'persistent-promoline', persist: true },
   // Per-catalog queues (step B' of the per-catalog rollout,
   // docs 2026-07-01-per-catalog-queues.md): one queue per storefront catalog
   // page context; the BFF picks by format inside the queue.
@@ -151,6 +152,7 @@ export const PROD_SERVED_QUEUES: readonly string[] = [
   'cabinet-onboarding',
   'persistent-topline',
   'persistent-inline',
+  'persistent-promoline',
   // Per-catalog queues — the storefront now requests one per page/catalog
   // (step C cutover, feat/per-catalog-promo-queues): overlay+topline derive the
   // queue from catalogFromPath(). Guarded so they can't be deleted while served.

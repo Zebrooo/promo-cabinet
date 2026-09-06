@@ -10,9 +10,9 @@ import { PUT, DELETE } from './route';
 
 const SECRET = 'unit-test-secret';
 
-const promo = (id: string) => ({
+const promo = (id: string, format: 'inline' | 'promoline' | 'topline' = 'inline') => ({
   id, name: id, startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z',
-  targeting: {}, cooldownHours: 0, format: 'inline' as const, title: id,
+  targeting: {}, cooldownHours: 0, format, title: id,
 });
 
 const seedPool = (promos: unknown[]) =>
@@ -20,10 +20,11 @@ const seedPool = (promos: unknown[]) =>
     Bucket: env.promoBucket, Key: promosKey(), Body: JSON.stringify(promos), ContentType: 'application/json',
   }));
 
-const seedQueue = (ids: string[]) =>
+const seedNamedQueue = (name: string, persist: boolean, ids: string[]) =>
   getS3Client().send(new PutObjectCommand({
-    Bucket: env.promoBucket, Key: queueKey('main'), Body: JSON.stringify({ persist: false, ids }), ContentType: 'application/json',
+    Bucket: env.promoBucket, Key: queueKey(name), Body: JSON.stringify({ persist, ids }), ContentType: 'application/json',
   }));
+const seedQueue = (ids: string[]) => seedNamedQueue('main', false, ids);
 const seedQueuesIndex = (entries: { name: string; persist: boolean }[]) =>
   getS3Client().send(new PutObjectCommand({
     Bucket: env.promoBucket, Key: queuesIndexKey(), Body: JSON.stringify(entries), ContentType: 'application/json',
@@ -48,6 +49,8 @@ afterEach(async () => {
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: promosKey() })).catch(() => {}),
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('main') })).catch(() => {}),
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('secondary') })).catch(() => {}),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('persistent-inline') })).catch(() => {}),
+    getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queueKey('persistent-promoline') })).catch(() => {}),
     getS3Client().send(new DeleteObjectCommand({ Bucket: env.promoBucket, Key: queuesIndexKey() })).catch(() => {}),
   ]);
   process.env = { ...ORIGINAL };
@@ -69,6 +72,70 @@ describe('PUT /api/promos/[id]', () => {
   it('400 when the body id does not match the path id', async () => {
     const res = await PUT(authed({ method: 'PUT', body: JSON.stringify(promo('b')) }), ctx('a'));
     expect(res.status).toBe(400);
+  });
+
+  it('keeps format changes allowed while the promo belongs only to unrestricted queues', async () => {
+    await seedPool([promo('a')]);
+    await seedQueuesIndex([{ name: 'main', persist: false }]);
+    await seedQueue(['a']);
+
+    const res = await PUT(
+      authed({ method: 'PUT', body: JSON.stringify(promo('a', 'promoline')) }),
+      ctx('a'),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await readPool()).find((item) => item.id === 'a')?.format).toBe('promoline');
+  });
+
+  it('rejects a format incompatible with every fixed queue containing the promo', async () => {
+    await seedPool([promo('a', 'promoline')]);
+    await seedQueuesIndex([
+      { name: 'main', persist: false },
+      { name: 'persistent-promoline', persist: true },
+      { name: 'persistent-inline', persist: true },
+    ]);
+    await seedQueue(['a']);
+    await seedNamedQueue('persistent-promoline', true, ['a']);
+    await seedNamedQueue('persistent-inline', true, ['a']);
+
+    const res = await PUT(
+      authed({ method: 'PUT', body: JSON.stringify({ ...promo('a', 'topline'), title: 'Changed' }) }),
+      ctx('a'),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: 'format_not_allowed',
+      promoFormat: 'topline',
+      incompatibleQueues: [
+        { queue: 'persistent-promoline', allowedFormats: ['promoline'] },
+        { queue: 'persistent-inline', allowedFormats: ['inline'] },
+      ],
+    });
+    expect((await readPool()).find((item) => item.id === 'a')).toMatchObject({
+      format: 'promoline',
+      title: 'a',
+    });
+  });
+
+  it('does not mutate the pool when a fixed queue cannot be read safely', async () => {
+    await seedPool([promo('a', 'promoline')]);
+    await seedQueuesIndex([{ name: 'persistent-promoline', persist: true }]);
+    await getS3Client().send(new PutObjectCommand({
+      Bucket: env.promoBucket,
+      Key: queueKey('persistent-promoline'),
+      Body: JSON.stringify({ persist: true, ids: 'broken' }),
+      ContentType: 'application/json',
+    }));
+
+    const res = await PUT(
+      authed({ method: 'PUT', body: JSON.stringify({ ...promo('a', 'promoline'), title: 'Changed' }) }),
+      ctx('a'),
+    );
+
+    expect(res.status).toBe(502);
+    expect((await readPool()).find((item) => item.id === 'a')?.title).toBe('a');
   });
 });
 

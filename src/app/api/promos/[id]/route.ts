@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isAuthed } from '@/lib/api-auth';
 import { promoSchema } from '@/lib/schema';
-import { mutatePool, mutateQueue, readQueuesIndex } from '@/lib/catalogue';
+import { mutatePool, mutateQueue, readQueue, readQueuesIndex } from '@/lib/catalogue';
 import { removePromo, updatePromo, dequeue, NotFoundError } from '@/lib/mutations';
 import { readEnvMode } from '@/lib/env-mode';
+import { QUEUE_META, queueAllowsFormat } from '@/lib/queue-formats';
 
 export const runtime = 'nodejs';
 
@@ -22,8 +23,30 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
     return NextResponse.json({ error: 'id_mismatch' }, { status: 400 });
   }
 
+  const envMode = readEnvMode(req.cookies);
   try {
-    await mutatePool((promos) => updatePromo(promos, params.id, promo), readEnvMode(req.cookies));
+    const index = await readQueuesIndex(envMode);
+    const fixedQueues = index.flatMap((entry) => {
+      const allowedFormats = QUEUE_META[entry.name]?.servedFormats;
+      return allowedFormats ? [{ queue: entry.name, allowedFormats }] : [];
+    });
+    const queueStates = await Promise.all(
+      fixedQueues.map(async (entry) => ({ ...entry, state: await readQueue(entry.queue, envMode) })),
+    );
+    const incompatibleQueues = queueStates.flatMap((entry) =>
+      entry.state.ids.includes(params.id) && !queueAllowsFormat(entry.queue, promo.format)
+        ? [{ queue: entry.queue, allowedFormats: entry.allowedFormats }]
+        : [],
+    );
+    if (incompatibleQueues.length > 0) {
+      return NextResponse.json({
+        error: 'format_not_allowed',
+        promoFormat: promo.format,
+        incompatibleQueues,
+      }, { status: 409 });
+    }
+
+    await mutatePool((promos) => updatePromo(promos, params.id, promo), envMode);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json({ error: 'not_found' }, { status: 404 });
