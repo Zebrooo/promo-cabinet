@@ -185,3 +185,30 @@ export async function aaAdminPost<T = Record<string, unknown>>(
   const json = (await res.json()) as T;
   return { status: res.status, body: json };
 }
+
+/**
+ * Push-admin calls can legitimately spend several seconds freezing a large
+ * audience in one database transaction. They still never send FCM from the
+ * request itself; the longer timeout only covers the durable enqueue/RPC.
+ */
+export async function pushAdminPost<T = Record<string, unknown>>(
+  path: string,
+  body: Record<string, unknown> = {},
+): Promise<AaAdminResult<T>> {
+  const res = await fetch(`${bffUrl()}${path}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      [SERVICE_TICKET_HEADER]: ticket(),
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`BFF ${path} returned non-JSON ${res.status}`);
+  }
+  return { status: res.status, body: (await res.json()) as T };
+}
