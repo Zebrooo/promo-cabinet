@@ -346,12 +346,13 @@ export const inlinePromoSchema = servingBlockSchema.extend({
 });
 
 /** Слой 2, член 2/9: promoline. Строка-карточка между объявлениями в ленте
- *  каталога (авто/шины/диски, после четвёртой органической карточки, один
- *  показ на документ). Контент байт-в-байт как у inline: витрина рендерит его
- *  тем же inline-рендерером — @zebrooo/promo-renderer формата `promoline` не
- *  знает, поэтому кабинет мапит его на `inline` в toAdvertisement
- *  (PromoPreview.tsx). Отдельный член union нужен, чтобы поверхность можно
- *  было адресовать очередью/фильтром, а не хардкодом префикса id. */
+ *  каталога (авто/шины/диски, после N-й органической карточки — afterListings,
+ *  по умолчанию четвёртой; один показ на документ). Контент как у inline плюс
+ *  afterListings: витрина рендерит его тем же inline-рендерером —
+ *  @zebrooo/promo-renderer формата `promoline` не знает, поэтому кабинет
+ *  мапит его на `inline` в toAdvertisement (PromoPreview.tsx). Отдельный член
+ *  union нужен, чтобы поверхность можно было адресовать очередью/фильтром, а
+ *  не хардкодом префикса id. */
 export const promolinePromoSchema = servingBlockSchema.extend({
   format: z.literal('promoline'),
   description: z.string().optional(),
@@ -361,6 +362,19 @@ export const promolinePromoSchema = servingBlockSchema.extend({
   descriptionColor: z.string().optional(),
   textAlign: textAlignSchema.optional(),
   ...ctaBlockShape,
+  /** Позиция в ленте: через сколько органических карточек вставлять строку.
+   *  Единственное поле, которым promoline отличается от inline по контенту
+   *  (у inline своей позиции в ленте нет). Пусто — витрина берёт умолчание
+   *  (четвёртая карточка). Не меньше 4: витрина выбирает промо, когда
+   *  четвёртая карточка уже в зоне первого экрана, переставляет строку под
+   *  это число после выбора и вставляет её только ниже видимой области
+   *  (правило «без сдвига вёрстки»), так что позиция выше четвёртой не
+   *  показалась бы вовсе. */
+  afterListings: z.number()
+    .int('Только целое число объявлений')
+    .min(4, 'Не меньше 4: выше строка не вставляется — она встаёт только ниже первого экрана')
+    .max(50, 'Не больше 50 объявлений')
+    .optional(),
 });
 
 /** Слой 2, член 3/9: topline. БЕЗ imageUrl/backgroundGradient/textAlign.
@@ -536,6 +550,8 @@ export const promoDraftSchema = servingBlockSchema.extend({
   presentation: presentationSchema.optional(),
   variant: z.string().min(1).max(64).optional(),
   dismissible: z.boolean().optional(),
+  /** promoline: позиция строки в ленте (см. promolinePromoSchema). */
+  afterListings: z.number().int().min(4).max(50).optional(),
   ...referralInviteShape,
 });
 
