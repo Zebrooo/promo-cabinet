@@ -28,7 +28,7 @@ async function writeJson(key: string, value: unknown): Promise<void> {
 /**
  * Читает пул ПОШТУЧНО: одно битое промо не должно валить чтение всего каталога
  * (иначе весь кабинет показывает «Не удалось прочитать данные из S3» — инцидент
- * 2026-07-03: custom-промо без title завалило `poolSchema.parse` на весь массив).
+ * 2026-07-03: custom-промо без title завалило `catalogueSchema.parse` на весь массив).
  * Невалидные записи пропускаются с `console.warn`, валидные возвращаются. Тот же
  * подход, что в promo-bff config-service (аудит B4).
  */

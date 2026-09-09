@@ -15,14 +15,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Formik, Form, useFormikContext, setNestedObjectValues } from 'formik';
-import { trackEvent } from '@/lib/analytics';
 import {
   emptyPushCampaignForm, PUSH_BODY_MAX, PUSH_TITLE_MAX,
   type PushCampaign, type PushCampaignFormValues, type PushCampaignInput,
 } from '@/lib/push-campaign-schema';
 import { describePushError } from '@/lib/push-campaign-summary';
 import { EDITOR_CSS } from '@/components/promo-form/editor-styles';
-import { FieldError } from '@/components/promo-form/fields';
+import { FieldError, scrollToFirstFieldError } from '@/components/promo-form/fields';
 import { TargetingSection } from '@/components/promo-form/sections/TargetingSection';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
 import { validatePushCampaignForm } from './validate';
@@ -96,6 +95,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
       // стать touched — иначе FieldError под ними не покажется.
       setTouched(setNestedObjectValues(formErrors, true), false);
       setError('Проверьте поля формы — есть ошибки.');
+      scrollToFirstFieldError();
       return null;
     }
     try {
@@ -114,11 +114,9 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
     const saved = await saveDraft(input);
     setBusy(null);
     if (!saved.ok) {
-      trackEvent('push_campaign_save_failed', { reason: saved.message.slice(0, 120) });
       setError(saved.message);
       return;
     }
-    trackEvent('push_campaign_save_success', { push_campaign_id: saved.campaign.id, mode });
     router.push('/cabinet/push'); router.refresh();
   }
 
@@ -144,14 +142,12 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
     const sent = await sendCampaign(saved.campaign.id);
     setBusy(null);
     if (!sent.ok) {
-      trackEvent('push_campaign_send_failed', { push_campaign_id: saved.campaign.id, reason: sent.message.slice(0, 120) });
       // Черновик уже сохранён — при создании уводим на его страницу, чтобы
       // повторная попытка не плодила дубли.
       if (mode === 'create') { router.push(`/cabinet/push/${encodeURIComponent(saved.campaign.id)}?error=${encodeURIComponent(sent.message)}`); return; }
       setError(sent.message);
       return;
     }
-    trackEvent('push_campaign_send_success', { push_campaign_id: saved.campaign.id, users: sent.campaign.sendResult?.users ?? 0 });
     router.push('/cabinet/push'); router.refresh();
   }
 
@@ -170,7 +166,6 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
     }
     setBusy(null);
     if (res.ok) {
-      trackEvent('push_campaign_delete_success', { push_campaign_id: values.id });
       router.push('/cabinet/push'); router.refresh(); return;
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -187,7 +182,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
         <Link href="/cabinet/push" className="editor-back">← К списку рассылок</Link>
         <div className="editor-actions">
           {mode === 'edit' && (
-            <button type="button" className="ebtn ebtn-danger" disabled={disabled} onClick={remove} data-track="push_campaign_delete" data-track-id={values.id}>
+            <button type="button" className="ebtn ebtn-danger" disabled={disabled} onClick={remove}>
               {busy === 'delete' ? 'Удаляю…' : 'Удалить'}
             </button>
           )}
@@ -200,11 +195,11 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
             disabled={disabled || !broadcastConfigured}
             onClick={submitSend}
             title={broadcastConfigured ? 'Сохранить черновик и разослать пуш всем пользователям с токенами' : 'У BFF не настроена отправка (AA_BASE_URL / PROMO_TICKET_PRIVATE_KEY)'}
-            data-track="push_campaign_send"
           >
             {busy === 'send' ? 'Отправляю…' : 'Отправить пуш'}
           </button>
         </div>
+        {error && <div className="editor-bar-error" role="alert">{error}</div>}
       </div>
 
       <header className="editor-head">
@@ -243,7 +238,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
                 placeholder="Скидка 20% на шины до воскресенья"
                 disabled={disabled}
               />
-              {fieldError('title') && <div className="hint hint-warn">{fieldError('title')}</div>}
+              {fieldError('title') && <div className="hint hint-warn ef-field-error">{fieldError('title')}</div>}
             </div>
 
             <div className="ef-field">
@@ -262,7 +257,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
                 placeholder="Коротко: что предлагаем и до какого числа. Длинный текст на телефоне обрежется."
                 disabled={disabled}
               />
-              {fieldError('body') && <div className="hint hint-warn">{fieldError('body')}</div>}
+              {fieldError('body') && <div className="hint hint-warn ef-field-error">{fieldError('body')}</div>}
             </div>
 
             <div className="ef-field">
@@ -278,7 +273,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
                 disabled={disabled}
               />
               <div className="hint">Путь витрины (откроется в приложении) или полная http(s)-ссылка.</div>
-              {fieldError('url') && <div className="hint hint-warn">{fieldError('url')}</div>}
+              {fieldError('url') && <div className="hint hint-warn ef-field-error">{fieldError('url')}</div>}
             </div>
 
             <div className="ef-field">
@@ -297,8 +292,6 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
           <div className="hint">
             Фильтры сохраняются вместе с рассылкой; на первом этапе пуш уходит всем пользователям с включёнными уведомлениями.
           </div>
-
-          {error && <div className="ef-error">{error}</div>}
         </div>
       </div>
 

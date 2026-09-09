@@ -3,12 +3,22 @@ import { notFound } from 'next/navigation';
 import { requireSession } from '@/lib/require-session';
 import { readPool, readMembership } from '@/lib/catalogue';
 import { readEnvMode } from '@/lib/env-mode';
-import { PromoForm } from '@/components/PromoForm';
+import { PromoForm } from '@/components/promo-form/PromoForm';
 import { PromoAnalyticsBlock } from '@/components/PromoAnalyticsBlock';
 
 export const dynamic = 'force-dynamic';
 
-export default async function EditPromoPage({ params }: { params: { id: string } }) {
+/** ?created=1 ставит форма сразу после первого сохранения: промо ещё ни в
+ *  одной очереди, и человеку нужно сказать, что делать дальше. */
+const CREATED_NOTICE = 'Промо создано. Теперь добавьте его в очереди показа — без очереди витрина его не покажет.';
+
+export default async function EditPromoPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { created?: string };
+}) {
   requireSession();
   const envMode = readEnvMode(cookies());
 
@@ -27,6 +37,7 @@ export default async function EditPromoPage({ params }: { params: { id: string }
         queueNames={queueNames}
         membership={membership}
         poolPromos={promos.map((p) => ({ id: p.id, title: p.title }))}
+        notice={searchParams.created ? CREATED_NOTICE : undefined}
       />
     </>
   );

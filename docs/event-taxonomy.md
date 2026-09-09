@@ -10,9 +10,11 @@ Auto-enriched: `referrer_source` (web client), `auth_state` (web /api/track), `s
 - (existing: listing_view, listing_engagement, contact_click, category_click, boost_purchase_*, …)
 
 ## promo-cabinet (admin)
-Фактически отправляемые события (см. `grep trackEvent( src`):
-- `cabinet_page_view` { page }
-- `promo_save_success` { promo_id, format } / `promo_save_failed` { reason }
-- `promo_delete_success` { promo_id, format }
-- `promo_image_upload_success` / `promo_image_upload_failed` { kind: upload|generate }
-- `push_subscribe_success` / `push_unsubscribe` — Web Push-подписка админа на пуши о новых кампаниях (клики по кнопкам: `push_enable` / `push_disable` через data-track)
+Кабинет **не пишет** в `user_action_events` (решение владельца 2026-09-09,
+см. `docs/2026-09-09-cabinet-audit.md` § 2.8): один общий админский аккаунт,
+клики по его кнопкам в BFF были шумом. Удалены `AutoClickTracker`,
+`CabinetPageView`, `lib/analytics.ts`, `lib/track-attrs.ts` и роут
+`POST /api/track`; `POST /events` BFF кабинет больше не зовёт. Поведение
+самого кабинета — в Яндекс.Метрике (`NEXT_PUBLIC_YM_COUNTER_ID`).
+Ошибки браузера по-прежнему уходят в BFF `/errors` через `/api/track-error`
+(это инцидент-репортинг, не аналитика).

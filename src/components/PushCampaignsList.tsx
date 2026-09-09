@@ -4,7 +4,6 @@
 // монтировании; «Отправить» и «Удалить» дёргают /api/push-campaigns/*.
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { trackEvent } from '@/lib/analytics';
 import type { PushCampaign } from '@/lib/push-campaign-schema';
 import { describePushError, formatPushWhen, formatSendResult, PUSH_STATUS_LABEL, pushTargetingSummary } from '@/lib/push-campaign-summary';
 import { safeHttpUrl } from '@/components/RecentCampaignsList';
@@ -63,13 +62,11 @@ function CampaignCard({
               disabled={busy || !broadcastConfigured}
               title={broadcastConfigured ? undefined : 'У BFF не настроена отправка (AA_BASE_URL / PROMO_TICKET_PRIVATE_KEY)'}
               onClick={onSend}
-              data-track="push_campaign_send"
-              data-track-id={c.id}
             >
               {busy ? 'Отправляю…' : 'Отправить пуш'}
             </button>
           )}
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onDelete} data-track="push_campaign_delete" data-track-id={c.id}>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onDelete}>
             Удалить
           </button>
         </div>
@@ -120,10 +117,8 @@ export function PushCampaignsList() {
     const data = (await res.json().catch(() => ({}))) as { campaign?: PushCampaign; error?: string; reason?: string };
     setBusyId(null);
     if (!res.ok || !data.campaign) {
-      trackEvent('push_campaign_send_failed', { push_campaign_id: c.id, reason: (data.error ?? String(res.status)).slice(0, 120) });
       setFlash(describePushError(res.status, data));
     } else {
-      trackEvent('push_campaign_send_success', { push_campaign_id: c.id, users: data.campaign.sendResult?.users ?? 0 });
       setFlash(`Рассылка «${c.title}» отправлена: ${formatSendResult(data.campaign.sendResult)}.`);
     }
     await refresh();
@@ -146,7 +141,6 @@ export function PushCampaignsList() {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       setFlash(describePushError(res.status, data));
     } else {
-      trackEvent('push_campaign_delete_success', { push_campaign_id: c.id });
     }
     await refresh();
   }

@@ -4,7 +4,7 @@
  * /data/promo-bff/node_modules/@zebrooo/service-ticket/dist/index.js).
  *
  * Продуктовая аналитика переехала в Яндекс.Метрику — здесь остались показы по
- * промке (getPromoTimeline) + инфра (error/event/referral).
+ * промке (getPromoTimeline) + инфра (error/referral).
  */
 import { createPrivateKey, sign as edSign } from 'node:crypto';
 
@@ -123,15 +123,6 @@ export interface BffErrorPayload {
 }
 export async function reportErrorToBff(payload: BffErrorPayload): Promise<void> {
   await bffPost('/errors', payload as unknown as Record<string, unknown>);
-}
-
-// ── Event recording ───────────────────────────────────────────────────────────
-export interface BffEventPayload {
-  eventName: string; props: Record<string, unknown>;
-  pagePath: string | null; sessionId: string | null; userId: string | null; userAgent: string | null;
-}
-export async function recordEventToBff(payload: BffEventPayload): Promise<void> {
-  await bffPost('/events', payload as unknown as Record<string, unknown>);
 }
 
 // ── Referral config mirror ──────────────────────────────────────────────

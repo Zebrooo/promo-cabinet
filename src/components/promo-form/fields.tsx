@@ -21,7 +21,22 @@ function FieldError({ name }: { name: string }) {
   // здесь показываем только строку (ошибку самого блока), иначе React
   // упадёт на объекте-ребёнке.
   if (!meta.touched || typeof meta.error !== 'string' || !meta.error) return null;
-  return <div className="hint hint-warn">{meta.error}</div>;
+  return <div className="hint hint-warn ef-field-error">{meta.error}</div>;
+}
+
+/** Кнопка «Сохранить» живёт в липкой панели, а поле с ошибкой может быть на
+ *  два экрана ниже: после сабмита с ошибками прокручиваем к первой из них.
+ *  Два кадра ожидания: FieldError появляется после setTouched на следующем
+ *  рендере, а свёрнутая карточка таргетинга с ошибкой раскрывается ещё одним
+ *  рендером позже (эффект в TargetingSection). Не нашли — молча выходим:
+ *  текст ошибки и так виден в липкой панели. */
+export function scrollToFirstFieldError(): void {
+  if (typeof document === 'undefined') return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.querySelector('.ef-field-error')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  });
 }
 
 export function TextareaField({

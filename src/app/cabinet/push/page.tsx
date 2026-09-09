@@ -20,7 +20,7 @@ export default function PushCampaignsPage() {
           <h1>Push-рассылки</h1>
         </div>
         <div className="right">
-          <Link href="/cabinet/push/new" className="btn btn-primary" data-track="push_campaign_new">+ Новая рассылка</Link>
+          <Link href="/cabinet/push/new" className="btn btn-primary">+ Новая рассылка</Link>
         </div>
       </div>
       <p className="cmp-intro">

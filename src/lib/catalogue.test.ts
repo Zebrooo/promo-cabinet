@@ -63,7 +63,7 @@ describe('pool', () => {
   });
   it('skips an invalid promo instead of failing the whole read (one bad promo must not dark the cabinet)', async () => {
     // 2 валидных + 1 битое (без title — форма инцидента 2026-07-03: custom-промо
-    // без title валило poolSchema.parse на весь массив).
+    // без title валило catalogueSchema.parse на весь массив).
     const bad = { id: 'bad', name: 'bad', startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z', targeting: {}, cooldownHours: 0, format: 'inline' };
     await put(promosKey(), JSON.stringify([make('a'), bad, make('b')]));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
