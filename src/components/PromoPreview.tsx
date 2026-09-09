@@ -201,7 +201,7 @@ export function PromoPreview({ promo }: { promo: Promo }) {
     >
       {promo.format === 'promoline' && (
         <p className="preview-note">
-          Показывается строкой между объявлениями в ленте авто/шин/дисков после четвёртой карточки.
+          Показывается строкой между объявлениями в ленте авто/шин/дисков после {promo.afterListings ?? 4}-й карточки.
         </p>
       )}
       <PromoProvider config={{ navigate: noop }}>
