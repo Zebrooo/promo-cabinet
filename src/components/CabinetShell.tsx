@@ -18,7 +18,6 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LogoutButton } from '@/components/LogoutButton';
 import { EnvSwitch, EnvBanner } from '@/components/EnvSwitch';
-import { PendingCampaignsBadge } from '@/components/PendingCampaignsBadge';
 import type { EnvMode } from '@/lib/env-mode';
 
 interface NavItem {
@@ -37,9 +36,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/cabinet/metrics',     label: 'Метрики',     matchExact: false },
 ];
 
-// Модерация кампаний рекламодателей — единственный пункт со счётчиком
-// «сколько ждёт». Бейдж клиентский (опрашивает BFF через /api/campaigns).
-const CAMPAIGNS_HREF = '/cabinet/campaigns';
 
 // Map first matching nav item → breadcrumb tail text.
 function breadcrumbFor(path: string): string {
@@ -88,7 +84,6 @@ function NavRail() {
             >
               <span className="nav-item-icon" aria-hidden />
               <span className="nav-item-label">{label}</span>
-              {href === CAMPAIGNS_HREF && <PendingCampaignsBadge />}
             </Link>
           );
         })}

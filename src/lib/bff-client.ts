@@ -154,26 +154,12 @@ export async function syncReferralConfigToBff(payload: ReferralConfigSyncPayload
   await bffPost('/referral-config/sync', payload as unknown as Record<string, unknown>);
 }
 
-// ── Модерация рекламных кампаний рекламодателей ─────────────────────────
-// Кампании создаёт витрина (ЛК «Реклама») в своей Supabase; BFF заводит
-// каждую новую в очередь на подтверждение и шлёт админам уведомление
-// (/campaign-moderation/* в promo-bff). Кабинет здесь — только пульт:
-// список ожидающих + кнопки «Подтвердить/Отклонить». Типы зеркалят
-// promo-bff/src/services/campaign-moderation.ts.
-export type CampaignModerationDecision = 'pending' | 'approved' | 'rejected';
-
-export interface CampaignModerationEntry {
-  decision: CampaignModerationDecision;
-  seenAt: string;
-  decidedAt?: string;
-  decidedBy?: string;
-  reason?: string;
-  notifiedAt?: string;
-  dbStatusAfterDecision?: string;
-  resubmittedAt?: string;
-}
-
-export interface ModeratedCampaign {
+// ── Новые рекламные кампании рекламодателей ─────────────────────────────
+// Кампании создаёт витрина (ЛК «Реклама») в своей Supabase; BFF о каждой
+// новой шлёт админам пуш (/new-campaigns/* в promo-bff). Кабинет показывает
+// последние новые и даёт подписаться на пуши. Типы зеркалят
+// promo-bff/src/services/new-campaign-watcher.ts.
+export interface RecentCampaign {
   id: number;
   advertiserId: string;
   status: string;
@@ -191,33 +177,23 @@ export interface ModeratedCampaign {
   startsAt: string | null;
   endsAt: string | null;
   creative: unknown;
-  moderation: CampaignModerationEntry;
-  /** Копейки на кошельке рекламодателя; null = кошелька нет / не прочитался. */
-  balanceKopecks: number | null;
-  zeroBalance: boolean;
+  /** Когда BFF впервые увидел кампанию. */
+  seenAt: string;
+  /** Когда админам ушёл пуш; null = не доставлен. */
+  notifiedAt: string | null;
 }
 
-export interface CampaignModerationListing {
-  pending: ModeratedCampaign[];
-  recent: ModeratedCampaign[];
+export interface RecentCampaignsListing {
+  campaigns: RecentCampaign[];
   /** Какие каналы уведомлений настроены у BFF (webPush | telegram). */
   channels: ('webPush' | 'telegram')[];
 }
 
-/** Ручки модерации отвечают осмысленными кодами (503 moderation_not_configured,
- *  404 not_found, 502 moderation_unavailable) — как и aa-admin, их надо
- *  пробросить в кабинет как есть, поэтому тот же не-бросающий aaAdminPost. */
-export function listCampaignsForModeration(): Promise<AaAdminResult<CampaignModerationListing | { error: string }>> {
-  return aaAdminPost<CampaignModerationListing | { error: string }>('/campaign-moderation/list', {});
-}
-
-export function decideCampaign(input: {
-  campaignId: number;
-  decision: 'approved' | 'rejected';
-  reason?: string;
-  actor: string;
-}): Promise<AaAdminResult<{ ok: true; campaign: ModeratedCampaign } | { error: string }>> {
-  return aaAdminPost<{ ok: true; campaign: ModeratedCampaign } | { error: string }>('/campaign-moderation/decide', input);
+/** Ручка отвечает осмысленными кодами (503 campaigns_not_configured, 502
+ *  campaigns_unavailable) — как и aa-admin, их надо пробросить в кабинет
+ *  как есть, поэтому тот же не-бросающий aaAdminPost. */
+export function listRecentCampaigns(): Promise<AaAdminResult<RecentCampaignsListing | { error: string }>> {
+  return aaAdminPost<RecentCampaignsListing | { error: string }>('/new-campaigns/recent', {});
 }
 
 // ── Abkhaz Auto: канарейка релиза + эксперименты ─────────────────────────
