@@ -34,10 +34,9 @@ describe('toAdvertisement', () => {
     },
   );
 
-  // @zebrooo/promo-renderer формата promoline не знает — витрина рисует эту
-  // строку inline-рендерером, поэтому кабинет мапит формат на inline на
-  // границе с пакетом. В самом промо (схема/пул/очереди) формат остаётся своим.
-  it('maps promoline to inline for the renderer, keeping the inline content', () => {
+  // promoline — нативный формат @zebrooo/promo-renderer: формат отдаётся как
+  // есть (превью рендерит нативный promoline), вместе с позицией в ленте.
+  it('passes promoline through as is, keeping the inline content and afterListings', () => {
     const promo: Promo = {
       id: 'parts-rfq-promoline',
       name: 'Запчасти — строка в ленте',
@@ -50,18 +49,20 @@ describe('toAdvertisement', () => {
       format: 'promoline',
       imageUrl: 'https://cdn.example.com/part.png',
       action: { href: '/parts/request', label: 'Оставить заявку' },
+      afterListings: 8,
     };
 
     const ad = toAdvertisement(promo);
 
-    expect(ad.format).toBe('inline');
+    expect(ad.format).toBe('promoline');
+    expect(ad.afterListings).toBe(8);
     expect(ad.title).toBe('Запчасть найдут магазины');
     expect(ad.description).toBe('Опишите её один раз');
     expect(ad.imageUrl).toBe('https://cdn.example.com/part.png');
     expect(ad.action).toEqual({ href: '/parts/request', label: 'Оставить заявку' });
   });
 
-  it('does not rewrite the format of any other promo type', () => {
+  it('does not rewrite the format of any promo type', () => {
     for (const format of promoFormats) {
       const ad = toAdvertisement({
         id: `id-${format}`,
@@ -73,7 +74,7 @@ describe('toAdvertisement', () => {
         cooldownHours: 0,
         format,
       });
-      expect(ad.format, format).toBe(format === 'promoline' ? 'inline' : format);
+      expect(ad.format, format).toBe(format);
     }
   });
 
