@@ -8,7 +8,6 @@
 // своём устройстве отдельно (в кабинете одна общая учётка, привязать к
 // человеку нечего).
 import { useCallback, useEffect, useState } from 'react';
-import { trackEvent } from '@/lib/analytics';
 
 type State =
   | { kind: 'checking' }
@@ -111,7 +110,6 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
         setState({ kind: 'off' });
         return;
       }
-      trackEvent('push_subscribe_success');
       setState({ kind: 'on', endpoint: sub.endpoint });
     } catch (e) {
       setError(e instanceof Error && e.message ? `Не удалось включить: ${e.message}` : 'Не удалось включить уведомления.');
@@ -141,7 +139,6 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
       const reg = await registration();
       const sub = await reg.pushManager.getSubscription();
       await sub?.unsubscribe();
-      trackEvent('push_unsubscribe');
       setState({ kind: 'off' });
     } catch {
       setError('Не удалось выключить уведомления.');
@@ -162,7 +159,7 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
         <span className="push-hint">Уведомления запрещены в настройках браузера для этого сайта — разрешите их и обновите страницу.</span>
       )}
       {state.kind === 'off' && (
-        <button type="button" className="btn btn-primary" onClick={enable} data-track="push_enable">
+        <button type="button" className="btn btn-primary" onClick={enable}>
           Включить уведомления
         </button>
       )}
@@ -172,7 +169,7 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
       {state.kind === 'on' && (
         <>
           <span className="badge badge-active">Пуши включены в этом браузере</span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={disable} data-track="push_disable">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={disable}>
             Выключить
           </button>
         </>

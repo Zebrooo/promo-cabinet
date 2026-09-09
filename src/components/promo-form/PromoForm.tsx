@@ -24,7 +24,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Formik, Form, useFormikContext, setNestedObjectValues } from 'formik';
 import Link from 'next/link';
-import { trackEvent } from '@/lib/analytics';
 import type { Promo } from '@/lib/schema';
 import { AiEnhanceButton } from '@/components/AiEnhanceButton';
 import { EnhanceDiff, type EnhancePatch } from '@/components/EnhanceDiff';
@@ -240,7 +239,6 @@ function FormBody({
       return;
     }
     if (res.ok) {
-      trackEvent('promo_save_success', { promo_id: values.id, format: values.format });
       // referral-invite is a config-only custom promo: nothing renders on the
       // site, but its fields must additionally land in abkhaz-Supabase
       // referral_config (id=1), which only promo-bff can reach. The S3 save
@@ -280,7 +278,6 @@ function FormBody({
     setSaving(false);
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     const errKey = data.error ?? '';
-    trackEvent('promo_save_failed', { reason: errKey.slice(0, 120) });
     setError(ERROR_MESSAGES[errKey] ?? `Не удалось сохранить (ошибка ${res.status}).`);
   }
 
@@ -300,7 +297,6 @@ function FormBody({
       return;
     }
     if (res.ok) {
-      trackEvent('promo_delete_success', { promo_id: values.id, format: values.format });
       router.push('/cabinet'); router.refresh(); return;
     }
     setDeleting(false);
@@ -337,8 +333,6 @@ function FormBody({
               className="ebtn ebtn-danger"
               disabled={saving || deleting}
               onClick={deletePromo}
-              data-track="promo_delete"
-              data-track-id={values.id}
             >
               {deleting ? 'Удаляю…' : 'Удалить промо'}
             </button>
@@ -348,8 +342,6 @@ function FormBody({
               href={`/cabinet/new?from=${encodeURIComponent(values.id)}`}
               className="ebtn ebtn-ghost"
               title="Открыть форму нового промо с теми же форматом, контентом, таргетингом и лимитами"
-              data-track="promo_duplicate"
-              data-track-id={values.id}
               onClick={(e) => { if (guardUnsaved && !confirm(UNSAVED_PROMPT)) e.preventDefault(); }}
             >
               Дублировать

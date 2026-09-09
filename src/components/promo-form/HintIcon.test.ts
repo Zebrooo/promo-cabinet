@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Компонентный тест HintIcon (прецедент jsdom — src/lib/track-attrs.test.ts):
+// Компонентный тест HintIcon (jsdom):
 // вся ценность компонента — поведение открытия/закрытия попапа, это и фиксируем.
 import { describe, expect, it, afterEach } from 'vitest';
 import { act, createElement } from 'react';
