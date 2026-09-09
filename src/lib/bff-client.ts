@@ -154,6 +154,72 @@ export async function syncReferralConfigToBff(payload: ReferralConfigSyncPayload
   await bffPost('/referral-config/sync', payload as unknown as Record<string, unknown>);
 }
 
+// ── Модерация рекламных кампаний рекламодателей ─────────────────────────
+// Кампании создаёт витрина (ЛК «Реклама») в своей Supabase; BFF заводит
+// каждую новую в очередь на подтверждение и шлёт админам уведомление
+// (/campaign-moderation/* в promo-bff). Кабинет здесь — только пульт:
+// список ожидающих + кнопки «Подтвердить/Отклонить». Типы зеркалят
+// promo-bff/src/services/campaign-moderation.ts.
+export type CampaignModerationDecision = 'pending' | 'approved' | 'rejected';
+
+export interface CampaignModerationEntry {
+  decision: CampaignModerationDecision;
+  seenAt: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  reason?: string;
+  notifiedAt?: string;
+  dbStatusAfterDecision?: string;
+  resubmittedAt?: string;
+}
+
+export interface ModeratedCampaign {
+  id: number;
+  advertiserId: string;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  name: string | null;
+  format: string | null;
+  slot: string | null;
+  bannerFormat: string | null;
+  cpmKopecks: number;
+  totalBudgetKopecks: number | null;
+  dailyBudgetKopecks: number | null;
+  spentKopecks: number;
+  targetPages: string[] | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  creative: unknown;
+  moderation: CampaignModerationEntry;
+  /** Копейки на кошельке рекламодателя; null = кошелька нет / не прочитался. */
+  balanceKopecks: number | null;
+  zeroBalance: boolean;
+}
+
+export interface CampaignModerationListing {
+  pending: ModeratedCampaign[];
+  recent: ModeratedCampaign[];
+  /** Какие каналы уведомлений настроены у BFF (webPush | telegram). */
+  channels: ('webPush' | 'telegram')[];
+}
+
+/** Ручки модерации отвечают осмысленными кодами (503 moderation_not_configured,
+ *  404 not_found, 502 moderation_unavailable) — как и aa-admin, их надо
+ *  пробросить в кабинет как есть, поэтому тот же не-бросающий aaAdminPost. */
+export function listCampaignsForModeration(): Promise<AaAdminResult<CampaignModerationListing | { error: string }>> {
+  return aaAdminPost<CampaignModerationListing | { error: string }>('/campaign-moderation/list', {});
+}
+
+export function decideCampaign(input: {
+  campaignId: number;
+  decision: 'approved' | 'rejected';
+  reason?: string;
+  actor: string;
+}): Promise<AaAdminResult<{ ok: true; campaign: ModeratedCampaign } | { error: string }>> {
+  return aaAdminPost<{ ok: true; campaign: ModeratedCampaign } | { error: string }>('/campaign-moderation/decide', input);
+}
+
 // ── Abkhaz Auto: канарейка релиза + эксперименты ─────────────────────────
 // В отличие от bffPost() выше, эти ручки МУТИРУЮТ прод-раскатку и штатно
 // отвечают 409/503 с телом-объяснением (канарейка не включена / окружение не

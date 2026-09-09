@@ -18,6 +18,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LogoutButton } from '@/components/LogoutButton';
 import { EnvSwitch, EnvBanner } from '@/components/EnvSwitch';
+import { PendingCampaignsBadge } from '@/components/PendingCampaignsBadge';
 import type { EnvMode } from '@/lib/env-mode';
 
 interface NavItem {
@@ -30,14 +31,20 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/cabinet',             label: 'Все промо',   matchExact: true  },
   { href: '/cabinet/queues',      label: 'Очереди',     matchExact: false },
+  { href: '/cabinet/campaigns',   label: 'Кампании',    matchExact: false },
   { href: '/cabinet/abkhaz-auto', label: 'Abkhaz Auto', matchExact: false },
   { href: '/cabinet/leads',       label: 'Лиды',        matchExact: false },
   { href: '/cabinet/metrics',     label: 'Метрики',     matchExact: false },
 ];
 
+// Модерация кампаний рекламодателей — единственный пункт со счётчиком
+// «сколько ждёт». Бейдж клиентский (опрашивает BFF через /api/campaigns).
+const CAMPAIGNS_HREF = '/cabinet/campaigns';
+
 // Map first matching nav item → breadcrumb tail text.
 function breadcrumbFor(path: string): string {
   if (path.startsWith('/cabinet/queues'))      return '/ очереди';
+  if (path.startsWith('/cabinet/campaigns'))   return '/ кампании';
   if (path.startsWith('/cabinet/abkhaz-auto')) return '/ abkhaz auto';
   if (path.startsWith('/cabinet/leads'))       return '/ лиды';
   if (path.startsWith('/cabinet/metrics'))     return '/ метрики';
@@ -81,6 +88,7 @@ function NavRail() {
             >
               <span className="nav-item-icon" aria-hidden />
               <span className="nav-item-label">{label}</span>
+              {href === CAMPAIGNS_HREF && <PendingCampaignsBadge />}
             </Link>
           );
         })}
@@ -94,6 +102,7 @@ function NavRail() {
 const MOBILE_TABS: NavItem[] = [
   { href: '/cabinet',             label: 'Промо',   matchExact: true  },
   { href: '/cabinet/queues',      label: 'Очереди', matchExact: false },
+  { href: '/cabinet/campaigns',   label: 'Кампании', matchExact: false },
   { href: '/cabinet/abkhaz-auto', label: 'AA',      matchExact: false },
   { href: '/cabinet/leads',       label: 'Лиды',    matchExact: false },
   { href: '/cabinet/metrics',     label: 'Метрики', matchExact: false },
