@@ -3,6 +3,8 @@ import { env } from '@/env';
 import { promosKey, queuesIndexKey, queueKey, legacyQueueKey, getS3Client, isNoSuchKey } from './s3';
 import { promoSchema, queueSchema, queuesIndexSchema, queueObjectSchema, type Promo, type QueueObject, type QueuesIndex } from './schema';
 import type { EnvMode } from './env-mode';
+import { withCatalogueLock } from './catalogue-lock';
+import { CANONICAL_QUEUES } from './catalogue-consts';
 
 /** A missing object reads as null. */
 async function readText(key: string): Promise<string | null> {
@@ -15,7 +17,8 @@ async function readText(key: string): Promise<string | null> {
   }
 }
 
-/** Plain (unconditional) PUT — the bucket.ru backend has no conditional writes (last-write-wins). */
+/** Plain (unconditional) PUT — the bucket.ru backend has no conditional writes;
+ *  конкурентные мутации сериализует catalogue-lock.ts. */
 async function writeJson(key: string, value: unknown): Promise<void> {
   await getS3Client().send(
     new PutObjectCommand({ Bucket: env.promoBucket, Key: key, Body: JSON.stringify(value, null, 2), ContentType: 'application/json' }),
@@ -52,11 +55,14 @@ export async function writePool(promos: Promo[], envMode: EnvMode = 'prod'): Pro
   await writeJson(promosKey(envMode), promos);
 }
 
-/** Read-modify-write the pool (last-write-wins). A domain error in `apply` propagates before any write. */
-export async function mutatePool(apply: (promos: Promo[]) => Promo[], envMode: EnvMode = 'prod'): Promise<Promo[]> {
-  const next = apply(await readPool(envMode));
-  await writePool(next, envMode);
-  return next;
+/** Read-modify-write the pool под локом окружения (см. catalogue-lock.ts).
+ *  A domain error in `apply` propagates before any write. */
+export function mutatePool(apply: (promos: Promo[]) => Promo[], envMode: EnvMode = 'prod'): Promise<Promo[]> {
+  return withCatalogueLock(envMode, async () => {
+    const next = apply(await readPool(envMode));
+    await writePool(next, envMode);
+    return next;
+  });
 }
 
 /** Named-queues index: array of { name, persist }. Missing → []. */
@@ -77,11 +83,13 @@ export async function writeQueue(name: string, obj: QueueObject, envMode: EnvMod
   await writeJson(queueKey(name, envMode), obj);
 }
 
-/** Read-modify-write a named queue (last-write-wins). */
-export async function mutateQueue(name: string, apply: (q: QueueObject) => QueueObject, envMode: EnvMode = 'prod'): Promise<QueueObject> {
-  const next = apply(await readQueue(name, envMode));
-  await writeQueue(name, next, envMode);
-  return next;
+/** Read-modify-write a named queue под локом окружения (см. catalogue-lock.ts). */
+export function mutateQueue(name: string, apply: (q: QueueObject) => QueueObject, envMode: EnvMode = 'prod'): Promise<QueueObject> {
+  return withCatalogueLock(envMode, async () => {
+    const next = apply(await readQueue(name, envMode));
+    await writeQueue(name, next, envMode);
+    return next;
+  });
 }
 
 /**
@@ -94,100 +102,11 @@ export async function mutateQueue(name: string, apply: (q: QueueObject) => Queue
  * slot to the storefront means adding its queue name here (and only here —
  * the bootstrap will create the file + register it in queues.json idempotently).
  */
-/**
- * Per-device очереди (web/touch/mobile). Каждый storefront-каталог получает
- * ТРИ независимых пула — сторфронт запрашивает `queue-<catalog>-<device>`:
- *   web    = десктоп-браузер, touch = мобильный браузер, mobile = приложение (WebView).
- * Контент между устройствами НЕ пересекается (независимые пулы, без фолбэка).
- * Первичный засев — scripts/seed-device-queues.ts (копирует из старых catalog-
- * очередей; в mobile — без app-download промо). Держи каталоги в синхроне с
- * CATALOG_BY_PREFIX сторфронта (src/lib/promo-section.ts).
- */
-export const DEVICE_QUEUE_CATALOGS = [
-  'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
-] as const;
-export const QUEUE_DEVICES = ['web', 'touch', 'mobile'] as const;
-export const DEVICE_QUEUES: { name: string; persist: boolean }[] =
-  DEVICE_QUEUE_CATALOGS.flatMap((c) => QUEUE_DEVICES.map((d) => ({ name: `${c}-${d}`, persist: false })));
-
-export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
-  // Legacy pre-cutover queues. Kept until the storefront stops requesting
-  // them (retire = separate step D after the per-catalog cutover).
-  { name: 'home-banner', persist: true  }, // abkhaz-auto topline (cookie-pinned banner)
-  { name: 'home-popup',  persist: false }, // abkhaz-auto popup (rotates per visit)
-  { name: 'tooltip',     persist: false }, // abkhaz-auto tooltip (anchored bubble; site requests this queue)
-  { name: 'cabinet-onboarding', persist: false }, // ad-cabinet onboarding tooltips (editor lead-by-hand)
-  { name: 'persistent-topline', persist: true },
-  { name: 'persistent-inline',  persist: true },
-  { name: 'persistent-promoline', persist: true },
-  // Per-catalog queues (step B' of the per-catalog rollout): one queue per
-  // storefront catalog page context; the BFF picks by format inside the queue.
-  { name: 'home',      persist: false },
-  { name: 'transport', persist: false },
-  { name: 'realty',    persist: false },
-  { name: 'goods',     persist: false },
-  { name: 'services',  persist: false },
-  { name: 'jobs',      persist: false },
-  { name: 'news',      persist: false },
-  { name: 'listing',   persist: false },
-  // Per-device очереди (catalog×{web,touch,mobile}) — актуальный контур раскатки.
-  // Старые catalog-очереди выше остаются до retire-шага (Фаза 4).
-  ...DEVICE_QUEUES,
-];
-
-/**
- * Queue names production consumers request from the BFF RIGHT NOW (storefront
- * slot wiring + ad-cabinet onboarding). Deleting or renaming one of these
- * silently darks a live slot, so the queues API refuses with 409 until the
- * consumer stops requesting the name.
- *
- * After the per-catalog cutover (step C) add the 8 catalog queues here; the
- * legacy names move out only at the retire step D.
- */
-export const PROD_SERVED_QUEUES: readonly string[] = [
-  'home-banner',
-  'home-popup',
-  'tooltip',
-  'cabinet-onboarding',
-  'persistent-topline',
-  'persistent-inline',
-  'persistent-promoline',
-  // Per-catalog queues — the storefront now requests one per page/catalog
-  // (step C cutover, feat/per-catalog-promo-queues): overlay+topline derive the
-  // queue from catalogFromPath(). Guarded so they can't be deleted while served.
-  'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
-  // Per-device очереди — сторфронт запрашивает их после Фазы 3. Guard от удаления.
-  ...DEVICE_QUEUES.map((q) => q.name),
-  // Legacy home-banner/home-popup stay until the retire step D.
-];
-
-/**
- * Named tooltip anchors the storefront sites mark with data-promo-anchor="<id>".
- * Page-scoped: `pages` lists the page contexts where the anchor element exists,
- * so the BFF only serves a tooltip where its anchor is present (mirrors the
- * AD_PAGES/page-targeting model). The advertiser picks an id from this list in
- * the cabinet. Keep in sync with the consumer's data-promo-anchor markup.
- */
-export const CANONICAL_ANCHORS: { id: string; label: string; pages: string[] }[] = [
-  { id: 'home-search',     label: 'Поиск на главной',       pages: ['home'] },
-  { id: 'listing-cta',     label: 'Кнопка на карточке',     pages: ['listing'] },
-  { id: 'catalog-filters', label: 'Фильтры каталога',       pages: ['catalog'] },
-  { id: 'campaign-editor-where',  label: 'Кабинет · шаг «Где показывать»',  pages: ['campaign-editor'] },
-  { id: 'campaign-editor-what',   label: 'Кабинет · шаг «Что на баннере»',  pages: ['campaign-editor'] },
-  { id: 'campaign-editor-budget', label: 'Кабинет · шаг «Сколько платить»', pages: ['campaign-editor'] },
-  { id: 'campaign-editor-submit', label: 'Кабинет · кнопка «Отправить»',    pages: ['campaign-editor'] },
-  // Site anchors mirrored from the storefront's data-promo-anchor markup
-  // (duplicated from data-onboarding-anchor, feat/promo-anchor-coverage).
-  { id: 'categories-sidebar', label: 'Сайдбар категорий',              pages: ['home'] },
-  { id: 'listing-price',      label: 'Цена объявления',                pages: ['listing'] },
-  { id: 'listing-seller',     label: 'Блок продавца',                  pages: ['listing'] },
-  { id: 'lk-sidebar',         label: 'Меню личного кабинета',          pages: ['lk'] },
-  { id: 'lk-hero-kpi',        label: 'KPI-плитка в шапке ЛК',          pages: ['lk'] },
-  { id: 'boost-btn',          label: 'Кнопка «Продвинуть» на карточке', pages: ['lk-obyavleniya'] },
-  { id: 'reklama-wallet',     label: 'Кошелёк рекламы',                pages: ['lk-reklama'] },
-  { id: 'reklama-methods',    label: 'Способы продвижения',            pages: ['lk-reklama'] },
-  { id: 'reklama-banner',     label: 'Карточка «Купить баннер»',        pages: ['lk-reklama'] },
-];
+// Константы (очереди витрины, якоря) — в catalogue-consts.ts без серверных
+// импортов; здесь реэкспорт для серверного кода и тестов.
+export {
+  DEVICE_QUEUE_CATALOGS, QUEUE_DEVICES, DEVICE_QUEUES, CANONICAL_QUEUES, PROD_SERVED_QUEUES, CANONICAL_ANCHORS,
+} from './catalogue-consts';
 
 /**
  * Ensure the cabinet has every queue the storefront expects.

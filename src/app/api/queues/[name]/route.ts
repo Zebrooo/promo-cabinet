@@ -7,6 +7,7 @@ import { reorderQueue, ReorderMismatchError } from '@/lib/mutations';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '@/env';
 import { readEnvMode } from '@/lib/env-mode';
+import { withCatalogueLock } from '@/lib/catalogue-lock';
 
 export const runtime = 'nodejs';
 
@@ -58,12 +59,14 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
     // Reordering an unregistered name would silently create an orphan
     // queue-<name>.json no UI lists — refuse instead.
     const envMode = readEnvMode(req.cookies);
-    const index = await readQueuesIndex(envMode);
-    if (!index.some((e) => e.name === params.name)) {
-      return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
-    }
-    await mutateQueue(params.name, (q) => ({ ...q, ids: reorderQueue(q.ids, ids) }), envMode);
-    return NextResponse.json({ ok: true });
+    return await withCatalogueLock(envMode, async () => {
+      const index = await readQueuesIndex(envMode);
+      if (!index.some((e) => e.name === params.name)) {
+        return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
+      }
+      await mutateQueue(params.name, (q) => ({ ...q, ids: reorderQueue(q.ids, ids) }), envMode);
+      return NextResponse.json({ ok: true });
+    });
   } catch (err) {
     if (err instanceof ReorderMismatchError) return NextResponse.json({ error: 'reorder_mismatch' }, { status: 400 });
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
@@ -82,6 +85,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
 
   const envMode = readEnvMode(req.cookies);
   try {
+    return await withCatalogueLock(envMode, async () => {
     const [queue, index] = await Promise.all([readQueue(params.name, envMode), readQueuesIndex(envMode)]);
     const entryIdx = index.findIndex((e) => e.name === params.name);
     if (entryIdx === -1) return NextResponse.json({ error: 'not_found' }, { status: 404 });
@@ -121,6 +125,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx): Promise<NextResp
     await writeQueuesIndex(newIndex, envMode);
 
     return NextResponse.json({ ok: true });
+    });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
   }
@@ -131,6 +136,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextRes
   const envMode = readEnvMode(req.cookies);
   try {
     if (PROD_SERVED_QUEUES.includes(params.name)) return prodServedConflict();
+    return await withCatalogueLock(envMode, async () => {
     const index = await readQueuesIndex(envMode);
     if (!index.some((e) => e.name === params.name)) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
@@ -149,6 +155,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextRes
       });
     }
     return NextResponse.json({ ok: true });
+    });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
   }

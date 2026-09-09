@@ -1,6 +1,23 @@
 import { z } from 'zod';
 import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
 
+/** Ссылки уходят на витрину в креатив (href кнопки, src картинок). Схема
+ *  «javascript:»/«data:» в href — XSS в чужом документе, поэтому режем на входе.
+ *  Пробелы и управляющие символы перед схемой браузер игнорирует — мы тоже. */
+const DANGEROUS_SCHEME = /^[\s\u0000-\u001f]*(javascript|data|vbscript|file):/i;
+export function isSafeHref(v: string): boolean {
+  return !DANGEROUS_SCHEME.test(v);
+}
+/** href CTA / фоновая картинка: относительный путь, http(s), mailto:, tel: — что угодно, кроме опасных схем. */
+const safeHrefSchema = (msg: string) =>
+  z.string().min(1, msg).refine(isSafeHref, 'Ссылка с такой схемой запрещена');
+/** Абсолютный URL ресурса — только http(s) (zod .url() пропускает любую схему). */
+export function isHttpUrl(v: string): boolean {
+  return /^https?:\/\//i.test(v);
+}
+const HTTP_ONLY = 'Допустимы только http(s)-ссылки';
+const httpUrlSchema = (msg: string) => z.string().url(msg).refine(isHttpUrl, HTTP_ONLY);
+
 export const subscriptionLevelSchema = z.enum(['none', 'plus', 'premium']);
 export const promoFormatSchema = z.enum(['inline', 'promoline', 'popup', 'fullscreen', 'topline', 'divkit', 'tooltip', 'multistep', 'custom']);
 export const promoFormats = promoFormatSchema.options;
@@ -175,7 +192,7 @@ export const presentationSchema = z.enum(['modal', 'fullscreen']);
 export const promoStepSchema = z.object({
   title: z.string().min(1, 'Укажите заголовок шага').max(80, 'Заголовок шага — не длиннее 80 символов'),
   body:  z.string().min(1, 'Укажите текст шага').max(240, 'Текст шага — не длиннее 240 символов'),
-  imageUrl: z.string().url('Некорректный URL картинки').max(1024, 'URL картинки — не длиннее 1024 символов').optional(),
+  imageUrl: z.string().url('Некорректный URL картинки').max(1024, 'URL картинки — не длиннее 1024 символов').refine(isHttpUrl, HTTP_ONLY).optional(),
 });
 
 /**
@@ -306,7 +323,7 @@ export const servingBlockSchema = z.object({
  *  только объект полей для extend. */
 const ctaBlockShape = {
   action: z.object({
-    href: z.string().min(1, 'Укажите ссылку'),
+    href: safeHrefSchema('Укажите ссылку'),
     label: z.string().optional(),
   }).optional(),
   /** Цвет CTA-кнопки (background). Если пусто — дефолт renderer'а
@@ -320,11 +337,11 @@ const ctaBlockShape = {
  *  форматов, вынесен в константу, чтобы не копипастить между членами union. */
 const overlayContentShape = {
   description: z.string().optional(),
-  imageUrl: z.string().url('Некорректный URL картинки').optional(),
+  imageUrl: httpUrlSchema('Некорректный URL картинки').optional(),
   dismissible: z.boolean().optional(),
   backgroundColor: z.string().optional(),
   textColor: z.string().optional(),
-  backgroundImage: z.string().optional(),
+  backgroundImage: safeHrefSchema('Укажите ссылку на фон').optional(),
   backgroundGradient: backgroundGradientSchema.optional(),
   /** Горизонтальное выравнивание контента (title + description). */
   textAlign: textAlignSchema.optional(),
@@ -336,7 +353,7 @@ const overlayContentShape = {
 export const inlinePromoSchema = servingBlockSchema.extend({
   format: z.literal('inline'),
   description: z.string().optional(),
-  imageUrl: z.string().url('Некорректный URL картинки').optional(),
+  imageUrl: httpUrlSchema('Некорректный URL картинки').optional(),
   backgroundColor: z.string().optional(),
   textColor: z.string().optional(),
   descriptionColor: z.string().optional(),
@@ -355,7 +372,7 @@ export const inlinePromoSchema = servingBlockSchema.extend({
 export const promolinePromoSchema = servingBlockSchema.extend({
   format: z.literal('promoline'),
   description: z.string().optional(),
-  imageUrl: z.string().url('Некорректный URL картинки').optional(),
+  imageUrl: httpUrlSchema('Некорректный URL картинки').optional(),
   backgroundColor: z.string().optional(),
   textColor: z.string().optional(),
   descriptionColor: z.string().optional(),
@@ -390,7 +407,7 @@ export const toplinePromoSchema = servingBlockSchema.extend({
 /** Слой 2, член 4/9: popup. */
 export const popupPromoSchema = servingBlockSchema.extend({
   format: z.literal('popup'),
-  divkitUrl: z.string().url('Некорректный URL верстки').optional(),
+  divkitUrl: httpUrlSchema('Некорректный URL верстки').optional(),
   ...overlayContentShape,
 });
 
@@ -410,7 +427,7 @@ export const tooltipPromoSchema = servingBlockSchema.extend({
   format: z.literal('tooltip'),
   anchor: z.string().min(1, 'Укажите якорь'),
   description: z.string().optional(),
-  imageUrl: z.string().url('Некорректный URL картинки').optional(),
+  imageUrl: httpUrlSchema('Некорректный URL картинки').optional(),
   dismissible: z.boolean().optional(),
   backgroundColor: z.string().optional(),
   textColor: z.string().optional(),
@@ -428,7 +445,7 @@ export const multistepPromoSchema = servingBlockSchema.extend({
   presentation: presentationSchema.optional(),
   backgroundColor: z.string().optional(),
   textColor: z.string().optional(),
-  backgroundImage: z.string().optional(),
+  backgroundImage: safeHrefSchema('Укажите ссылку на фон').optional(),
   backgroundGradient: backgroundGradientSchema.optional(),
   ...ctaBlockShape,
 });
@@ -440,7 +457,7 @@ export const multistepPromoSchema = servingBlockSchema.extend({
  *  обнулит это поле. В prod-S3 промо НЕ содержит divkitJson. */
 export const divkitPromoSchema = servingBlockSchema.extend({
   format: z.literal('divkit'),
-  divkitUrl: z.string().url('Некорректный URL верстки').optional(),
+  divkitUrl: httpUrlSchema('Некорректный URL верстки').optional(),
   divkitJson: z.unknown().optional(),
 });
 
@@ -534,15 +551,15 @@ export const promoSchema = z
 export const promoDraftSchema = servingBlockSchema.extend({
   format: promoFormatSchema,
   description: z.string().optional(),
-  imageUrl: z.string().url('Некорректный URL картинки').optional(),
+  imageUrl: httpUrlSchema('Некорректный URL картинки').optional(),
   ...ctaBlockShape,
   backgroundColor: z.string().optional(),
   backgroundGradient: backgroundGradientSchema.optional(),
   textColor: z.string().optional(),
   descriptionColor: z.string().optional(),
-  backgroundImage: z.string().optional(),
+  backgroundImage: safeHrefSchema('Укажите ссылку на фон').optional(),
   textAlign: textAlignSchema.optional(),
-  divkitUrl: z.string().url('Некорректный URL верстки').optional(),
+  divkitUrl: httpUrlSchema('Некорректный URL верстки').optional(),
   divkitJson: z.unknown().optional(),
   anchor: z.string().min(1).optional(),
   steps: z.array(promoStepSchema).min(2).max(6).optional(),

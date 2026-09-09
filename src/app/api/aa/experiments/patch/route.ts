@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
-import { aaEnvSchema, proxyToAaAdmin } from '@/lib/aa-admin';
+import { proxyToAaAdmin } from '@/lib/aa-admin';
 
 export const runtime = 'nodejs';
 
@@ -16,7 +16,6 @@ const patchSchema = z.object({
   authOnly: z.boolean().optional(),
 });
 const bodySchema = z.object({
-  env: aaEnvSchema,
   id: z.string().min(1),
   patch: patchSchema,
 });
@@ -31,5 +30,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  return proxyToAaAdmin('/aa-admin/experiments/patch', body);
+  return proxyToAaAdmin(req, '/aa-admin/experiments/patch', body);
 }

@@ -5,7 +5,7 @@
  * declare `servedFormats`; the cabinet uses that contract in both the picker
  * and enqueue API, without inferring restrictions for other queues.
  */
-import { DEVICE_QUEUE_CATALOGS, QUEUE_DEVICES } from './catalogue';
+import { DEVICE_QUEUE_CATALOGS, QUEUE_DEVICES } from './catalogue-consts';
 import type { Promo } from './schema';
 
 export interface QueueMeta {
