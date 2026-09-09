@@ -15,8 +15,8 @@ importers:
         specifier: ^32.52.0
         version: 32.52.0
       '@zebrooo/promo-renderer':
-        specifier: 0.15.0
-        version: 0.15.0(@divkitframework/divkit@32.52.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 0.16.0
+        version: 0.16.0(@divkitframework/divkit@32.52.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       exceljs:
         specifier: ^4.4.0
         version: 4.4.0
@@ -868,8 +868,8 @@ packages:
   '@vitest/utils@3.2.6':
     resolution: {integrity: sha512-lI23nIs4bnT3T8NIoh+vFaz5s2/DdP0Jgt2jxwgWljvwn82cLJtyi/If+fjFyoLMGIOz0U/fKvWE0d4jsNQEfg==}
 
-  '@zebrooo/promo-renderer@0.15.0':
-    resolution: {integrity: sha512-eGkbnR/Z3Ho5MGFFsHof6sg2wTlwViU/VlvgdEVXSqLXnr+Pm1AH6u422BVI3yPCayssnL3YFywAcJeCTz8MxA==, tarball: https://npm.pkg.github.com/download/@zebrooo/promo-renderer/0.15.0/ca6db088b64bc9e56e1741708a77e0040377c816}
+  '@zebrooo/promo-renderer@0.16.0':
+    resolution: {integrity: sha512-7SZpvFQ+JjWs2XLQIIxpZWIGgg7/qE0WpHHZH8BgoxMsOo8gghsASyfXlu/WVDa6wJRtaF6/TODH4y56maSIkg==, tarball: https://npm.pkg.github.com/download/@zebrooo/promo-renderer/0.16.0/e31e5b524dbb486e42a3239121650f2f7da03557}
     peerDependencies:
       '@divkitframework/divkit': '>=30'
       react: '>=18'
@@ -2371,7 +2371,7 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
-  '@zebrooo/promo-renderer@0.15.0(@divkitframework/divkit@32.52.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@zebrooo/promo-renderer@0.16.0(@divkitframework/divkit@32.52.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@divkitframework/divkit': 32.52.0
       '@floating-ui/dom': 1.7.6

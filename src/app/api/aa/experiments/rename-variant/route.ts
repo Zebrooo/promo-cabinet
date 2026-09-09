@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
-import { aaEnvSchema, proxyToAaAdmin } from '@/lib/aa-admin';
+import { proxyToAaAdmin } from '@/lib/aa-admin';
 
 export const runtime = 'nodejs';
 
@@ -10,7 +10,6 @@ export const runtime = 'nodejs';
 // — на стороне BFF (уникальный constraint), здесь только формат.
 const KEY_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;
 const bodySchema = z.object({
-  env: aaEnvSchema,
   id: z.string().min(1),
   from: z.string().min(1),
   to: z.string().refine((v) => KEY_RE.test(v) || v === 'control', 'Ключ варианта: kebab-case, латиница/цифры'),
@@ -26,5 +25,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  return proxyToAaAdmin('/aa-admin/experiments/rename-variant', body);
+  return proxyToAaAdmin(req, '/aa-admin/experiments/rename-variant', body);
 }

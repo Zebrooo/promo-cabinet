@@ -60,15 +60,15 @@ const OVERLAY_FORMATS = new Set<Promo['format']>(['popup', 'fullscreen', 'multis
  *  DivKit: пробрасываем divkitJson (inline) ИЛИ divkitUrl. Renderer
  *  сам разберётся (inline → используется сразу, иначе fetch'ит URL).
  *
- *  promoline: формата с таким именем @zebrooo/promo-renderer не знает —
- *  витрина рисует эту строку тем же inline-рендерером. Поэтому в
- *  Advertisement он уезжает как 'inline'; в схеме/пуле/очередях промо
- *  остаётся promoline. */
+ *  promoline: нативный формат @zebrooo/promo-renderer (та же вёрстка, что у
+ *  inline, но data-format="promoline" и класс zr-promoline) — формат отдаём
+ *  как есть, вместе с позицией в ленте afterListings. */
 export function toAdvertisement(p: Promo): Advertisement {
   const hasImage = typeof p.backgroundImage === 'string' && p.backgroundImage.trim() !== '';
   return {
     id: p.id || 'preview',
-    format: (p.format === 'promoline' ? 'inline' : p.format) as Advertisement['format'],
+    format: p.format as Advertisement['format'],
+    afterListings: p.afterListings,
     steps: p.steps,
     presentation: p.presentation,
     title: p.title,
@@ -201,7 +201,7 @@ export function PromoPreview({ promo }: { promo: Promo }) {
     >
       {promo.format === 'promoline' && (
         <p className="preview-note">
-          Показывается строкой между объявлениями в ленте авто/шин/дисков после четвёртой карточки.
+          Показывается строкой между объявлениями в ленте авто/шин/дисков после {promo.afterListings ?? 4}-й карточки.
         </p>
       )}
       <PromoProvider config={{ navigate: noop }}>

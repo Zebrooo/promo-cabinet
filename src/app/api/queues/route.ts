@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
 import { readQueuesIndex, writeQueuesIndex, writeQueue, ensureMainQueue } from '@/lib/catalogue';
 import { readEnvMode } from '@/lib/env-mode';
+import { withCatalogueLock } from '@/lib/catalogue-lock';
 
 export const runtime = 'nodejs';
 
@@ -33,13 +34,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const envMode = readEnvMode(req.cookies);
   try {
-    const index = await readQueuesIndex(envMode);
-    if (index.some((q) => q.name === body.name)) {
-      return NextResponse.json({ error: 'duplicate_queue' }, { status: 409 });
-    }
-    await writeQueue(body.name, { persist: body.persist, ids: [] }, envMode);
-    await writeQueuesIndex([...index, { name: body.name, persist: body.persist }], envMode);
-    return NextResponse.json({ ok: true }, { status: 201 });
+    return await withCatalogueLock(envMode, async () => {
+      const index = await readQueuesIndex(envMode);
+      if (index.some((q) => q.name === body.name)) {
+        return NextResponse.json({ error: 'duplicate_queue' }, { status: 409 });
+      }
+      await writeQueue(body.name, { persist: body.persist, ids: [] }, envMode);
+      await writeQueuesIndex([...index, { name: body.name, persist: body.persist }], envMode);
+      return NextResponse.json({ ok: true }, { status: 201 });
+    });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
   }

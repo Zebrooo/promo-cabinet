@@ -3,7 +3,7 @@ import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { TextareaField, CheckboxField, FieldError } from '../fields';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
-import { CANONICAL_ANCHORS } from '@/lib/catalogue';
+import { CANONICAL_ANCHORS } from '@/lib/catalogue-consts';
 import { CtaFields, TextAlignField, ColorsRow } from './shared';
 
 /** tooltip: anchor (обязателен), description, imageUrl, dismissible,

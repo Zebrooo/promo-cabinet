@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isAuthed } from '@/lib/api-auth';
 import { promoSchema } from '@/lib/schema';
-import { mutatePool, mutateQueue, readQueue, readQueuesIndex } from '@/lib/catalogue';
+import { mutatePool, mutateQueue, readPool, readQueue, readQueuesIndex } from '@/lib/catalogue';
 import { removePromo, updatePromo, dequeue, NotFoundError } from '@/lib/mutations';
 import { readEnvMode } from '@/lib/env-mode';
+import { withCatalogueLock } from '@/lib/catalogue-lock';
 import { QUEUE_META, queueAllowsFormat } from '@/lib/queue-formats';
 
 export const runtime = 'nodejs';
@@ -25,6 +26,10 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
 
   const envMode = readEnvMode(req.cookies);
   try {
+    // Проверка формата по очередям и запись пула — одной критической секцией,
+    // иначе между чтением очередей и записью кто-то может поставить промо в
+    // fixed-очередь другого формата.
+    return await withCatalogueLock(envMode, async () => {
     const index = await readQueuesIndex(envMode);
     const fixedQueues = index.flatMap((entry) => {
       const allowedFormats = QUEUE_META[entry.name]?.servedFormats;
@@ -48,6 +53,7 @@ export async function PUT(req: NextRequest, { params }: Ctx): Promise<NextRespon
 
     await mutatePool((promos) => updatePromo(promos, params.id, promo), envMode);
     return NextResponse.json({ ok: true });
+    });
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json({ error: 'not_found' }, { status: 404 });
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
@@ -60,12 +66,18 @@ export async function DELETE(req: NextRequest, { params }: Ctx): Promise<NextRes
 
   const envMode = readEnvMode(req.cookies);
   try {
-    const index = await readQueuesIndex(envMode);
-    await Promise.all(
-      index.map((entry) => mutateQueue(entry.name, (q) => ({ ...q, ids: dequeue(q.ids, params.id) }), envMode)),
-    );
-    await mutatePool((promos) => removePromo(promos, params.id), envMode);
-    return NextResponse.json({ ok: true });
+    return await withCatalogueLock(envMode, async () => {
+      // Сначала убеждаемся, что промо есть: иначе 404 прилетал бы уже после
+      // частичной чистки очередей.
+      const pool = await readPool(envMode);
+      if (!pool.some((p) => p.id === params.id)) throw new NotFoundError(params.id);
+      const index = await readQueuesIndex(envMode);
+      for (const entry of index) {
+        await mutateQueue(entry.name, (q) => ({ ...q, ids: dequeue(q.ids, params.id) }), envMode);
+      }
+      await mutatePool((promos) => removePromo(promos, params.id), envMode);
+      return NextResponse.json({ ok: true });
+    });
   } catch (err) {
     if (err instanceof NotFoundError) return NextResponse.json({ error: 'not_found' }, { status: 404 });
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });

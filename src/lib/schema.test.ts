@@ -235,8 +235,35 @@ describe('promoline format', () => {
   it('is exposed through promoFormats, SCHEMA_BY_FORMAT and CONTENT_KEYS_BY_FORMAT', () => {
     expect(promoFormats).toContain('promoline');
     expect(SCHEMA_BY_FORMAT.promoline).toBe(promolinePromoSchema);
-    // Контент — байт-в-байт inline: витрина рендерит promoline тем же рендерером.
-    expect([...CONTENT_KEYS_BY_FORMAT.promoline]).toEqual([...CONTENT_KEYS_BY_FORMAT.inline]);
+    // Контент — inline плюс единственное своё поле afterListings (позиция в
+    // ленте; у inline своей позиции нет): витрина рендерит promoline тем же
+    // рендерером.
+    expect([...CONTENT_KEYS_BY_FORMAT.promoline]).toEqual([...CONTENT_KEYS_BY_FORMAT.inline, 'afterListings']);
+  });
+
+  /** afterListings — через сколько органических карточек стоит строка.
+   *  Нижняя граница 4: витрина вставляет строку только ниже первого экрана
+   *  (правило «без сдвига вёрстки»), выше четвёртой она не показалась бы. */
+  describe('afterListings (позиция в ленте)', () => {
+    it.each([8, 4])('accepts %s', (afterListings) => {
+      const parsed = promoSchema.parse({ ...promoline, afterListings });
+      expect(parsed).toHaveProperty('afterListings', afterListings);
+    });
+
+    it.each([3, 0, 51, 2.5])('rejects %s', (afterListings) => {
+      expect(() => promoSchema.parse({ ...promoline, afterListings })).toThrow();
+    });
+
+    it('is absent when not set (витрина берёт умолчание — четвёртую карточку)', () => {
+      const parsed = promoSchema.parse(promoline);
+      expect(parsed).not.toHaveProperty('afterListings');
+    });
+
+    it('is stripped from inline by the union (у inline позиции в ленте нет)', () => {
+      const parsed = promoSchema.parse({ ...promoline, format: 'inline', afterListings: 8 });
+      expect(parsed.format).toBe('inline');
+      expect(parsed).not.toHaveProperty('afterListings');
+    });
   });
 });
 

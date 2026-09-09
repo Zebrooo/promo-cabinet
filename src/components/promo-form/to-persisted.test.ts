@@ -97,6 +97,20 @@ describe('toPersisted — strips cross-format junk (equivalent to the old saniti
     expect(out).not.toHaveProperty('variant');
   });
 
+  /** afterListings — позиция строки в ленте, единственное поле, которым
+   *  promoline отличается от inline по контенту. */
+  it('promoline keeps afterListings in toPersisted and toPreview', () => {
+    const draft = make('promoline', { afterListings: 8 });
+    expect(toPersisted(draft).afterListings).toBe(8);
+    expect(toPreview(draft).afterListings).toBe(8);
+  });
+
+  it('inline loses afterListings (у inline позиции в ленте нет)', () => {
+    const draft = make('inline', { afterListings: 8 });
+    expect(toPersisted(draft)).not.toHaveProperty('afterListings');
+    expect(toPreview(draft)).not.toHaveProperty('afterListings');
+  });
+
   it('topline keeps its colors and full CTA while stripping unsupported image/layout fields', () => {
     const draft = make('topline', {
       imageUrl: 'https://cdn.example.com/x.png',
