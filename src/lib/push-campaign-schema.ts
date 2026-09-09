@@ -18,7 +18,6 @@ import { audienceSchema, isHttpUrl, isSafeHref, scheduleSchema, servingBlockSche
 const URL_SHAPE = /^(\/(?!\/)|https?:\/\/)/i;
 
 export const pushCampaignStatusSchema = z.enum(['draft', 'sent']);
-export type PushCampaignStatus = z.infer<typeof pushCampaignStatusSchema>;
 
 export const PUSH_TITLE_MAX = 120;
 export const PUSH_BODY_MAX = 600;

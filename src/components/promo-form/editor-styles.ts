@@ -11,8 +11,16 @@ export const EDITOR_CSS = `
   background: var(--app-bg);
   margin: -24px -32px 0;
   padding: 16px 32px;
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
   border-bottom: 1px solid var(--app-border);
+}
+/* Ошибка сохранения — прямо в липкой панели, рядом с кнопкой, которую нажали:
+   внизу длинной формы её никто не видел. */
+.editor-bar-error {
+  flex: 1 1 100%;
+  background: var(--status-danger-bg); color: var(--status-danger);
+  border-radius: 10px; padding: 10px 14px;
+  font-size: 13px; font-weight: 600;
 }
 .editor-back {
   font-size: 13px; font-weight: 600; color: var(--app-fg3);
@@ -279,15 +287,6 @@ export const EDITOR_CSS = `
 /* CTA row */
 .ef-cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-/* Image preview */
-.ef-image-preview {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 14px; background: var(--app-surface2);
-  border: 1px solid var(--app-border); border-radius: 12px;
-}
-.ef-image-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: var(--app-border); }
-.ef-image-meta { font-size: 12px; color: var(--app-fg3); word-break: break-all; }
-
 /* Queue chips */
 .ef-queues { display: flex; flex-wrap: wrap; gap: 8px; }
 .qchip {
@@ -375,7 +374,6 @@ export const EDITOR_CSS = `
   cursor: pointer;
 }
 .ef-checkbox.is-disabled { opacity: .45; cursor: not-allowed; }
-.ef-divider { height: 1px; background: var(--app-border); margin: 4px 0; }
 
 /* Segmented control — popup variant + textAlign */
 .ef-segment {
@@ -482,11 +480,13 @@ export const EDITOR_CSS = `
 }
 .ef-link-btn:hover { color: var(--app-accent); }
 
-.ef-error {
-  background: var(--status-danger-bg); color: var(--status-danger);
-  border-radius: 10px; padding: 12px 16px;
+.editor-notice {
+  background: var(--status-success-bg); color: var(--status-success);
+  border: 1px solid #BFE0CC; border-radius: 12px; padding: 12px 16px;
   font-size: 13px; font-weight: 600;
 }
+/* Липкая панель перекрывает верх вьюпорта — при прокрутке к ошибке оставляем запас. */
+.ef-field-error { scroll-margin-top: 160px; }
 
 /* Preview rail */
 .prev-panel {
@@ -522,10 +522,6 @@ export const EDITOR_CSS = `
 .prev-frame.device-mobile  { max-width: 280px; align-self: center; }
 .prev-frame.device-tablet  { max-width: 560px; align-self: center; }
 .prev-frame.device-desktop { max-width: 100%;  align-self: stretch; }
-.prev-foot { display: flex; flex-direction: column; gap: 4px; }
-.prev-slot { font-size: 13px; color: #fff; }
-.prev-reach { font-size: 18px; font-weight: 700; color: var(--brand-coral-300); margin-top: 4px; }
-.prev-reach-sub { font-size: 11px; color: var(--app-fg4); margin-top: 4px; }
 
 /* Responsive */
 @media (max-width: 1080px) {

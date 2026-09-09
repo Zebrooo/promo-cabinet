@@ -22,7 +22,7 @@ import {
 } from '@/lib/push-campaign-schema';
 import { describePushError } from '@/lib/push-campaign-summary';
 import { EDITOR_CSS } from '@/components/promo-form/editor-styles';
-import { FieldError } from '@/components/promo-form/fields';
+import { FieldError, scrollToFirstFieldError } from '@/components/promo-form/fields';
 import { TargetingSection } from '@/components/promo-form/sections/TargetingSection';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
 import { validatePushCampaignForm } from './validate';
@@ -96,6 +96,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
       // стать touched — иначе FieldError под ними не покажется.
       setTouched(setNestedObjectValues(formErrors, true), false);
       setError('Проверьте поля формы — есть ошибки.');
+      scrollToFirstFieldError();
       return null;
     }
     try {
@@ -205,6 +206,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
             {busy === 'send' ? 'Отправляю…' : 'Отправить пуш'}
           </button>
         </div>
+        {error && <div className="editor-bar-error" role="alert">{error}</div>}
       </div>
 
       <header className="editor-head">
@@ -243,7 +245,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
                 placeholder="Скидка 20% на шины до воскресенья"
                 disabled={disabled}
               />
-              {fieldError('title') && <div className="hint hint-warn">{fieldError('title')}</div>}
+              {fieldError('title') && <div className="hint hint-warn ef-field-error">{fieldError('title')}</div>}
             </div>
 
             <div className="ef-field">
@@ -262,7 +264,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
                 placeholder="Коротко: что предлагаем и до какого числа. Длинный текст на телефоне обрежется."
                 disabled={disabled}
               />
-              {fieldError('body') && <div className="hint hint-warn">{fieldError('body')}</div>}
+              {fieldError('body') && <div className="hint hint-warn ef-field-error">{fieldError('body')}</div>}
             </div>
 
             <div className="ef-field">
@@ -278,7 +280,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
                 disabled={disabled}
               />
               <div className="hint">Путь витрины (откроется в приложении) или полная http(s)-ссылка.</div>
-              {fieldError('url') && <div className="hint hint-warn">{fieldError('url')}</div>}
+              {fieldError('url') && <div className="hint hint-warn ef-field-error">{fieldError('url')}</div>}
             </div>
 
             <div className="ef-field">
@@ -297,8 +299,6 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
           <div className="hint">
             Фильтры сохраняются вместе с рассылкой; на первом этапе пуш уходит всем пользователям с включёнными уведомлениями.
           </div>
-
-          {error && <div className="ef-error">{error}</div>}
         </div>
       </div>
 

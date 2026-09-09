@@ -570,10 +570,8 @@ export const promoDraftSchema = servingBlockSchema.extend({
   ...referralInviteShape,
 });
 
-export const catalogueSchema = z.array(promoSchema);
-
 /** The pool is an array of promos. */
-export const poolSchema = catalogueSchema;
+export const catalogueSchema = z.array(promoSchema);
 /** The queue is an ordered array of promo ids. */
 export const queueSchema = z.array(z.string().min(1));
 export type Queue = z.infer<typeof queueSchema>;

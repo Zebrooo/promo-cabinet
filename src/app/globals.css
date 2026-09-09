@@ -765,7 +765,9 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
 
   .mobile-tabs {
     grid-area: tabs;
-    display: grid; grid-template-columns: repeat(6, 1fr);
+    /* Колонка на каждый таб, сколько бы их ни было: фиксированное repeat(N)
+       уже дважды отставало от NAV_ITEMS, и лишний таб уезжал во вторую строку. */
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
     background: var(--nav-bg);
     border-top: 1px solid var(--nav-border);
     position: sticky; bottom: 0; z-index: 11;

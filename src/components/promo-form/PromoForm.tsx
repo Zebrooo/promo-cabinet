@@ -4,10 +4,12 @@
 //
 // Layout:
 //   ┌─ sticky page-bar ───────────────────────────────────────┐
-//   │ ← Вернуться к списку     [Удалить промо] [Сохранить]    │
+//   │ ← Вернуться к списку  [Удалить] [Дублировать] [AI] [Сохранить] │
+//   │ (ошибка сохранения — строкой прямо здесь, под кнопками)  │
 //   ├─────────────────────────────────────────────────────────┤
 //   │ H1 «Редактирование промо»                                │
 //   │ mono caption «ID xxx»                                    │
+//   │ [зелёная плашка: промо создано / это копия промо X]      │
 //   │                                                          │
 //   │ ┌─ main editor column ────────┬─ live preview rail ─┐    │
 //   │ │ ГДЕ ПОКАЗЫВАТЬ / ТИП ПРОМО  │ ЖИВОЙ ПРЕВЬЮ        │    │
@@ -18,7 +20,7 @@
 //   │ │ ТАРГЕТИНГ (фильтры)          │                       │    │
 //   │ └─────────────────────────────┴───────────────────────┘    │
 //   └─────────────────────────────────────────────────────────┘
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Formik, Form, useFormikContext, setNestedObjectValues } from 'formik';
 import Link from 'next/link';
@@ -30,6 +32,7 @@ import type { AiSuggestions } from '@/lib/ai-client';
 import { validatePromoForm } from './validate';
 import { toPersisted, toPreview } from './to-persisted';
 import { EDITOR_CSS } from './editor-styles';
+import { scrollToFirstFieldError } from './fields';
 import { DevicePlacementSection } from './sections/DevicePlacementSection';
 import { BasicsSection } from './sections/BasicsSection';
 import { ContentSection } from './sections/ContentSection';
@@ -90,10 +93,13 @@ type Props = {
   membership?: string[];
   /** Every promo in the pool (id + title) — feeds the chain <datalist>. */
   poolPromos?: { id: string; title: string }[];
+  /** Зелёная плашка под заголовком: «промо создано, добавьте в очереди» /
+   *  «это копия промо X». Задаёт страница, форма только показывает. */
+  notice?: string;
 };
 
 export function PromoForm({
-  initial, mode, queueNames = [], membership = [], poolPromos = [],
+  initial, mode, queueNames = [], membership = [], poolPromos = [], notice,
 }: Props) {
   return (
     <Formik<Promo>
@@ -106,28 +112,53 @@ export function PromoForm({
         queueNames={queueNames}
         membership={membership}
         poolPromos={poolPromos}
+        notice={notice}
       />
     </Formik>
   );
 }
 
+const UNSAVED_PROMPT = 'Есть несохранённые изменения. Уйти без сохранения?';
+
 /** Everything that needs useFormikContext lives inside the <Formik> tree —
  *  split out so PromoForm itself stays a thin provider wrapper. */
 function FormBody({
-  mode, queueNames, membership, poolPromos,
+  mode, queueNames, membership, poolPromos, notice,
 }: {
   mode: 'create' | 'edit';
   queueNames: string[];
   membership: string[];
   poolPromos: { id: string; title: string }[];
+  notice?: string;
 }) {
   const router = useRouter();
-  const { values, setFieldValue, setTouched, validateForm } = useFormikContext<Promo>();
+  const { values, dirty, setFieldValue, setTouched, validateForm } = useFormikContext<Promo>();
 
   const [error, setError] = useState('');
   const [aiResult, setAiResult] = useState<{ suggestions: AiSuggestions; cacheHit: boolean; model: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Длинная форма с десятками полей таргетинга: закрытая вкладка или F5 не
+  // должны молча стирать полчаса работы. Клиентские переходы по ссылкам
+  // внутри приложения beforeunload не ловит — для «← Вернуться к списку»
+  // ниже свой confirm.
+  const guardUnsaved = dirty && !saving && !deleting;
+  useEffect(() => {
+    if (!guardUnsaved) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [guardUnsaved]);
+
+  // ?created=1 нужен один раз — после показа плашки убираем его из адреса,
+  // чтобы F5 или скопированная ссылка не показывали «промо создано» снова.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('created')) return;
+    url.searchParams.delete('created');
+    window.history.replaceState(window.history.state, '', url);
+  }, []);
 
   function applyEnhancePatch(patch: EnhancePatch) {
     if (patch.title !== undefined) setFieldValue('title', patch.title);
@@ -154,6 +185,7 @@ function FormBody({
       // undefined for nested FieldError checks.
       setTouched(setNestedObjectValues(formErrors, true), false);
       setError('Проверьте поля формы — есть ошибки.');
+      scrollToFirstFieldError();
       return;
     }
 
@@ -233,7 +265,17 @@ function FormBody({
           return;
         }
       }
-      router.push('/cabinet'); router.refresh(); return;
+      // Новое промо: очереди назначаются только после первого сохранения
+      // (QueuesSection), а без очереди витрина промо не покажет — поэтому
+      // ведём на страницу промо с живыми чипами очередей, а не в список,
+      // откуда его пришлось бы искать и открывать заново. Правки — в список.
+      if (mode === 'create') {
+        router.push(`/cabinet/${encodeURIComponent(body.id)}?created=1`);
+      } else {
+        router.push('/cabinet');
+      }
+      router.refresh();
+      return;
     }
     setSaving(false);
     const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -266,7 +308,10 @@ function FormBody({
     setError(ERROR_MESSAGES[data.error ?? ''] ?? `Не удалось удалить (ошибка ${res.status}).`);
   }
 
-  const updatedNow = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  // referral-invite — config-only синглтон (его поля зеркалятся в
+  // referral_config витрины): вторая копия — не «ещё одно промо», а перезапись
+  // тех же настроек. Дублировать нечего.
+  const canDuplicate = mode === 'edit' && !(values.format === 'custom' && values.variant === 'referral-invite');
 
   // Preview rail wants a fully-stripped Promo; toPreview() is the lenient
   // (never-throwing, no zod validation) sibling of toPersisted() — it keeps
@@ -278,7 +323,13 @@ function FormBody({
     <Form className="editor" onSubmit={submit}>
       {/* ── Sticky action bar ──────────────────────────────────── */}
       <div className="editor-bar">
-        <Link href="/cabinet" className="editor-back">← Вернуться к списку</Link>
+        <Link
+          href="/cabinet"
+          className="editor-back"
+          onClick={(e) => { if (guardUnsaved && !confirm(UNSAVED_PROMPT)) e.preventDefault(); }}
+        >
+          ← Вернуться к списку
+        </Link>
         <div className="editor-actions">
           {mode === 'edit' && (
             <button
@@ -291,6 +342,18 @@ function FormBody({
             >
               {deleting ? 'Удаляю…' : 'Удалить промо'}
             </button>
+          )}
+          {canDuplicate && (
+            <Link
+              href={`/cabinet/new?from=${encodeURIComponent(values.id)}`}
+              className="ebtn ebtn-ghost"
+              title="Открыть форму нового промо с теми же форматом, контентом, таргетингом и лимитами"
+              data-track="promo_duplicate"
+              data-track-id={values.id}
+              onClick={(e) => { if (guardUnsaved && !confirm(UNSAVED_PROMPT)) e.preventDefault(); }}
+            >
+              Дублировать
+            </Link>
           )}
           <AiEnhanceButton
             getDraft={() => ({ title: values.title, description: values.description, action: values.action })}
@@ -307,17 +370,18 @@ function FormBody({
             {saving ? 'Сохраняю…' : 'Сохранить'}
           </button>
         </div>
+        {error && <div className="editor-bar-error" role="alert">{error}</div>}
       </div>
 
       {/* ── Page heading ───────────────────────────────────────── */}
       <header className="editor-head">
         <h1>{mode === 'create' ? 'Новое промо' : 'Редактирование промо'}</h1>
         <div className="editor-meta mono">
-          {mode === 'edit'
-            ? `ID ${values.id} · обновлено ${updatedNow}`
-            : 'Заполните поля и сохраните'}
+          {mode === 'edit' ? `ID ${values.id}` : 'Заполните поля и сохраните'}
         </div>
       </header>
+
+      {notice && <div className="editor-notice" role="status">{notice}</div>}
 
       {aiResult && (
         <div className="editor-ai">
@@ -348,8 +412,6 @@ function FormBody({
 
           <FrequencySection poolPromos={poolPromos} />
           <TargetingSection />
-
-          {error && <div className="ef-error">{error}</div>}
         </div>
 
         <PreviewRail promo={previewPromo} />
