@@ -37,8 +37,9 @@ RUN apk add --no-cache dumb-init
 # как это делал systemd-юнит. Образ толще, поведение — ровно прежнее.
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
-# public/ в проекте нет — статика вся в .next; не копируем несуществующее,
-# иначе COPY уронит сборку.
+# public/ — только service worker Web Push (sw.js): его Next отдаёт как есть
+# с корня, поэтому в образ он нужен рядом с .next.
+COPY --from=build /app/public ./public
 COPY package.json next.config.mjs ./
 USER node
 ENV NODE_ENV=production

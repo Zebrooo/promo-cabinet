@@ -88,6 +88,13 @@ export function queueKey(name: string, envMode: EnvMode = 'prod'): string {
   return guardKey(`${env.promoKeyPrefix}${envPrefix(envMode)}queue-${name}.json`);
 }
 
+/** Web Push-подписки админов кабинета. БЕЗ env-префикса: подписка браузера
+ *  относится к человеку, а не к режиму Прод/Тест. Читает тот же объект BFF
+ *  (pushSubscriptionsKey в его s3-client.ts) при рассылке уведомлений. */
+export function pushSubscriptionsKey(): string {
+  return guardKey(`${env.promoKeyPrefix}push-subscriptions.json`);
+}
+
 /** Legacy single-queue key — used ONLY for one-time migration. */
 export function legacyQueueKey(envMode: EnvMode = 'prod'): string {
   return guardKey(`${env.promoKeyPrefix}${envPrefix(envMode)}queue.json`);

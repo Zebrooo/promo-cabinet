@@ -30,14 +30,17 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/cabinet',             label: 'Все промо',   matchExact: true  },
   { href: '/cabinet/queues',      label: 'Очереди',     matchExact: false },
+  { href: '/cabinet/campaigns',   label: 'Кампании',    matchExact: false },
   { href: '/cabinet/abkhaz-auto', label: 'Abkhaz Auto', matchExact: false },
   { href: '/cabinet/leads',       label: 'Лиды',        matchExact: false },
   { href: '/cabinet/metrics',     label: 'Метрики',     matchExact: false },
 ];
 
+
 // Map first matching nav item → breadcrumb tail text.
 function breadcrumbFor(path: string): string {
   if (path.startsWith('/cabinet/queues'))      return '/ очереди';
+  if (path.startsWith('/cabinet/campaigns'))   return '/ кампании';
   if (path.startsWith('/cabinet/abkhaz-auto')) return '/ abkhaz auto';
   if (path.startsWith('/cabinet/leads'))       return '/ лиды';
   if (path.startsWith('/cabinet/metrics'))     return '/ метрики';
@@ -94,6 +97,7 @@ function NavRail() {
 const MOBILE_TABS: NavItem[] = [
   { href: '/cabinet',             label: 'Промо',   matchExact: true  },
   { href: '/cabinet/queues',      label: 'Очереди', matchExact: false },
+  { href: '/cabinet/campaigns',   label: 'Кампании', matchExact: false },
   { href: '/cabinet/abkhaz-auto', label: 'AA',      matchExact: false },
   { href: '/cabinet/leads',       label: 'Лиды',    matchExact: false },
   { href: '/cabinet/metrics',     label: 'Метрики', matchExact: false },

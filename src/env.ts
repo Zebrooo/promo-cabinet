@@ -27,4 +27,8 @@ export const env = {
    *  построения absolute URL на загруженные через cabinet картинки —
    *  ВНЕШНИЕ потребители очереди (abkhaz-auto и т.д.) их грузят отсюда. */
   get promoCabinetPublicBase() { return process.env.PROMO_CABINET_PUBLIC_BASE ?? ''; },
+  /** Публичный VAPID-ключ Web Push (base64url) — тот же, что
+   *  WEB_PUSH_VAPID_PUBLIC_KEY у BFF, который и шлёт уведомления. Пусто =
+   *  кнопка «Включить уведомления» в кабинете объясняет, что ключ не задан. */
+  get webPushVapidPublicKey() { return process.env.WEB_PUSH_VAPID_PUBLIC_KEY ?? ''; },
 };

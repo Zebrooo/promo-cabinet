@@ -154,6 +154,48 @@ export async function syncReferralConfigToBff(payload: ReferralConfigSyncPayload
   await bffPost('/referral-config/sync', payload as unknown as Record<string, unknown>);
 }
 
+// ── Новые рекламные кампании рекламодателей ─────────────────────────────
+// Кампании создаёт витрина (ЛК «Реклама») в своей Supabase; BFF о каждой
+// новой шлёт админам пуш (/new-campaigns/* в promo-bff). Кабинет показывает
+// последние новые и даёт подписаться на пуши. Типы зеркалят
+// promo-bff/src/services/new-campaign-watcher.ts.
+export interface RecentCampaign {
+  id: number;
+  advertiserId: string;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  name: string | null;
+  format: string | null;
+  slot: string | null;
+  bannerFormat: string | null;
+  cpmKopecks: number;
+  totalBudgetKopecks: number | null;
+  dailyBudgetKopecks: number | null;
+  spentKopecks: number;
+  targetPages: string[] | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  creative: unknown;
+  /** Когда BFF впервые увидел кампанию. */
+  seenAt: string;
+  /** Когда админам ушёл пуш; null = не доставлен. */
+  notifiedAt: string | null;
+}
+
+export interface RecentCampaignsListing {
+  campaigns: RecentCampaign[];
+  /** Какие каналы уведомлений настроены у BFF (webPush | telegram). */
+  channels: ('webPush' | 'telegram')[];
+}
+
+/** Ручка отвечает осмысленными кодами (503 campaigns_not_configured, 502
+ *  campaigns_unavailable) — как и aa-admin, их надо пробросить в кабинет
+ *  как есть, поэтому тот же не-бросающий aaAdminPost. */
+export function listRecentCampaigns(): Promise<AaAdminResult<RecentCampaignsListing | { error: string }>> {
+  return aaAdminPost<RecentCampaignsListing | { error: string }>('/new-campaigns/recent', {});
+}
+
 // ── Abkhaz Auto: канарейка релиза + эксперименты ─────────────────────────
 // В отличие от bffPost() выше, эти ручки МУТИРУЮТ прод-раскатку и штатно
 // отвечают 409/503 с телом-объяснением (канарейка не включена / окружение не
