@@ -16,7 +16,11 @@ type BaseProps = {
  *  field (or the form was submitted) — mirrors the ТЗ's "touched" rule. */
 function FieldError({ name }: { name: string }) {
   const [, meta] = useField(name);
-  if (!meta.touched || !meta.error) return null;
+  // Для пути-блока (lifecycle, targeting.advertiser) Formik отдаёт в error
+  // дерево ошибок вложенных полей — его рисуют FieldError-ы самих полей;
+  // здесь показываем только строку (ошибку самого блока), иначе React
+  // упадёт на объекте-ребёнке.
+  if (!meta.touched || typeof meta.error !== 'string' || !meta.error) return null;
   return <div className="hint hint-warn ef-field-error">{meta.error}</div>;
 }
 

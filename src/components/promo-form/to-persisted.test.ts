@@ -315,6 +315,84 @@ describe('toPersisted — listings targeting', () => {
   });
 });
 
+describe('toPersisted — advertiser targeting (ось «Рекламодатель»)', () => {
+  it('strips an empty advertiser block (no fields set → no criterion)', () => {
+    const result = toPersisted(make('inline', { targeting: { advertiser: {} } }));
+    expect(result.targeting.advertiser).toBeUndefined();
+  });
+
+  it('strips a block where every field was individually cleared to undefined', () => {
+    const result = toPersisted(make('inline', {
+      targeting: { advertiser: { everLaunched: undefined, hasActiveCampaign: undefined, abandonedWizard: undefined, campaignStatuses: undefined } },
+    }));
+    expect(result.targeting.advertiser).toBeUndefined();
+  });
+
+  it('strips a block containing only period modifiers or an empty status list', () => {
+    expect(toPersisted(make('inline', { targeting: { advertiser: { launchedWithinDays: 30, wizardLookbackDays: 7 } } })).targeting.advertiser)
+      .toBeUndefined();
+    expect(toPersisted(make('inline', { targeting: { advertiser: { campaignStatuses: [] } } })).targeting.advertiser)
+      .toBeUndefined();
+  });
+
+  it('keeps segment №1 «запускал РК, сейчас неактивна» as is', () => {
+    const result = toPersisted(make('inline', { targeting: { advertiser: { everLaunched: true, hasActiveCampaign: false } } }));
+    expect(result.targeting.advertiser).toEqual({ everLaunched: true, hasActiveCampaign: false });
+  });
+
+  it('keeps segment №2 «бросил мастер» with its window, and statuses', () => {
+    const result = toPersisted(make('inline', {
+      targeting: { advertiser: { everLaunched: false, abandonedWizard: true, wizardLookbackDays: 14, campaignStatuses: ['pending'] } },
+    }));
+    expect(result.targeting.advertiser).toEqual({
+      everLaunched: false, abandonedWizard: true, wizardLookbackDays: 14, campaignStatuses: ['pending'],
+    });
+  });
+
+  it('drops period modifiers whose condition is not «да» (false/unset)', () => {
+    const result = toPersisted(make('inline', {
+      targeting: { advertiser: { everLaunched: false, launchedWithinDays: 30, abandonedWizard: false, wizardLookbackDays: 7 } },
+    }));
+    expect(result.targeting.advertiser).toEqual({ everLaunched: false, abandonedWizard: false });
+    const orphan = toPersisted(make('inline', {
+      targeting: { advertiser: { hasActiveCampaign: true, launchedWithinDays: 30, wizardLookbackDays: 7 } },
+    }));
+    expect(orphan.targeting.advertiser).toEqual({ hasActiveCampaign: true });
+  });
+
+  it('keeps a period modifier together with its «да» condition', () => {
+    const result = toPersisted(make('inline', {
+      targeting: { advertiser: { everLaunched: true, launchedWithinDays: 90, abandonedWizard: true, wizardLookbackDays: 7 } },
+    }));
+    expect(result.targeting.advertiser).toEqual({ everLaunched: true, launchedWithinDays: 90, abandonedWizard: true, wizardLookbackDays: 7 });
+  });
+
+  it('serialises without undefined keys (JSON в S3 не содержит мусора)', () => {
+    const result = toPersisted(make('inline', { targeting: { advertiser: { everLaunched: true, hasActiveCampaign: undefined } } }));
+    expect(JSON.parse(JSON.stringify(result)).targeting.advertiser).toEqual({ everLaunched: true });
+  });
+
+  it('money / budget / ending / wallet conditions keep the block alive on their own', () => {
+    expect(toPersisted(make('inline', { targeting: { advertiser: { paidCampaigns: false } } })).targeting.advertiser)
+      .toEqual({ paidCampaigns: false });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { budgetExhausted: true } } })).targeting.advertiser)
+      .toEqual({ budgetExhausted: true });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { endsWithinDays: 7 } } })).targeting.advertiser)
+      .toEqual({ endsWithinDays: 7 });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { walletAtMostKopecks: 0 } } })).targeting.advertiser)
+      .toEqual({ walletAtMostKopecks: 0 });
+  });
+
+  it('minSpentKopecks lives only with paidCampaigns=true', () => {
+    expect(toPersisted(make('inline', { targeting: { advertiser: { minSpentKopecks: 50000 } } })).targeting.advertiser)
+      .toBeUndefined();
+    expect(toPersisted(make('inline', { targeting: { advertiser: { paidCampaigns: false, minSpentKopecks: 50000 } } })).targeting.advertiser)
+      .toEqual({ paidCampaigns: false });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { paidCampaigns: true, minSpentKopecks: 50000 } } })).targeting.advertiser)
+      .toEqual({ paidCampaigns: true, minSpentKopecks: 50000 });
+  });
+});
+
 describe('toPersisted — custom title derivation', () => {
   it('derives title from the variant label when title is empty', () => {
     const draft = make('custom', { title: '', variant: 'reklama-onboarding' });

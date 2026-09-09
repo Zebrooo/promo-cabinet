@@ -11,6 +11,8 @@ import {
   purchasesTargetingSchema,
   balanceTargetingSchema,
   listingsTargetingSchema,
+  advertiserTargetingSchema,
+  ADVERTISER_ANONYMOUS_MESSAGE,
   type Promo,
 } from './schema';
 import { KNOWN_CUSTOM_VARIANTS } from './custom-variants';
@@ -401,6 +403,138 @@ describe('listingsTargetingSchema', () => {
   });
   it('rejects a non-integer inactiveDays', () => {
     expect(listingsTargetingSchema.safeParse({ inactiveDays: 1.5 }).success).toBe(false);
+  });
+});
+
+describe('advertiserTargetingSchema (ось «Рекламодатель», контракт AdvertiserChecker BFF)', () => {
+  it('accepts an empty object and each field individually', () => {
+    expect(advertiserTargetingSchema.safeParse({}).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ campaignStatuses: ['active', 'pending'] }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ hasActiveCampaign: false }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: true }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ launchedWithinDays: 30 }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ abandonedWizard: true }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ wizardLookbackDays: 90 }).success).toBe(true);
+  });
+
+  it('accepts the target segments', () => {
+    // №1: запускал РК, сейчас неактивна.
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: true, hasActiveCampaign: false }).success).toBe(true);
+    // №2: заходил на форму подачи и бросил, РК не запускал.
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: false, abandonedWizard: true, wizardLookbackDays: 14 }).success).toBe(true);
+    // Полный набор.
+    expect(advertiserTargetingSchema.safeParse({
+      campaignStatuses: ['paused'], hasActiveCampaign: false, everLaunched: true, launchedWithinDays: 90,
+      abandonedWizard: false,
+    }).success).toBe(true);
+  });
+
+  it('statuses are lowercase slugs, at most 10, non-empty', () => {
+    expect(advertiserTargetingSchema.safeParse({ campaignStatuses: [''] }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ campaignStatuses: ['Active'] }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ campaignStatuses: ['on hold'] }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ campaignStatuses: ['a'.repeat(33)] }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ campaignStatuses: Array.from({ length: 11 }, (_, i) => `s${i}`) }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ campaignStatuses: ['on_hold', 'in-review'] }).success).toBe(true);
+  });
+
+  it('rejects out-of-range / non-integer periods with Russian messages', () => {
+    expect(advertiserTargetingSchema.safeParse({ launchedWithinDays: 0 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ launchedWithinDays: 366 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ launchedWithinDays: 1.5 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ wizardLookbackDays: 0 }).success).toBe(false);
+    const res = advertiserTargetingSchema.safeParse({ wizardLookbackDays: 91 });
+    expect(res.success).toBe(false);
+    expect(res.success ? '' : res.error.issues[0]?.message).toBe('Не больше 90 дней');
+  });
+
+  it('rejects non-boolean flags', () => {
+    expect(advertiserTargetingSchema.safeParse({ hasActiveCampaign: 'yes' }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: 1 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ abandonedWizard: null }).success).toBe(false);
+  });
+
+  it('rejects self-contradicting combinations (аудитория была бы пустой)', () => {
+    const noActiveButActive = advertiserTargetingSchema.safeParse({ hasActiveCampaign: false, campaignStatuses: ['active'] });
+    expect(noActiveButActive.success).toBe(false);
+    expect(noActiveButActive.success ? '' : noActiveButActive.error.issues[0]?.path.join('.')).toBe('campaignStatuses');
+
+    const neverButActive = advertiserTargetingSchema.safeParse({ everLaunched: false, hasActiveCampaign: true });
+    expect(neverButActive.success).toBe(false);
+    expect(neverButActive.success ? '' : neverButActive.error.issues[0]?.path.join('.')).toBe('everLaunched');
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: false, campaignStatuses: ['active'] }).success).toBe(false);
+    // pending у «никогда не запускавшего» возможен — на модерации, ещё не крутилась.
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: false, campaignStatuses: ['pending'] }).success).toBe(true);
+  });
+
+  it('accepts money / budget / ending / wallet conditions', () => {
+    expect(advertiserTargetingSchema.safeParse({ paidCampaigns: true, minSpentKopecks: 50000 }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ paidCampaigns: false }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ budgetExhausted: true }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ endsWithinDays: 7, hasActiveCampaign: true }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ walletAtMostKopecks: 0 }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({
+      everLaunched: true, hasActiveCampaign: false, paidCampaigns: true, minSpentKopecks: 100000,
+      budgetExhausted: true, walletAtMostKopecks: 0,
+    }).success).toBe(true);
+  });
+
+  it('rejects negative / fractional money and out-of-range endsWithinDays', () => {
+    expect(advertiserTargetingSchema.safeParse({ minSpentKopecks: -1 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ minSpentKopecks: 10.5 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ walletAtMostKopecks: -100 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ endsWithinDays: 0 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ endsWithinDays: 91 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ budgetExhausted: 'yes' }).success).toBe(false);
+  });
+
+  it('rejects money / ending conditions that contradict launch state', () => {
+    const paidNever = advertiserTargetingSchema.safeParse({ everLaunched: false, paidCampaigns: true });
+    expect(paidNever.success).toBe(false);
+    expect(paidNever.success ? '' : paidNever.error.issues[0]?.path.join('.')).toBe('everLaunched');
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: false, budgetExhausted: true }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: false, paidCampaigns: false, budgetExhausted: false }).success).toBe(true);
+
+    const endsNoActive = advertiserTargetingSchema.safeParse({ hasActiveCampaign: false, endsWithinDays: 7 });
+    expect(endsNoActive.success).toBe(false);
+    expect(endsNoActive.success ? '' : endsNoActive.error.issues[0]?.path.join('.')).toBe('endsWithinDays');
+  });
+});
+
+describe('promoSchema — ось «Рекламодатель» (targeting.advertiser)', () => {
+  const withAdvertiser = (advertiser: unknown, audience?: string) =>
+    promoSchema.safeParse({ ...valid, ...(audience ? { audience } : {}), targeting: { ...valid.targeting, advertiser } });
+
+  it('старый JSON без advertiser валиден (обратная совместимость)', () => {
+    expect(promoSchema.parse(valid).targeting.advertiser).toBeUndefined();
+  });
+
+  it('accepts advertiser for the popup member schema and keeps it through parse', () => {
+    const res = SCHEMA_BY_FORMAT.popup.safeParse({
+      ...valid,
+      targeting: { advertiser: { everLaunched: true, hasActiveCampaign: false } },
+    });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.targeting.advertiser).toEqual({ everLaunched: true, hasActiveCampaign: false });
+  });
+
+  it('rejects audience anonymous combined with advertiser (у гостя нет кампаний)', () => {
+    const res = withAdvertiser({ abandonedWizard: true }, 'anonymous');
+    expect(res.success).toBe(false);
+    const issue = res.success ? undefined : res.error.issues.find((i) => i.path.join('.') === 'targeting.advertiser');
+    expect(issue?.message).toBe(ADVERTISER_ANONYMOUS_MESSAGE);
+  });
+
+  it('accepts audience all/authenticated with advertiser', () => {
+    expect(withAdvertiser({ abandonedWizard: true }, 'all').success).toBe(true);
+    expect(withAdvertiser({ abandonedWizard: true }, 'authenticated').success).toBe(true);
+    expect(withAdvertiser({ abandonedWizard: true }).success).toBe(true);
+  });
+
+  it('surfaces nested errors under targeting.advertiser.*', () => {
+    const res = withAdvertiser({ everLaunched: true, launchedWithinDays: 400 });
+    expect(res.success).toBe(false);
+    expect(res.success ? [] : res.error.issues.map((i) => i.path.join('.'))).toContain('targeting.advertiser.launchedWithinDays');
   });
 });
 

@@ -6,6 +6,7 @@ Auto-enriched: `referrer_source` (web client), `auth_state` (web /api/track), `s
 ## abkhaz-auto (site)
 - `web_vitals` { metric, value, id, rating }
 - `form_start` / `form_field_error` { form_id, field } / `form_submit_attempt` / `form_submit_success` / `form_abandon` { form_id }
+  - `form_id = 'ad_campaign'` — мастер подачи рекламной кампании (`lk/reklama`, CampaignEditor). На `form_start`/`form_submit_success` с этим id опирается ось таргетинга «Рекламодатель» (`targeting.advertiser.abandonedWizard`, спека `superpowers/specs/2026-09-09-targeting-advertiser-design.md`) — витрина должна их слать.
 - (existing: listing_view, listing_engagement, contact_click, category_click, boost_purchase_*, …)
 
 ## promo-cabinet (admin)
