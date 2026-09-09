@@ -7,7 +7,7 @@ import type { Promo } from './schema';
  * контрола, получал бы ошибку «пустой блок» и невалидную форму.
  * Дёргается из validatePromoForm() и normalize() (to-persisted.ts).
  */
-export function compactLifecycle(values: Promo): Promo {
+export function compactLifecycle<T extends { lifecycle?: Promo['lifecycle'] }>(values: T): T {
   const lc = values.lifecycle;
   if (lc === undefined) return values;
   const defined = Object.fromEntries(Object.entries(lc).filter(([, v]) => v !== undefined));

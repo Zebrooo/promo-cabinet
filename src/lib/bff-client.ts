@@ -196,6 +196,62 @@ export function listRecentCampaigns(): Promise<AaAdminResult<RecentCampaignsList
   return aaAdminPost<RecentCampaignsListing | { error: string }>('/new-campaigns/recent', {});
 }
 
+// ── Push-рассылки пользователям витрины ─────────────────────────────────
+// Черновики и отправка живут в BFF (/push-campaigns/*, S3 push-campaigns.json);
+// рассылку делает витрина abkhaz-auto (FCM). Кабинет — тонкий прокси: коды
+// BFF (404 not_found, 409 already_sent, 503 push_not_configured, 502
+// push_broadcast_failed) доводим до админа как есть, поэтому не-бросающий
+// bffRelay, как у aa-admin. Типы — src/lib/push-campaign-schema.ts.
+import type { PushCampaign, PushCampaignInput } from './push-campaign-schema';
+
+export interface PushCampaignsListing {
+  campaigns: PushCampaign[];
+  /** false = у BFF не заданы AA_BASE_URL / PROMO_TICKET_PRIVATE_KEY — черновики
+   *  работают, «Отправить» ответит 503. */
+  broadcastConfigured: boolean;
+}
+export type PushCampaignEnvelope = { campaign: PushCampaign; broadcastConfigured?: boolean };
+export type BffErrorBody = { error: string; reason?: string; issues?: { path: string; message: string }[] };
+
+export function listPushCampaigns(): Promise<AaAdminResult<PushCampaignsListing | BffErrorBody>> {
+  return bffRelay('GET', '/push-campaigns');
+}
+export function getPushCampaign(id: string): Promise<AaAdminResult<PushCampaignEnvelope | BffErrorBody>> {
+  return bffRelay('GET', `/push-campaigns/${encodeURIComponent(id)}`);
+}
+export function savePushCampaign(input: PushCampaignInput): Promise<AaAdminResult<PushCampaignEnvelope | BffErrorBody>> {
+  return bffRelay('POST', '/push-campaigns', input as unknown as Record<string, unknown>);
+}
+export function deletePushCampaign(id: string): Promise<AaAdminResult<{ ok: true } | BffErrorBody>> {
+  return bffRelay('DELETE', `/push-campaigns/${encodeURIComponent(id)}`);
+}
+/** Рассылка на тысячи токенов идёт дольше обычных 8 с — таймаут свой. */
+const PUSH_SEND_TIMEOUT_MS = 90_000;
+export function sendPushCampaign(id: string): Promise<AaAdminResult<PushCampaignEnvelope | BffErrorBody>> {
+  return bffRelay('POST', `/push-campaigns/${encodeURIComponent(id)}/send`, {}, PUSH_SEND_TIMEOUT_MS);
+}
+
+/** Не-бросающий запрос любого метода: статус + JSON-тело как есть (см. aaAdminPost). */
+export async function bffRelay<T = Record<string, unknown>>(
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  body?: Record<string, unknown>,
+  timeoutMs = 8000,
+): Promise<AaAdminResult<T>> {
+  const res = await fetch(`${bffUrl()}${path}`, {
+    method,
+    headers: {
+      [SERVICE_TICKET_HEADER]: ticket(),
+      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const json = (await res.json()) as T;
+  return { status: res.status, body: json };
+}
+
 // ── Abkhaz Auto: канарейка релиза + эксперименты ─────────────────────────
 // В отличие от bffPost() выше, эти ручки МУТИРУЮТ прод-раскатку и штатно
 // отвечают 409/503 с телом-объяснением (канарейка не включена / окружение не

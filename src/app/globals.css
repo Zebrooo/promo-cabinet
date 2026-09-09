@@ -915,6 +915,21 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
 .cmp-creative-text { font-size: 13px; color: var(--app-fg2); line-height: 1.45; min-width: 0; }
 .cmp-creative-title { font-weight: 700; color: var(--app-fg1); }
 .cmp-creative-link { display: inline-block; margin-top: 4px; font-size: 12px; word-break: break-all; }
+
+/* ═══ PUSH-РАССЫЛКИ (/cabinet/push) ═══════════════════════════════════ */
+.push-card.is-sent { background: var(--app-surface2); }
+/* У пуша нет превью-рейла — одна колонка вместо сетки редактора промо. */
+.editor-grid.push-editor-grid { grid-template-columns: minmax(0, 760px); }
+.push-card-row { display: flex; gap: 14px; align-items: flex-start; }
+.push-icon { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; flex: none; background: var(--app-border); }
+.push-body { font-size: 13px; color: var(--app-fg2); margin-top: 4px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.push-actions { display: flex; flex-direction: column; gap: 6px; flex: none; align-items: stretch; }
+.push-actions .btn { justify-content: center; }
+.push-card .mono { font-family: var(--font-mono); font-size: 12px; word-break: break-all; }
+@media (max-width: 720px) {
+  .push-card-row { flex-direction: column; }
+  .push-actions { flex-direction: row; flex-wrap: wrap; width: 100%; }
+}
 .push-toggle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .push-hint { font-size: 12px; color: var(--app-fg3); max-width: 360px; line-height: 1.4; }
 .push-error { color: var(--status-danger); }
