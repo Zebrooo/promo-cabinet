@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { requireSession } from '@/lib/require-session';
 import { getLeads } from '@/lib/bff-client';
 import { readEnvMode } from '@/lib/env-mode';
-import { readPool, readQueue, readQueuesIndex } from '@/lib/catalogue';
+import { readPool, readAllQueues } from '@/lib/catalogue';
 import {
   campaignOptions,
   LEAD_COLUMNS,
@@ -44,7 +44,7 @@ export default async function LeadsPage({
     // передаёт. Падение S3 не должно ронять страницу: тогда колонка «Очередь»
     // пустая, а в фильтре останутся кампании, по которым уже есть заявки.
     const [queues, promos] = await Promise.all([
-      readAllQueues(env).catch(() => new Map<string, string[]>()),
+      readAllQueues(env).then((r) => queuesByPromo(r.queues)).catch(() => new Map<string, string[]>()),
       readPool(env).catch(() => []),
     ]);
     rows = toRows(leads, queues);
@@ -183,14 +183,6 @@ export default async function LeadsPage({
       )}
     </div>
   );
-}
-
-async function readAllQueues(env: ReturnType<typeof readEnvMode>): Promise<Map<string, string[]>> {
-  const index = await readQueuesIndex(env);
-  const entries = await Promise.all(
-    index.map(async ({ name }) => [name, await readQueue(name, env)] as const),
-  );
-  return queuesByPromo(Object.fromEntries(entries));
 }
 
 function plural(n: number, one: string, few: string, many: string): string {

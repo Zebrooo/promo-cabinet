@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/lib/require-session';
-import { readPool, readQueuesIndex, readQueue } from '@/lib/catalogue';
+import { readPool, readMembership } from '@/lib/catalogue';
 import { readEnvMode } from '@/lib/env-mode';
 import { PromoForm } from '@/components/PromoForm';
 import { PromoAnalyticsBlock } from '@/components/PromoAnalyticsBlock';
@@ -12,16 +12,10 @@ export default async function EditPromoPage({ params }: { params: { id: string }
   requireSession();
   const envMode = readEnvMode(cookies());
 
-  const [promos, queuesIndex] = await Promise.all([readPool(envMode), readQueuesIndex(envMode)]);
+  const [promos, { queueNames, membership: all }] = await Promise.all([readPool(envMode), readMembership(envMode)]);
   const promo = promos.find((p) => p.id === params.id);
   if (!promo) notFound();
-
-  // Build membership list for THIS promo only.
-  const queueObjs = await Promise.all(queuesIndex.map((q) => readQueue(q.name, envMode)));
-  const membership = queuesIndex
-    .map((q, i) => (queueObjs[i].ids.includes(promo.id) ? q.name : null))
-    .filter((x): x is string => x !== null);
-  const queueNames = queuesIndex.map((q) => q.name);
+  const membership = all[promo.id] ?? [];
 
   return (
     <>

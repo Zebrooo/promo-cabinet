@@ -9,9 +9,8 @@ Auto-enriched: `referrer_source` (web client), `auth_state` (web /api/track), `s
 - (existing: listing_view, listing_engagement, contact_click, category_click, boost_purchase_*, …)
 
 ## promo-cabinet (admin)
+Фактически отправляемые события (см. `grep trackEvent( src`):
 - `cabinet_page_view` { page }
-- `cabinet_logout`
-- `ai_enhance_click` / `ai_enhance_accept` / `ai_enhance_reject` { field? }
 - `promo_save_success` { promo_id, format } / `promo_save_failed` { reason }
+- `promo_delete_success` { promo_id, format }
 - `promo_image_upload_success` / `promo_image_upload_failed` { kind: upload|generate }
-- `queue_create` / `queue_delete` / `queue_toggle_persist`

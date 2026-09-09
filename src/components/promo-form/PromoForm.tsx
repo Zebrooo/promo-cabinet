@@ -1,15 +1,13 @@
 'use client';
-// Promo editor — Figma "03 · Promo editor" port. Formik-based rewrite of the
-// pre-refactor 1853-line useState monolith; layout/CSS unchanged, see
-// editor-styles.ts for the extracted stylesheet and PR-2's ТЗ for the file
-// map (sections/, content/, fields.tsx, validate.ts, to-persisted.ts).
+// Promo editor. Formik-based; see editor-styles.ts for the stylesheet and
+// sections/, content/, fields.tsx, validate.ts, to-persisted.ts for the parts.
 //
 // Layout:
 //   ┌─ sticky page-bar ───────────────────────────────────────┐
 //   │ ← Вернуться к списку     [Удалить промо] [Сохранить]    │
 //   ├─────────────────────────────────────────────────────────┤
 //   │ H1 «Редактирование промо»                                │
-//   │ mono caption «ID xxx · обновлено HH:MM»                  │
+//   │ mono caption «ID xxx»                                    │
 //   │                                                          │
 //   │ ┌─ main editor column ────────┬─ live preview rail ─┐    │
 //   │ │ ГДЕ ПОКАЗЫВАТЬ / ТИП ПРОМО  │ ЖИВОЙ ПРЕВЬЮ        │    │

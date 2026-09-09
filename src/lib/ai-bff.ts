@@ -1,8 +1,8 @@
 /**
  * Server-side helper that proxies the cabinet's enhance request to the BFF
  * (`POST /enhance-promo`). Lives outside the request handler so it's easy to
- * mock in tests (pass `fetchImpl`). Bearer auth today; replace with a service-
- * ticket header once the cabinet ships a signing key (see TODO below).
+ * mock in tests (pass `fetchImpl`). Auth — service-ticket header (PROMO_TICKET_*),
+ * bearer остаётся только как dev-фолбэк, когда ключ не задан.
  */
 import { createPrivateKey, sign as edSign } from 'node:crypto';
 import { env } from '@/env';
