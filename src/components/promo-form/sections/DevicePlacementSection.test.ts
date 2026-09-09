@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { FORMATS_BY_DEVICE } from '@zebrooo/promo-renderer';
 import { allowedFormatsFor } from './DevicePlacementSection';
 
-/** promoline пакет @zebrooo/promo-renderer не знает (витрина рендерит его
- *  inline-рендерером), поэтому формат добавляется в тайлы локально — как
- *  multistep/custom до бампов пакета. Ограничений по устройствам нет. */
+/** promoline — нативный формат @zebrooo/promo-renderer: приходит в тайлы из
+ *  FORMATS_BY_DEVICE пакета (на всех устройствах), локально не добавляется. */
 describe('allowedFormatsFor — promoline', () => {
+  it.each(['desktop', 'touch'] as const)('the package lists promoline for %s', (device) => {
+    expect(FORMATS_BY_DEVICE[device]).toContain('promoline');
+  });
+
   it.each(['both', 'desktop', 'touch'] as const)('offers promoline on %s', (target) => {
     expect(allowedFormatsFor(target)).toContain('promoline');
   });
 
-  it('lists promoline exactly once (Set-дедуп на случай, если пакет его узнает)', () => {
+  it('lists promoline exactly once (Set-дедуп)', () => {
     for (const target of ['both', 'desktop', 'touch'] as const) {
       const promoline = allowedFormatsFor(target).filter((f) => f === 'promoline');
       expect(promoline, target).toHaveLength(1);

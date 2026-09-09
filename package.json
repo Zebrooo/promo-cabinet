@@ -16,7 +16,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
     "@divkitframework/divkit": "^32.52.0",
-    "@zebrooo/promo-renderer": "0.15.0",
+    "@zebrooo/promo-renderer": "0.16.0",
     "exceljs": "^4.4.0",
     "formik": "^2.4.9",
     "next": "^14.2.5",

@@ -347,11 +347,10 @@ export const inlinePromoSchema = servingBlockSchema.extend({
 /** Слой 2, член 2/9: promoline. Строка-карточка между объявлениями в ленте
  *  каталога (авто/шины/диски, после N-й органической карточки — afterListings,
  *  по умолчанию четвёртой; один показ на документ). Контент как у inline плюс
- *  afterListings: витрина рендерит его тем же inline-рендерером —
- *  @zebrooo/promo-renderer формата `promoline` не знает, поэтому кабинет
- *  мапит его на `inline` в toAdvertisement (PromoPreview.tsx). Отдельный член
- *  union нужен, чтобы поверхность можно было адресовать очередью/фильтром, а
- *  не хардкодом префикса id. */
+ *  afterListings; нативный формат @zebrooo/promo-renderer (та же вёрстка, что
+ *  у inline, но data-format="promoline"). Отдельный член union нужен, чтобы
+ *  поверхность можно было адресовать очередью/фильтром, а не хардкодом
+ *  префикса id. */
 export const promolinePromoSchema = servingBlockSchema.extend({
   format: z.literal('promoline'),
   description: z.string().optional(),
