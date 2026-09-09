@@ -1,7 +1,7 @@
 "use client";
 // Cabinet telemetry — ported from abkhaz-auto analytics.ts.
 // Key differences vs site version:
-//   - No Yandex.Metrica (admin tool; no UX heatmaps needed)
+//   - Yandex.Metrica подключается отдельно в app/layout.tsx (NEXT_PUBLIC_YM_COUNTER_ID)
 //   - Session cookie name: pc_sid  (vs aa_sid on site)
 //   - Beacon target: /api/track    (cabinet's own route)
 //

@@ -23,9 +23,10 @@ export function getS3Client(): S3Client {
 /**
  * Test-mode guardrail.
  *
- * The integration tests connect to the REAL bucket.ru bucket (.env at repo
- * root holds the same credentials prod uses), and they isolate themselves
- * by setting `process.env.PROMO_KEY_PREFIX = "test/<scope>/<uuid>/"` in
+ * By default the tests run against an in-memory S3 mock (vitest.setup.ts);
+ * with PROMO_TEST_LIVE_S3=true they hit the REAL bucket.ru bucket (.env at
+ * repo root holds the same credentials prod uses) and isolate themselves by
+ * setting `process.env.PROMO_KEY_PREFIX = "test/<scope>/<uuid>/"` in
  * beforeEach. The afterEach then DELETEs `promosKey()` / `queuesIndexKey()` /
  * `queueKey(...)` — relying on the same prefix being present at delete time.
  *

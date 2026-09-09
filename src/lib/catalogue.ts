@@ -120,9 +120,8 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   { name: 'persistent-topline', persist: true },
   { name: 'persistent-inline',  persist: true },
   { name: 'persistent-promoline', persist: true },
-  // Per-catalog queues (step B' of the per-catalog rollout,
-  // docs 2026-07-01-per-catalog-queues.md): one queue per storefront catalog
-  // page context; the BFF picks by format inside the queue.
+  // Per-catalog queues (step B' of the per-catalog rollout): one queue per
+  // storefront catalog page context; the BFF picks by format inside the queue.
   { name: 'home',      persist: false },
   { name: 'transport', persist: false },
   { name: 'realty',    persist: false },
@@ -229,6 +228,24 @@ export async function ensureMainQueue(envMode: EnvMode = 'prod'): Promise<Queues
   const next = [...index, ...toAdd];
   await writeQueuesIndex(next, envMode);
   return next;
+}
+
+/** Индекс + содержимое всех очередей одним вызовом (N параллельных GET). */
+export async function readAllQueues(envMode: EnvMode = 'prod'): Promise<{ index: QueuesIndex; queues: Record<string, QueueObject> }> {
+  const index = await readQueuesIndex(envMode);
+  const objs = await Promise.all(index.map((q) => readQueue(q.name, envMode)));
+  const queues = Object.fromEntries(index.map((q, i) => [q.name, objs[i]]));
+  return { index, queues };
+}
+
+/** promoId → имена очередей, где оно стоит (общий хелпер страниц кабинета). */
+export async function readMembership(envMode: EnvMode = 'prod'): Promise<{ queueNames: string[]; membership: Record<string, string[]> }> {
+  const { index, queues } = await readAllQueues(envMode);
+  const membership: Record<string, string[]> = {};
+  for (const { name } of index) {
+    for (const id of queues[name].ids) (membership[id] ??= []).push(name);
+  }
+  return { queueNames: index.map((q) => q.name), membership };
 }
 
 /** Both objects, for rendering pages. */

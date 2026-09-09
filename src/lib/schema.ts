@@ -14,7 +14,6 @@ export const deviceBrandSchema = z.enum(['iphone', 'android-flagship', 'android-
 /** IP-гео «где юзер СЕЙЧАС» (спека targeting-geo). НЕ ось targeting.regions
  *  (та — город из ПРОФИЛЯ). Байт-в-байт с catalogue-schema.ts BFF. */
 export const geoSegmentSchema = z.enum(['local', 'tourist', 'other']);
-export type GeoSegment = z.infer<typeof geoSegmentSchema>;
 /** Профиль визита (спека targeting-visit-profile). Байт-в-байт с BFF. */
 export const visitorClassSchema = z.enum(['newcomer', 'regular']);
 export const entrySourceSchema = z.enum(['direct', 'search', 'telegram', 'other']);
@@ -561,7 +560,6 @@ export const queueObjectSchema = z.object({
  *  mutations.ts, API-роуты) продолжают работать с одним плоским типом,
  *  независимо от того, что валидация ушла на discriminated union. */
 export type Promo = z.infer<typeof promoDraftSchema>;
-export type Catalogue = z.infer<typeof catalogueSchema>;
 export type QueuesIndex = z.infer<typeof queuesIndexSchema>;
 export type QueueObject = z.infer<typeof queueObjectSchema>;
 

@@ -16,7 +16,7 @@ export const env = {
   get s3ForcePathStyle() { return process.env.PROMO_S3_FORCE_PATH_STYLE !== 'false'; },
   /** Promo BFF base URL — proxy target for /api/enhance and analytics. */
   get promoBffUrl() { return process.env.PROMO_BFF_URL ?? ''; },
-  /** Optional bearer token for BFF /enhance-promo until service-ticket lands here too. */
+  /** Dev-фолбэк для BFF /enhance-promo, когда PROMO_TICKET_PRIVATE_KEY не задан. */
   get promoBffAuthBearer() { return process.env.PROMO_BFF_AUTH_BEARER ?? ''; },
   /** Прямой публичный base для S3-объектов (CDN/CloudFront/bucket-домен).
    *  Если задан — uploaded-картинки url'ятся в `${PROMO_PUBLIC_BASE}/${key}`

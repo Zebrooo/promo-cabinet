@@ -1,7 +1,6 @@
 'use client';
 
 // Top strip + fixed 200px nav rail + main column.
-// Layout matches Figma "01 · Analytics dashboard" exactly:
 //   ┌─ 64px top strip ──────────────────────────────────────────┐
 //   │ ABKHAZ · PROMO   / breadcrumb …            [user pill]    │
 //   ├──────────┬─────────────────────────────────────────────────┤
@@ -10,9 +9,8 @@
 //   │          │                                                 │
 //   └──────────┴─────────────────────────────────────────────────┘
 //
-// The rail is static (no hover-to-expand), matching the design's
-// always-visible labels. Active state: warm pink bg + coral accent strip
-// on the left + red square icon + ink text.
+// The rail is static (no hover-to-expand). Active state: warm pink bg +
+// coral accent strip on the left + red square icon + ink text.
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
@@ -28,9 +26,7 @@ interface NavItem {
   matchExact: boolean;
 }
 
-// Только маршруты, которые нужны юзеру каждый день. «Кампании» / «Настройки»
-// из Figma пока 404. «Стайлгайд» — dev-инструмент, не показываем в nav,
-// доступен по прямому /cabinet/styleguide.
+// Только маршруты, которые нужны юзеру каждый день.
 const NAV_ITEMS: NavItem[] = [
   { href: '/cabinet',             label: 'Все промо',   matchExact: true  },
   { href: '/cabinet/queues',      label: 'Очереди',     matchExact: false },
@@ -89,16 +85,12 @@ function NavRail() {
           );
         })}
       </div>
-      <div className="nav-version">
-        <div className="nav-version-overline">ВЕРСИЯ</div>
-        <div className="nav-version-num">v2.4.1</div>
-      </div>
     </nav>
   );
 }
 
-// Mobile bottom-tab nav (≤720px). Mirrors Figma "04 · Mobile analytics" foot:
-// 4 tabs with a small square glyph + label, the active one in coral.
+// Mobile bottom-tab nav (≤720px): tabs with a small square glyph + label,
+// the active one in coral.
 const MOBILE_TABS: NavItem[] = [
   { href: '/cabinet',             label: 'Промо',   matchExact: true  },
   { href: '/cabinet/queues',      label: 'Очереди', matchExact: false },

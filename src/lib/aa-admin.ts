@@ -10,7 +10,6 @@ import { z } from 'zod';
 import { aaAdminPost } from '@/lib/bff-client';
 
 export const aaEnvSchema = z.enum(['test', 'prod']);
-export type AaEnv = z.infer<typeof aaEnvSchema>;
 
 /** Сетевой сбой/таймаут до BFF — сам BFF недоступен, это не бизнес-ошибка ручки. */
 function bffUnreachable(): NextResponse {

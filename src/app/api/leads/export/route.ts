@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import { isAuthed } from '@/lib/api-auth';
 import { getLeads } from '@/lib/bff-client';
 import { readEnvMode } from '@/lib/env-mode';
-import { readQueuesIndex, readQueue } from '@/lib/catalogue';
+import { readAllQueues } from '@/lib/catalogue';
 import {
   LEAD_COLUMNS,
   LEADS_LIMIT,
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const leads = await getLeads({ promoId, from, to, limit: LEADS_LIMIT });
     // Очередь промо знает только кабинет — сайт её в заявке не передаёт.
     // Падение S3 не должно ронять выгрузку: тогда колонка «Очередь» пустая.
-    const queues = await readAllQueues(readEnvMode(req.cookies)).catch(() => new Map<string, string[]>());
+    const queues = await readAllQueues(readEnvMode(req.cookies)).then((r) => queuesByPromo(r.queues)).catch(() => new Map<string, string[]>());
     rows = toRows(leads, queues);
   } catch {
     return NextResponse.json({ error: 'leads_unavailable' }, { status: 502 });
@@ -70,12 +70,4 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       'cache-control': 'no-store',
     },
   });
-}
-
-async function readAllQueues(env: ReturnType<typeof readEnvMode>): Promise<Map<string, string[]>> {
-  const index = await readQueuesIndex(env);
-  const entries = await Promise.all(
-    index.map(async ({ name }) => [name, await readQueue(name, env)] as const),
-  );
-  return queuesByPromo(Object.fromEntries(entries));
 }

@@ -39,5 +39,3 @@ export const KNOWN_CUSTOM_VARIANTS = [
     host: 'abkhaz-auto-web',
   },
 ] as const satisfies readonly CustomVariant[];
-
-export type KnownCustomVariantId = (typeof KNOWN_CUSTOM_VARIANTS)[number]['id'];

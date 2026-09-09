@@ -3,6 +3,3 @@ packages:
 
 allowBuilds:
   esbuild: true
-minimumReleaseAgeExclude:
-  - '@zebrooo/promo-renderer@0.13.0'
-  - '@zebrooo/promo-renderer@0.13.1'

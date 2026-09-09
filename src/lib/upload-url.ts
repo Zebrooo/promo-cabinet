@@ -12,7 +12,7 @@
  *   3. Request `origin` — если ни одна env-переменная не задана,
  *      выдёргиваем из x-forwarded-host / host. Лучше чем relative.
  *
- * Хранится в очереди `home-popup.json` → JSON в S3 → читается abkhaz-auto.
+ * URL сохраняется в промо (pool) → JSON в S3 → читается abkhaz-auto.
  */
 
 import { env } from "@/env";
