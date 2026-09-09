@@ -14,3 +14,4 @@ Auto-enriched: `referrer_source` (web client), `auth_state` (web /api/track), `s
 - `promo_save_success` { promo_id, format } / `promo_save_failed` { reason }
 - `promo_delete_success` { promo_id, format }
 - `promo_image_upload_success` / `promo_image_upload_failed` { kind: upload|generate }
+- `push_subscribe_success` / `push_unsubscribe` — Web Push-подписка админа на пуши о новых кампаниях (клики по кнопкам: `push_enable` / `push_disable` через data-track)

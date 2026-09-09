@@ -33,6 +33,17 @@ async function registration(): Promise<ServiceWorkerRegistration> {
   return existing ?? navigator.serviceWorker.register('/sw.js', { scope: '/' });
 }
 
+/** Подписка привязана к VAPID-ключу, с которым её создали: после ротации
+ *  ключей BFF подписывал бы новым, а push-сервис отвечал 403. Такую
+ *  подписку считаем чужой — её надо пересоздать. */
+function matchesKey(sub: PushSubscription, vapidPublicKey: string): boolean {
+  const current = sub.options?.applicationServerKey;
+  if (!current) return true; // браузер не отдаёт ключ — сравнить нечем
+  const a = new Uint8Array(current);
+  const b = urlBase64ToUint8Array(vapidPublicKey);
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
+
 export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
   const [state, setState] = useState<State>({ kind: 'checking' });
   const [error, setError] = useState('');
@@ -61,7 +72,7 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
         const reg = await registration();
         const sub = await reg.pushManager.getSubscription();
         if (cancelled) return;
-        setState(sub ? { kind: 'on', endpoint: sub.endpoint } : { kind: 'off' });
+        setState(sub && matchesKey(sub, vapidPublicKey) ? { kind: 'on', endpoint: sub.endpoint } : { kind: 'off' });
       } catch {
         if (!cancelled) setState({ kind: 'off' });
       }
@@ -79,12 +90,15 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
         return;
       }
       const reg = await registration();
-      const sub =
-        (await reg.pushManager.getSubscription()) ??
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
-        }));
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && !matchesKey(sub, vapidPublicKey)) {
+        await sub.unsubscribe().catch(() => {});
+        sub = null;
+      }
+      sub ??= await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+      });
       const res = await fetch('/api/push/subscription', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -111,14 +125,22 @@ export function PushToggle({ vapidPublicKey }: { vapidPublicKey: string }) {
     const { endpoint } = state;
     setState({ kind: 'busy', label: 'Выключаю…' });
     try {
-      const reg = await registration();
-      const sub = await reg.pushManager.getSubscription();
-      await sub?.unsubscribe();
-      await fetch('/api/push/subscription', {
+      // Сначала сервер, потом браузер: если S3 недоступна, подписка остаётся
+      // живой и в браузере, и в файле — админ видит ошибку и может повторить,
+      // а не получает «выключено» с мёртвым endpoint'ом, в который BFF шлёт.
+      const res = await fetch('/api/push/subscription', {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ endpoint }),
       });
+      if (!res.ok) {
+        setError(res.status === 502 ? 'Хранилище недоступно (S3) — попробуйте ещё раз.' : `Не удалось выключить (ошибка ${res.status}).`);
+        setState({ kind: 'on', endpoint });
+        return;
+      }
+      const reg = await registration();
+      const sub = await reg.pushManager.getSubscription();
+      await sub?.unsubscribe();
       trackEvent('push_unsubscribe');
       setState({ kind: 'off' });
     } catch {

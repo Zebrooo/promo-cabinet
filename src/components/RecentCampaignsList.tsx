@@ -38,6 +38,18 @@ interface Creative {
   action?: { href?: string; label?: string };
 }
 
+/** Креатив пишет рекламодатель: в <a href>/<img src> пускаем только http(s),
+ *  иначе javascript:-ссылка в карточке — XSS против админа. */
+export function safeHttpUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const u = new URL(value);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 const FORMAT_LABEL: Record<string, string> = {
   banner: 'баннер', popup: 'попап', fullscreen: 'фуллскрин', topline: 'топлайн', inline: 'инлайн', tooltip: 'тултип',
 };
@@ -45,6 +57,9 @@ const FORMAT_LABEL: Record<string, string> = {
 function CampaignCard({ c }: { c: RecentCampaign }) {
   const cr: Creative = typeof c.creative === 'object' && c.creative !== null ? (c.creative as Creative) : {};
   const format = cr.format ?? c.format ?? '';
+  const imageUrl = safeHttpUrl(cr.imageUrl);
+  const actionHref = safeHttpUrl(cr.action?.href);
+  const advertiser = typeof c.advertiserId === 'string' && c.advertiserId ? c.advertiserId : null;
   return (
     <article className="cmp-card" data-campaign-id={c.id}>
       <div className="cmp-main">
@@ -55,7 +70,7 @@ function CampaignCard({ c }: { c: RecentCampaign }) {
         </div>
         <div className="cmp-meta">
           <span>создана {formatWhen(c.createdAt)}</span>
-          <span title={c.advertiserId}>рекламодатель {c.advertiserId.slice(0, 8)}…</span>
+          {advertiser && <span title={advertiser}>рекламодатель {advertiser.slice(0, 8)}…</span>}
           <span>статус: {c.status || '—'}</span>
           {c.notifiedAt
             ? <span className="cmp-sent">пуш отправлен {formatWhen(c.notifiedAt)}</span>
@@ -69,18 +84,18 @@ function CampaignCard({ c }: { c: RecentCampaign }) {
           <div><div className="cmp-fact-label">Страницы</div><div className="cmp-fact-value">{c.targetPages && c.targetPages.length > 0 ? c.targetPages.join(', ') : 'все'}</div></div>
         </div>
 
-        {(cr.title || cr.description || cr.imageUrl) && (
+        {(cr.title || cr.description || imageUrl) && (
           <div className="cmp-creative">
-            {cr.imageUrl && (
+            {imageUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cr.imageUrl} alt="" loading="lazy" />
+              <img src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
             )}
             <div className="cmp-creative-text">
               {cr.title && <div className="cmp-creative-title">{cr.title}</div>}
               {cr.description && <div>{cr.description}</div>}
-              {cr.action?.href && (
-                <a href={cr.action.href} target="_blank" rel="noopener noreferrer nofollow" className="cmp-creative-link">
-                  {cr.action.label || 'Ссылка'} ↗
+              {actionHref && (
+                <a href={actionHref} target="_blank" rel="noopener noreferrer nofollow" className="cmp-creative-link">
+                  {cr.action?.label || 'Ссылка'} ↗
                 </a>
               )}
             </div>

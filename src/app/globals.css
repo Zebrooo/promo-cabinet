@@ -765,7 +765,7 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
 
   .mobile-tabs {
     grid-area: tabs;
-    display: grid; grid-template-columns: repeat(5, 1fr);
+    display: grid; grid-template-columns: repeat(6, 1fr);
     background: var(--nav-bg);
     border-top: 1px solid var(--nav-border);
     position: sticky; bottom: 0; z-index: 11;
