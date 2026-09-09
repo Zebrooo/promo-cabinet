@@ -65,6 +65,18 @@
 | `targeting.listings.activeCategories` | массив<строка> | опционально | — |
 | `targeting.listings.hasUnpromotedActive` | булево | опционально | — |
 | `targeting.listings.inactiveDays` | число | опционально | — |
+| `targeting.advertiser` | объект (см. под-поля ниже) | опционально | Ось «Рекламодатель»: условия по рекламным кампаниям зрителя (ad_campaigns витрины) и мастеру подачи РК (только залогиненные — анонимам не показывается; условия по И; пустой блок = гейта нет) |
+| `targeting.advertiser.campaignStatuses` | массив<строка> | опционально | Есть РК хотя бы в одном из статусов сейчас (слаги ad_campaigns.status, до 10, внутри списка — ИЛИ; известные: pending, active) |
+| `targeting.advertiser.hasActiveCampaign` | булево | опционально | true = есть РК в статусе active сейчас; false = ни одной активной |
+| `targeting.advertiser.everLaunched` | булево | опционально | true = хоть раз запускал РК (кампания доходила до active); false = никогда не запускал |
+| `targeting.advertiser.launchedWithinDays` | число | опционально | Только при everLaunched=true: последняя запущенная РК не старше N дней (1–365; пусто = за всё время) |
+| `targeting.advertiser.abandonedWizard` | булево | опционально | true = открывал мастер подачи РК и не отправил (form_start без form_submit_success за окно); false = брошенного мастера нет |
+| `targeting.advertiser.wizardLookbackDays` | число | опционально | Только при abandonedWizard=true: окно поиска брошенного мастера, дней (1–90; пусто = дефолт BFF 30) |
+| `targeting.advertiser.paidCampaigns` | булево | опционально | true = были списания по РК (сумма spent_kopecks > 0); false = не платил за рекламу |
+| `targeting.advertiser.minSpentKopecks` | число | опционально | Только при paidCampaigns=true: суммарно списано по РК не меньше N копеек |
+| `targeting.advertiser.budgetExhausted` | булево | опционально | true = есть РК с исчерпанным бюджетом (spent ≥ total_budget или выбран дневной лимит); false = такой нет |
+| `targeting.advertiser.endsWithinDays` | число | опционально | Есть активная РК, которая заканчивается (ends_at) в ближайшие N дней (1–90) |
+| `targeting.advertiser.walletAtMostKopecks` | число | опционально | Баланс рекламного кошелька (ledger_accounts, kind=liability, ЛК «Реклама») не больше N копеек; 0 = пустой кошелёк |
 | `maxImpressionsPerUser` | число | опционально | Лимит показов на юзера (пусто = без лимита) |
 | `cooldownHours` | число | обязательно | Пауза между повторными показами одному юзеру, часов |
 | `afterPromoId` | строка | опционально | Показывать только после того, как юзер видел указанное промо (id предшественника в цепочке) |

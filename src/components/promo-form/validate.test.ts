@@ -224,6 +224,37 @@ describe('validatePromoForm — behavior (блок «Поведение»)', () 
     }))).toEqual({});
   });
 
+  it('flags advertiser on an anonymous audience (правило superRefine продублировано формой)', () => {
+    const errors = validatePromoForm(make('popup', {
+      audience: 'anonymous',
+      targeting: { advertiser: { everLaunched: true, hasActiveCampaign: false } },
+    }));
+    expect(errors.targeting?.advertiser).toMatch(/гост/i);
+  });
+
+  it('does not flag a cleared advertiser block (даже при anonymous), but does flag its field errors', () => {
+    expect(validatePromoForm(make('popup', {
+      audience: 'anonymous',
+      targeting: { advertiser: { everLaunched: undefined, launchedWithinDays: 30 } },
+    }))).toEqual({});
+    const errors = validatePromoForm(make('inline', {
+      targeting: { advertiser: { everLaunched: true, launchedWithinDays: 400 } },
+    }));
+    expect(errors).toMatchObject({ targeting: { advertiser: { launchedWithinDays: 'Не больше 365 дней' } } });
+    expect(validatePromoForm(make('inline', {
+      targeting: { advertiser: { hasActiveCampaign: false, campaignStatuses: ['active'] } },
+    }))).toMatchObject({ targeting: { advertiser: { campaignStatuses: expect.stringContaining('противоречит') } } });
+    expect(validatePromoForm(make('inline', {
+      targeting: { advertiser: { everLaunched: false, paidCampaigns: true } },
+    }))).toMatchObject({ targeting: { advertiser: { everLaunched: expect.stringContaining('Списания') } } });
+    expect(validatePromoForm(make('inline', {
+      targeting: { advertiser: { hasActiveCampaign: false, endsWithinDays: 5 } },
+    }))).toMatchObject({ targeting: { advertiser: { endsWithinDays: expect.any(String) } } });
+    expect(validatePromoForm(make('inline', {
+      audience: 'anonymous', targeting: { advertiser: { walletAtMostKopecks: 0 } },
+    })).targeting?.advertiser).toMatch(/гост/i);
+  });
+
   it('значение вне диапазона → ошибка на своём пути', () => {
     const errors = validatePromoForm(make('inline', {
       targeting: { behavior: { minSessionViews: 101 } },

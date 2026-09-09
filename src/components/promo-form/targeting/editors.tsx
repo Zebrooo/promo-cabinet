@@ -769,6 +769,219 @@ function ListingsEditor() {
   );
 }
 
+/** Ось «Рекламодатель»: три трёхпозиционных условия (не важно / да / нет) +
+ *  список статусов РК. Периоды показываем только при «да» — без условия они
+ *  не имеют смысла и в пул не пишутся (targeting-normalize.ts). */
+function TriStateSelect({
+  value, onChange, yes, no,
+}: {
+  value: boolean | undefined;
+  onChange: (next: boolean | undefined) => void;
+  yes: string;
+  no: string;
+}) {
+  return (
+    <select
+      className="ef-input"
+      value={value === undefined ? '' : String(value)}
+      onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value === 'true')}
+    >
+      <option value="">Не важно</option>
+      <option value="true">{yes}</option>
+      <option value="false">{no}</option>
+    </select>
+  );
+}
+
+function AdvertiserEditor() {
+  const { values, setFieldValue } = useFormikContext<Promo>();
+  const advertiser = values.targeting.advertiser;
+  const patch = (next: Partial<NonNullable<Promo['targeting']['advertiser']>>) =>
+    setFieldValue('targeting.advertiser', { ...advertiser, ...next });
+  return (
+    <>
+      <div className="ef-field">
+        <FieldError name="targeting.advertiser" />
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Запускал рекламную кампанию
+            <HintIcon
+              label="Рекламные кампании"
+              text="Условия по рекламным кампаниям зрителя (ad_campaigns витрины, ЛК «Реклама») — все заданные должны совпасть одновременно (И). Работает только для залогиненных — гостям такие промо не показываются. «Запускал» = хотя бы одна РК доходила до статуса active; «сейчас нет активной» + «запускал» = сегмент «крутил рекламу и остановился». Покупки продвижения объявлений (VIP/premium/bump) — отдельный фильтр «Покупки пакетов»."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.everLaunched}
+            onChange={(everLaunched) => patch({
+              everLaunched,
+              launchedWithinDays: everLaunched === true ? advertiser?.launchedWithinDays : undefined,
+            })}
+            yes="Запускал"
+            no="Никогда не запускал"
+          />
+          <FieldError name="targeting.advertiser.everLaunched" />
+        </div>
+        {advertiser?.everLaunched === true && (
+          <div className="ef-field">
+            <label>Последний запуск не старше N дней</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={365} placeholder="за всё время"
+              value={advertiser.launchedWithinDays ?? ''}
+              onChange={(e) => patch({
+                launchedWithinDays: e.target.value === '' ? undefined : Number(e.target.value),
+              })}
+            />
+            <FieldError name="targeting.advertiser.launchedWithinDays" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>Активная РК сейчас</label>
+          <TriStateSelect
+            value={advertiser?.hasActiveCampaign}
+            onChange={(hasActiveCampaign) => patch({ hasActiveCampaign })}
+            yes="Есть активная"
+            no="Нет активной"
+          />
+          <FieldError name="targeting.advertiser.hasActiveCampaign" />
+        </div>
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Мастер подачи РК
+            <HintIcon
+              label="Мастер подачи РК"
+              text="«Бросил» = открывал форму создания кампании (form_start) и за окно не отправил её (нет form_submit_success). Окно — от 1 до 90 дней, пусто = 30. Условие «никогда не запускал» + «бросил мастер» = сегмент «заходил на форму подачи, но так и не запустил»."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.abandonedWizard}
+            onChange={(abandonedWizard) => patch({
+              abandonedWizard,
+              wizardLookbackDays: abandonedWizard === true ? advertiser?.wizardLookbackDays : undefined,
+            })}
+            yes="Начал и бросил"
+            no="Не бросал"
+          />
+          <FieldError name="targeting.advertiser.abandonedWizard" />
+        </div>
+        {advertiser?.abandonedWizard === true && (
+          <div className="ef-field">
+            <label>За период, дней</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={90} placeholder="30"
+              value={advertiser.wizardLookbackDays ?? ''}
+              onChange={(e) => patch({
+                wizardLookbackDays: e.target.value === '' ? undefined : Number(e.target.value),
+              })}
+            />
+            <FieldError name="targeting.advertiser.wizardLookbackDays" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>
+            Есть РК в статусах
+            <HintIcon
+              label="Статусы рекламных кампаний"
+              text="Слаги ad_campaigns.status через запятую; совпадёт, если у зрителя сейчас есть хотя бы одна РК в любом из статусов (ИЛИ). Известные статусы: active, pending. Пусто — по статусам не фильтруем."
+            />
+          </label>
+          <SlugListField name="targeting.advertiser.campaignStatuses" placeholder="active, pending" />
+          <FieldError name="targeting.advertiser.campaignStatuses" />
+        </div>
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Платил за РК
+            <HintIcon
+              label="Платил за РК"
+              text="«Платил» = по кампаниям зрителя были списания (сумма spent по ad_campaigns больше нуля). Не путать с «Покупками пакетов» — там продвижение объявлений (VIP/premium/bump). При «платил» можно задать минимальную сумму списаний за всё время."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.paidCampaigns}
+            onChange={(paidCampaigns) => patch({
+              paidCampaigns,
+              minSpentKopecks: paidCampaigns === true ? advertiser?.minSpentKopecks : undefined,
+            })}
+            yes="Платил"
+            no="Не платил"
+          />
+          <FieldError name="targeting.advertiser.paidCampaigns" />
+        </div>
+        {advertiser?.paidCampaigns === true && (
+          <div className="ef-field">
+            <label>Списано от, ₽</label>
+            <input
+              type="number" className="ef-input mono" min={0} placeholder="—"
+              value={advertiser.minSpentKopecks !== undefined ? advertiser.minSpentKopecks / 100 : ''}
+              onChange={(e) => patch({
+                minSpentKopecks: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+              })}
+            />
+            <FieldError name="targeting.advertiser.minSpentKopecks" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>
+            Бюджет РК исчерпан
+            <HintIcon
+              label="Бюджет РК исчерпан"
+              text="Есть кампания, у которой потрачено не меньше общего бюджета или выбран дневной лимит на сегодня, — реклама стоит, пока рекламодатель не пополнит бюджет. Хороший момент для промо «пополните бюджет»."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.budgetExhausted}
+            onChange={(budgetExhausted) => patch({ budgetExhausted })}
+            yes="Исчерпан"
+            no="Не исчерпан"
+          />
+          <FieldError name="targeting.advertiser.budgetExhausted" />
+        </div>
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            РК заканчивается через N дней
+            <HintIcon
+              label="РК заканчивается"
+              text="Есть активная кампания, у которой дата окончания наступает в ближайшие N дней (1–90). Повод предложить продление. Пусто — не фильтруем."
+            />
+          </label>
+          <input
+            type="number" className="ef-input mono" min={1} max={90} placeholder="—"
+            value={advertiser?.endsWithinDays ?? ''}
+            onChange={(e) => patch({
+              endsWithinDays: e.target.value === '' ? undefined : Number(e.target.value),
+            })}
+          />
+          <FieldError name="targeting.advertiser.endsWithinDays" />
+        </div>
+        <div className="ef-field">
+          <label>
+            Рекламный кошелёк не больше, ₽
+            <HintIcon
+              label="Рекламный кошелёк"
+              text="Баланс кошелька рекламодателя в ЛК «Реклама» (из него списываются показы РК). 0 = пустой кошелёк: кампания создана, но крутиться не может — витрина сама об этом не говорит. Не путать с фильтром «Кошелёк» в группе «Деньги» — там баланс пользователя витрины. Пусто — не фильтруем."
+            />
+          </label>
+          <input
+            type="number" className="ef-input mono" min={0} placeholder="—"
+            value={advertiser?.walletAtMostKopecks !== undefined ? advertiser.walletAtMostKopecks / 100 : ''}
+            onChange={(e) => patch({
+              walletAtMostKopecks: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+            })}
+          />
+          <FieldError name="targeting.advertiser.walletAtMostKopecks" />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function BalanceEditor() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const balance = values.targeting.balance;
@@ -959,6 +1172,7 @@ export const FILTER_EDITORS: Record<string, () => JSX.Element> = {
   search: SearchEditor,
   purchases: PurchasesEditor,
   listings: ListingsEditor,
+  advertiser: AdvertiserEditor,
   balance: BalanceEditor,
   os: OsEditor,
   environments: EnvironmentsEditor,
