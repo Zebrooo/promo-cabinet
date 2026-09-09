@@ -4,8 +4,9 @@
 // member schema (dates, afterPromoId, divkit-required-on-the-form).
 import type { FormikErrors } from 'formik';
 import { setIn } from 'formik';
-import { SCHEMA_BY_FORMAT, type Promo } from '@/lib/schema';
+import { ADVERTISER_ANONYMOUS_MESSAGE, SCHEMA_BY_FORMAT, type Promo } from '@/lib/schema';
 import { compactLifecycle } from '@/lib/lifecycle';
+import { hasAdvertiserCriteria } from '@/lib/targeting-normalize';
 
 export function validatePromoForm(rawValues: Promo): FormikErrors<Promo> {
   let errors: FormikErrors<Promo> = {};
@@ -47,6 +48,13 @@ export function validatePromoForm(rawValues: Promo): FormikErrors<Promo> {
       'Условия по объявлениям никогда не совпадут у гостя — уберите блок жизненного цикла или смените аудиторию');
   }
 
+  // anonymous × рекламодатель — то же правило из superRefine(): кампании и
+  // мастер подачи есть только у аккаунта. Пустой блок (все контролы очищены)
+  // не считается — его вычищает normalizeTargeting при сохранении.
+  if (values.audience === 'anonymous' && hasAdvertiserCriteria(values.targeting.advertiser)) {
+    errors = setIn(errors, 'targeting.advertiser', ADVERTISER_ANONYMOUS_MESSAGE);
+  }
+
   // afterPromoId !== id — та же кросс-полевая проверка, что в superRefine().
   if (values.afterPromoId && values.afterPromoId.trim() === values.id.trim()) {
     errors = setIn(errors, 'afterPromoId', 'Промо не может показываться после самого себя — укажите id другого промо');
@@ -74,3 +82,4 @@ export function validatePromoForm(rawValues: Promo): FormikErrors<Promo> {
 
   return errors;
 }
+

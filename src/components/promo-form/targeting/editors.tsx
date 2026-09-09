@@ -769,6 +769,133 @@ function ListingsEditor() {
   );
 }
 
+/** Ось «Рекламодатель»: три трёхпозиционных условия (не важно / да / нет) +
+ *  список статусов РК. Периоды показываем только при «да» — без условия они
+ *  не имеют смысла и в пул не пишутся (targeting-normalize.ts). */
+function TriStateSelect({
+  value, onChange, yes, no,
+}: {
+  value: boolean | undefined;
+  onChange: (next: boolean | undefined) => void;
+  yes: string;
+  no: string;
+}) {
+  return (
+    <select
+      className="ef-input"
+      value={value === undefined ? '' : String(value)}
+      onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value === 'true')}
+    >
+      <option value="">Не важно</option>
+      <option value="true">{yes}</option>
+      <option value="false">{no}</option>
+    </select>
+  );
+}
+
+function AdvertiserEditor() {
+  const { values, setFieldValue } = useFormikContext<Promo>();
+  const advertiser = values.targeting.advertiser;
+  const patch = (next: Partial<NonNullable<Promo['targeting']['advertiser']>>) =>
+    setFieldValue('targeting.advertiser', { ...advertiser, ...next });
+  return (
+    <>
+      <div className="ef-field">
+        <FieldError name="targeting.advertiser" />
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Запускал рекламную кампанию
+            <HintIcon
+              label="Рекламные кампании"
+              text="Условия по рекламным кампаниям зрителя (ad_campaigns витрины, ЛК «Реклама») — все заданные должны совпасть одновременно (И). Работает только для залогиненных — гостям такие промо не показываются. «Запускал» = хотя бы одна РК доходила до статуса active; «сейчас нет активной» + «запускал» = сегмент «крутил рекламу и остановился». Покупки продвижения объявлений (VIP/premium/bump) — отдельный фильтр «Покупки пакетов»."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.everLaunched}
+            onChange={(everLaunched) => patch({
+              everLaunched,
+              launchedWithinDays: everLaunched === true ? advertiser?.launchedWithinDays : undefined,
+            })}
+            yes="Запускал"
+            no="Никогда не запускал"
+          />
+          <FieldError name="targeting.advertiser.everLaunched" />
+        </div>
+        {advertiser?.everLaunched === true && (
+          <div className="ef-field">
+            <label>Последний запуск не старше N дней</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={365} placeholder="за всё время"
+              value={advertiser.launchedWithinDays ?? ''}
+              onChange={(e) => patch({
+                launchedWithinDays: e.target.value === '' ? undefined : Number(e.target.value),
+              })}
+            />
+            <FieldError name="targeting.advertiser.launchedWithinDays" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>Активная РК сейчас</label>
+          <TriStateSelect
+            value={advertiser?.hasActiveCampaign}
+            onChange={(hasActiveCampaign) => patch({ hasActiveCampaign })}
+            yes="Есть активная"
+            no="Нет активной"
+          />
+          <FieldError name="targeting.advertiser.hasActiveCampaign" />
+        </div>
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Мастер подачи РК
+            <HintIcon
+              label="Мастер подачи РК"
+              text="«Бросил» = открывал форму создания кампании (form_start) и за окно не отправил её (нет form_submit_success). Окно — от 1 до 90 дней, пусто = 30. Условие «никогда не запускал» + «бросил мастер» = сегмент «заходил на форму подачи, но так и не запустил»."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.abandonedWizard}
+            onChange={(abandonedWizard) => patch({
+              abandonedWizard,
+              wizardLookbackDays: abandonedWizard === true ? advertiser?.wizardLookbackDays : undefined,
+            })}
+            yes="Начал и бросил"
+            no="Не бросал"
+          />
+          <FieldError name="targeting.advertiser.abandonedWizard" />
+        </div>
+        {advertiser?.abandonedWizard === true && (
+          <div className="ef-field">
+            <label>За период, дней</label>
+            <input
+              type="number" className="ef-input mono" min={1} max={90} placeholder="30"
+              value={advertiser.wizardLookbackDays ?? ''}
+              onChange={(e) => patch({
+                wizardLookbackDays: e.target.value === '' ? undefined : Number(e.target.value),
+              })}
+            />
+            <FieldError name="targeting.advertiser.wizardLookbackDays" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>
+            Есть РК в статусах
+            <HintIcon
+              label="Статусы рекламных кампаний"
+              text="Слаги ad_campaigns.status через запятую; совпадёт, если у зрителя сейчас есть хотя бы одна РК в любом из статусов (ИЛИ). Известные статусы: active, pending. Пусто — по статусам не фильтруем."
+            />
+          </label>
+          <SlugListField name="targeting.advertiser.campaignStatuses" placeholder="active, pending" />
+          <FieldError name="targeting.advertiser.campaignStatuses" />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function BalanceEditor() {
   const { values, setFieldValue } = useFormikContext<Promo>();
   const balance = values.targeting.balance;
@@ -959,6 +1086,7 @@ export const FILTER_EDITORS: Record<string, () => JSX.Element> = {
   search: SearchEditor,
   purchases: PurchasesEditor,
   listings: ListingsEditor,
+  advertiser: AdvertiserEditor,
   balance: BalanceEditor,
   os: OsEditor,
   environments: EnvironmentsEditor,

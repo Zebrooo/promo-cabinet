@@ -4,13 +4,14 @@
 // не меняется — это описание уже существующих полей Promo.
 import type { Promo } from '@/lib/schema';
 
-export type FilterGroup = 'audience' | 'behavior' | 'money' | 'device' | 'context' | 'time';
+export type FilterGroup = 'audience' | 'behavior' | 'advertiser' | 'money' | 'device' | 'context' | 'time';
 
-export const GROUP_ORDER = ['audience', 'behavior', 'money', 'device', 'context', 'time'] as const;
+export const GROUP_ORDER = ['audience', 'behavior', 'advertiser', 'money', 'device', 'context', 'time'] as const;
 
 export const GROUP_LABELS: Record<FilterGroup, string> = {
   audience: 'Аудитория',
   behavior: 'Поведение',
+  advertiser: 'Рекламодатель',
   money: 'Деньги',
   device: 'Устройство и среда',
   context: 'Контекст страницы',
@@ -220,6 +221,33 @@ export const FILTERS: readonly FilterDescriptor[] = [
       if (l?.activeCategories?.length) parts.push(`активно: ${list(l.activeCategories)}`);
       if (l?.hasUnpromotedActive) parts.push('есть без продвижения');
       if (l?.inactiveDays !== undefined) parts.push(`не размещал ≥ ${l.inactiveDays} дн.`);
+      return parts.join(' · ');
+    },
+  },
+  {
+    id: 'advertiser',
+    label: 'Рекламные кампании',
+    group: 'advertiser',
+    paths: ['targeting.advertiser'],
+    isActive: (v) => {
+      const a = v.targeting.advertiser;
+      return Boolean(a?.campaignStatuses?.length) || a?.hasActiveCampaign !== undefined
+        || a?.everLaunched !== undefined || a?.abandonedWizard !== undefined;
+    },
+    summary: (v) => {
+      const a = v.targeting.advertiser;
+      const parts: string[] = [];
+      if (a?.campaignStatuses?.length) parts.push(`РК в статусе: ${list(a.campaignStatuses)}`);
+      if (a?.hasActiveCampaign === true) parts.push('есть активная РК');
+      if (a?.hasActiveCampaign === false) parts.push('нет активной РК');
+      if (a?.everLaunched === true) {
+        parts.push(a.launchedWithinDays !== undefined ? `запускал РК за ${a.launchedWithinDays} дн.` : 'запускал РК');
+      }
+      if (a?.everLaunched === false) parts.push('никогда не запускал РК');
+      if (a?.abandonedWizard === true) {
+        parts.push(`бросил мастер подачи за ${a.wizardLookbackDays ?? 30} дн.`);
+      }
+      if (a?.abandonedWizard === false) parts.push('мастер подачи не бросал');
       return parts.join(' · ');
     },
   },

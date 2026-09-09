@@ -164,6 +164,51 @@ export const listingsTargetingSchema = z.object({
   inactiveDays: z.number().int().nonnegative('Число дней не может быть отрицательным').optional(),
 });
 
+/** Ось «Рекламодатель» (спека 2026-09-09-targeting-advertiser-design):
+ *  условия по рекламным кампаниям зрителя (ad_campaigns витрины) и по
+ *  мастеру подачи РК. Контракт для AdvertiserChecker BFF — там схема
+ *  должна совпасть байт-в-байт (plus русские сообщения здесь).
+ *  Между условиями — И; внутри campaignStatuses — ИЛИ. Работает только для
+ *  залогиненных — анонимам такие промо не показываются (fail closed, как
+ *  lifecycle). Модификаторы (launchedWithinDays / wizardLookbackDays) живут
+ *  только вместе со своим условием — вычищает targeting-normalize.ts.
+ *  Статусы — свободные слаги ad_campaigns.status (известные: pending,
+ *  active), чтобы кабинет не пришлось релизить под каждый новый статус. */
+export const adCampaignStatusSchema = z
+  .string()
+  .trim()
+  .min(1, 'Статус не может быть пустым')
+  .max(32, 'Статус — не длиннее 32 символов')
+  .regex(/^[a-z][a-z0-9_-]*$/, 'Статус — латинский слаг (active, pending, …)');
+
+export const advertiserTargetingSchema = z.object({
+  /** Есть РК хотя бы в одном из статусов СЕЙЧАС (ИЛИ по списку). */
+  campaignStatuses: z.array(adCampaignStatusSchema).max(10, 'Не больше 10 статусов').optional(),
+  /** true = есть РК в статусе active сейчас; false = ни одной активной. */
+  hasActiveCampaign: z.boolean().optional(),
+  /** true = хоть раз запускал РК (кампания доходила до active); false = никогда. */
+  everLaunched: z.boolean().optional(),
+  /** Только при everLaunched=true: последняя запущенная РК не старше N дней
+   *  (по дате запуска/последней активности). Пусто = за всё время. */
+  launchedWithinDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(365, 'Не больше 365 дней').optional(),
+  /** true = открывал мастер подачи РК и не отправил (form_start без
+   *  form_submit_success); false = брошенного мастера нет. */
+  abandonedWizard: z.boolean().optional(),
+  /** Только при abandonedWizard=true: окно поиска брошенного мастера в днях.
+   *  Пусто = дефолт BFF (30). */
+  wizardLookbackDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(90, 'Не больше 90 дней').optional(),
+})
+  // Взаимоисключающие условия: аудитория пустая, промо не покажется никому.
+  .refine((v) => !(v.hasActiveCampaign === false && v.campaignStatuses?.includes('active')), {
+    message: 'Статус active в списке противоречит условию «нет активной РК»',
+    path: ['campaignStatuses'],
+  })
+  .refine((v) => !(v.everLaunched === false && (v.hasActiveCampaign === true || v.campaignStatuses?.includes('active'))), {
+    message: 'Активная РК невозможна у того, кто никогда не запускал РК',
+    path: ['everLaunched'],
+  });
+export type AdvertiserTargeting = z.infer<typeof advertiserTargetingSchema>;
+
 /** Линейный градиент для popup/fullscreen/sheet — каскадом с image/color
  *  (см. composeOverlayBackground в @zebrooo/promo-renderer). */
 export const backgroundGradientSchema = z.object({
@@ -245,6 +290,8 @@ export const servingBlockSchema = z.object({
      *  вовлечённость визита. Пусто/нет = гейта нет. */
     behavior: behaviorTargetingSchema.optional(),
     listings: listingsTargetingSchema.optional(),
+    /** Ось «Рекламодатель»: РК зрителя и мастер подачи. Пусто/нет = гейта нет. */
+    advertiser: advertiserTargetingSchema.optional(),
   }),
   // Optional per-user cap. Legacy data used 0 = unlimited; coerce that to
   // undefined (the new "unlimited") so old catalogues still parse.
@@ -507,6 +554,11 @@ export const customPromoSchema = servingBlockSchema.extend({
  * пул, так что НИ ОДНОГО .strict() здесь быть не должно (иначе промо, которое
  * сегодня валидно, при следующем read-modify-write молча исчезнет из S3).
  */
+/** Сообщение правила «гость × рекламодатель» — одно на схему и обе формы
+ *  (validate.ts промо и пушей), чтобы не разъезжалось. */
+export const ADVERTISER_ANONYMOUS_MESSAGE =
+  'Условия по рекламным кампаниям никогда не совпадут у гостя — уберите фильтр «Рекламодатель» или смените аудиторию';
+
 export const promoSchema = z
   .discriminatedUnion('format', [
     inlinePromoSchema,
@@ -537,6 +589,15 @@ export const promoSchema = z
         code: z.ZodIssueCode.custom,
         message: 'Условия по объявлениям никогда не совпадут у гостя — уберите блок жизненного цикла или смените аудиторию',
         path: ['lifecycle'],
+      });
+    }
+    // Та же логика для оси «Рекламодатель»: кампании и мастер подачи есть
+    // только у аккаунта — у гостя условие не совпадёт никогда.
+    if (p.audience === 'anonymous' && p.targeting.advertiser !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: ADVERTISER_ANONYMOUS_MESSAGE,
+        path: ['targeting', 'advertiser'],
       });
     }
   });

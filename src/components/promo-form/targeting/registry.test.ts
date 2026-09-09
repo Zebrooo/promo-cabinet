@@ -25,6 +25,7 @@ const ACTIVE_SAMPLE: Record<string, Promo> = {
   search: { ...base, targeting: { search: { terms: ['toyota'], lookbackDays: 30 } } },
   purchases: { ...base, targeting: { purchases: { packTypes: ['vip'] } } },
   listings: { ...base, targeting: { listings: { activeCategories: ['avto'] } } },
+  advertiser: { ...base, targeting: { advertiser: { everLaunched: true, hasActiveCampaign: false } } },
   balance: { ...base, targeting: { balance: { currentAbove: 100000 } } },
   os: { ...base, targeting: { os: ['ios'] } },
   environments: { ...base, targeting: { environments: ['pwa'] } },
@@ -138,3 +139,39 @@ function setPath(obj: Promo, path: string, value: unknown): Promo {
   }
   return next as unknown as Promo;
 }
+
+describe('фильтр «Рекламные кампании»', () => {
+  const f = findFilter('advertiser')!;
+  const withAdvertiser = (advertiser: NonNullable<Promo['targeting']['advertiser']>): Promo =>
+    ({ ...base, targeting: { advertiser } });
+
+  it('живёт в группе «Рекламодатель» и сбрасывается целиком по одному пути', () => {
+    expect(f.group).toBe('advertiser');
+    expect(GROUP_LABELS.advertiser).toBe('Рекламодатель');
+    expect(f.paths).toEqual(['targeting.advertiser']);
+  });
+
+  it('модификаторы периодов без условия фильтр не включают', () => {
+    expect(f.isActive(withAdvertiser({ launchedWithinDays: 30, wizardLookbackDays: 7 }))).toBe(false);
+    expect(f.isActive(withAdvertiser({ campaignStatuses: [] }))).toBe(false);
+  });
+
+  it('сводка описывает сегменты человеческими словами', () => {
+    expect(f.summary(withAdvertiser({ everLaunched: true, hasActiveCampaign: false })))
+      .toBe('нет активной РК · запускал РК');
+    expect(f.summary(withAdvertiser({ everLaunched: true, launchedWithinDays: 90 })))
+      .toBe('запускал РК за 90 дн.');
+    expect(f.summary(withAdvertiser({ everLaunched: false, abandonedWizard: true })))
+      .toBe('никогда не запускал РК · бросил мастер подачи за 30 дн.');
+    expect(f.summary(withAdvertiser({ abandonedWizard: true, wizardLookbackDays: 14, campaignStatuses: ['pending'] })))
+      .toBe('РК в статусе: pending · бросил мастер подачи за 14 дн.');
+    expect(f.summary(withAdvertiser({ hasActiveCampaign: true, abandonedWizard: false })))
+      .toBe('есть активная РК · мастер подачи не бросал');
+  });
+
+  it('ошибка внутри блока подсвечивает карточку фильтра', () => {
+    expect(filterIdsWithErrors({ targeting: { advertiser: { launchedWithinDays: 'Не больше 365 дней' } } }))
+      .toEqual(['advertiser']);
+    expect(filterIdsWithErrors({ targeting: { advertiser: 'гость' } })).toEqual(['advertiser']);
+  });
+});

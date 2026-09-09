@@ -30,6 +30,16 @@ describe('validatePushCampaignForm', () => {
     expect(validatePushCampaignForm(valid({ icon: 'https://cdn.example.com/i.png' }))).toEqual({});
   });
 
+  it('guests × advertiser is rejected, a cleared advertiser block is not', () => {
+    expect(validatePushCampaignForm(valid({ audience: 'anonymous', targeting: { advertiser: { abandonedWizard: true } } })))
+      .toMatchObject({ targeting: { advertiser: expect.stringContaining('гостя') } });
+    expect(validatePushCampaignForm(valid({ audience: 'anonymous', targeting: { advertiser: { abandonedWizard: undefined, wizardLookbackDays: 7 } } })))
+      .toEqual({});
+    expect(validatePushCampaignForm(valid({ targeting: { advertiser: { everLaunched: true, hasActiveCampaign: false } } }))).toEqual({});
+    expect(toPushCampaignInput(valid({ targeting: { advertiser: { everLaunched: true, launchedWithinDays: 30 } } })).targeting.advertiser)
+      .toEqual({ everLaunched: true, launchedWithinDays: 30 });
+  });
+
   it('maps targeting errors to the same paths the targeting filter cards use', () => {
     const errors = validatePushCampaignForm(valid({ targeting: { minAge: -1 } }));
     expect(errors).toMatchObject({ targeting: { minAge: 'Возраст не может быть отрицательным' } });

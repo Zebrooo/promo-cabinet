@@ -6,6 +6,8 @@
 import type { FormikErrors } from 'formik';
 import { setIn } from 'formik';
 import { compactLifecycle } from '@/lib/lifecycle';
+import { ADVERTISER_ANONYMOUS_MESSAGE } from '@/lib/schema';
+import { hasAdvertiserCriteria } from '@/lib/targeting-normalize';
 import { pushCampaignInputSchema, type PushCampaignFormValues } from '@/lib/push-campaign-schema';
 import { toPushCampaignInput } from './to-persisted';
 
@@ -32,6 +34,11 @@ export function validatePushCampaignForm(rawValues: PushCampaignFormValues): For
   if (values.audience === 'anonymous' && values.lifecycle !== undefined) {
     errors = setIn(errors, 'lifecycle',
       'Условия по объявлениям никогда не совпадут у гостя — уберите блок жизненного цикла или смените аудиторию');
+  }
+
+  // anonymous × рекламодатель — кампании и мастер подачи есть только у аккаунта.
+  if (values.audience === 'anonymous' && hasAdvertiserCriteria(values.targeting?.advertiser)) {
+    errors = setIn(errors, 'targeting.advertiser', ADVERTISER_ANONYMOUS_MESSAGE);
   }
 
   return errors;

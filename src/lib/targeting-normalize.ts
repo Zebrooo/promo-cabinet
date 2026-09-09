@@ -10,6 +10,16 @@ import type { Promo } from './schema';
 
 export type PromoTargeting = Promo['targeting'];
 
+/** Есть ли в блоке «Рекламодатель» хоть одно настоящее условие: пустой
+ *  список статусов и модификаторы периодов не в счёт. Общее правило для
+ *  нормализации и обеих форм (validate.ts промо и пушей). */
+export function hasAdvertiserCriteria(a: PromoTargeting['advertiser']): boolean {
+  return Boolean(
+    a && (a.campaignStatuses?.length || a.hasActiveCampaign !== undefined
+      || a.everLaunched !== undefined || a.abandonedWizard !== undefined),
+  );
+}
+
 export function normalizeTargeting(input: PromoTargeting): PromoTargeting {
   let targeting = input;
 
@@ -93,6 +103,34 @@ export function normalizeTargeting(input: PromoTargeting): PromoTargeting {
       targeting = withoutBehavior;
     } else {
       targeting = { ...targeting, behavior: { interest, hotBuyer, minSessionViews } };
+    }
+  }
+
+  // Рекламодатель: то же правило «настоящий критерий, а не число ключей».
+  // launchedWithinDays / wizardLookbackDays — только модификаторы: живут
+  // вместе со своим условием (everLaunched=true / abandonedWizard=true), одни
+  // блок не держат и в пул без него не утекают. Пустой список статусов =
+  // условия нет.
+  const advertiser = input.advertiser;
+  if (advertiser) {
+    const campaignStatuses = advertiser.campaignStatuses?.length ? advertiser.campaignStatuses : undefined;
+    const { hasActiveCampaign, everLaunched, abandonedWizard } = advertiser;
+    if (!hasAdvertiserCriteria(advertiser)) {
+      const { advertiser: discardedAdvertiser, ...withoutAdvertiser } = targeting;
+      void discardedAdvertiser;
+      targeting = withoutAdvertiser;
+    } else {
+      targeting = {
+        ...targeting,
+        advertiser: {
+          campaignStatuses,
+          hasActiveCampaign,
+          everLaunched,
+          launchedWithinDays: everLaunched === true ? advertiser.launchedWithinDays : undefined,
+          abandonedWizard,
+          wizardLookbackDays: abandonedWizard === true ? advertiser.wizardLookbackDays : undefined,
+        },
+      };
     }
   }
 
