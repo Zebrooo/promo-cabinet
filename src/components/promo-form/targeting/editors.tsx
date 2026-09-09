@@ -892,6 +892,92 @@ function AdvertiserEditor() {
           <FieldError name="targeting.advertiser.campaignStatuses" />
         </div>
       </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            Платил за РК
+            <HintIcon
+              label="Платил за РК"
+              text="«Платил» = по кампаниям зрителя были списания (сумма spent по ad_campaigns больше нуля). Не путать с «Покупками пакетов» — там продвижение объявлений (VIP/premium/bump). При «платил» можно задать минимальную сумму списаний за всё время."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.paidCampaigns}
+            onChange={(paidCampaigns) => patch({
+              paidCampaigns,
+              minSpentKopecks: paidCampaigns === true ? advertiser?.minSpentKopecks : undefined,
+            })}
+            yes="Платил"
+            no="Не платил"
+          />
+          <FieldError name="targeting.advertiser.paidCampaigns" />
+        </div>
+        {advertiser?.paidCampaigns === true && (
+          <div className="ef-field">
+            <label>Списано от, ₽</label>
+            <input
+              type="number" className="ef-input mono" min={0} placeholder="—"
+              value={advertiser.minSpentKopecks !== undefined ? advertiser.minSpentKopecks / 100 : ''}
+              onChange={(e) => patch({
+                minSpentKopecks: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+              })}
+            />
+            <FieldError name="targeting.advertiser.minSpentKopecks" />
+          </div>
+        )}
+        <div className="ef-field">
+          <label>
+            Бюджет РК исчерпан
+            <HintIcon
+              label="Бюджет РК исчерпан"
+              text="Есть кампания, у которой потрачено не меньше общего бюджета или выбран дневной лимит на сегодня, — реклама стоит, пока рекламодатель не пополнит бюджет. Хороший момент для промо «пополните бюджет»."
+            />
+          </label>
+          <TriStateSelect
+            value={advertiser?.budgetExhausted}
+            onChange={(budgetExhausted) => patch({ budgetExhausted })}
+            yes="Исчерпан"
+            no="Не исчерпан"
+          />
+          <FieldError name="targeting.advertiser.budgetExhausted" />
+        </div>
+      </div>
+      <div className="ef-row">
+        <div className="ef-field">
+          <label>
+            РК заканчивается через N дней
+            <HintIcon
+              label="РК заканчивается"
+              text="Есть активная кампания, у которой дата окончания наступает в ближайшие N дней (1–90). Повод предложить продление. Пусто — не фильтруем."
+            />
+          </label>
+          <input
+            type="number" className="ef-input mono" min={1} max={90} placeholder="—"
+            value={advertiser?.endsWithinDays ?? ''}
+            onChange={(e) => patch({
+              endsWithinDays: e.target.value === '' ? undefined : Number(e.target.value),
+            })}
+          />
+          <FieldError name="targeting.advertiser.endsWithinDays" />
+        </div>
+        <div className="ef-field">
+          <label>
+            Рекламный кошелёк не больше, ₽
+            <HintIcon
+              label="Рекламный кошелёк"
+              text="Баланс кошелька рекламодателя в ЛК «Реклама» (из него списываются показы РК). 0 = пустой кошелёк: кампания создана, но крутиться не может — витрина сама об этом не говорит. Не путать с фильтром «Кошелёк» в группе «Деньги» — там баланс пользователя витрины. Пусто — не фильтруем."
+            />
+          </label>
+          <input
+            type="number" className="ef-input mono" min={0} placeholder="—"
+            value={advertiser?.walletAtMostKopecks !== undefined ? advertiser.walletAtMostKopecks / 100 : ''}
+            onChange={(e) => patch({
+              walletAtMostKopecks: e.target.value === '' ? undefined : Math.round(Number(e.target.value) * 100),
+            })}
+          />
+          <FieldError name="targeting.advertiser.walletAtMostKopecks" />
+        </div>
+      </div>
     </>
   );
 }

@@ -14,6 +14,10 @@
 | 1 | Запускал РК, сейчас неактивна | нечем | `everLaunched: true` + `hasActiveCampaign: false` |
 | 2 | Заходил на форму подачи РК и бросил | нечем | `abandonedWizard: true` (+ `everLaunched: false`, если нужен «так и не запустил») |
 | 3 | Покупал продвижение объявлений (VIP/premium/bump) | `targeting.purchases` | без изменений — тот же фильтр «Покупки пакетов» |
+| 4 | Платил за рекламу (реальные списания по РК) | нечем | `paidCampaigns: true` (+ `minSpentKopecks`) |
+| 5 | Бюджет РК кончился — реклама стоит | нечем | `budgetExhausted: true` |
+| 6 | РК заканчивается на днях — пора продлить | нечем | `endsWithinDays: N` |
+| 7 | Пустой рекламный кошелёк (РК создана, крутиться не может) | нечем | `walletAtMostKopecks: 0` |
 
 Кабинет даёт форму и хранит правило в пуле; проверку делает BFF (новый
 чекер `advertiser`), данные — Supabase витрины (`ad_campaigns`,
@@ -34,7 +38,12 @@
       "everLaunched": true,                      // true = хоть одна РК доходила до active; false = никогда
       "launchedWithinDays": 90,                  // только при everLaunched=true; 1–365; нет = за всё время
       "abandonedWizard": true,                   // true = form_start без form_submit_success за окно; false = нет брошенного
-      "wizardLookbackDays": 30                   // только при abandonedWizard=true; 1–90; нет = дефолт BFF 30
+      "wizardLookbackDays": 30,                  // только при abandonedWizard=true; 1–90; нет = дефолт BFF 30
+      "paidCampaigns": true,                     // true = сумма spent_kopecks по РК > 0; false = не платил
+      "minSpentKopecks": 100000,                 // только при paidCampaigns=true; суммарно списано ≥ N копеек
+      "budgetExhausted": true,                   // true = есть РК с spent ≥ total_budget или выбранным дневным лимитом; false = нет
+      "endsWithinDays": 7,                       // есть активная РК с ends_at в ближайшие N дней; 1–90
+      "walletAtMostKopecks": 0                   // баланс рекламного кошелька ≤ N копеек; 0 = пустой
     }
   }
 }
@@ -49,7 +58,10 @@ Zod-схема — `advertiserTargetingSchema` в `src/lib/schema.ts` кабин
 такие правила просто никому не покажутся):
 
 - `hasActiveCampaign: false` + `campaignStatuses` содержит `active`;
-- `everLaunched: false` + (`hasActiveCampaign: true` или `active` в статусах).
+- `everLaunched: false` + (`hasActiveCampaign: true` или `active` в статусах);
+- `everLaunched: false` + (`paidCampaigns: true` или `budgetExhausted: true`) —
+  списания бывают только у запускавшихся РК;
+- `hasActiveCampaign: false` + `endsWithinDays` — окончание смотрит на активную РК.
 
 ## 3. Семантика
 
@@ -70,9 +82,11 @@ LifecycleChecker), а не пропускает.
 ### 3.3 Что считается условием
 
 `campaignStatuses` (непустой), `hasActiveCampaign`, `everLaunched`,
-`abandonedWizard`. `launchedWithinDays` и `wizardLookbackDays` — только
-модификаторы: без своего условия (`=== true`) кабинет их вычищает
-(`lib/targeting-normalize.ts`), пустой блок в пул не пишется.
+`abandonedWizard`, `paidCampaigns`, `budgetExhausted`, `endsWithinDays`,
+`walletAtMostKopecks`. `launchedWithinDays`, `wizardLookbackDays` и
+`minSpentKopecks` — только модификаторы: без своего условия (`=== true`)
+кабинет их вычищает (`lib/targeting-normalize.ts`), пустой блок в пул не
+пишется.
 
 ## 4. promo-bff — ТЗ на AdvertiserChecker
 
@@ -87,9 +101,22 @@ LifecycleChecker), а не пропускает.
   "has_active": false,                    // exists status = 'active'
   "last_launched_at": "2026-07-01T…Z",    // max по запускавшимся РК; null = никогда
   "wizard_started_at": "2026-09-01T…Z",   // последний form_start (form_id = 'ad_campaign') за окно; null = не было
-  "wizard_submitted_at": null             // последний form_submit_success (тот же form_id) за окно
+  "wizard_submitted_at": null,            // последний form_submit_success (тот же form_id) за окно
+  "spent_kopecks": 250000,                // sum(spent_kopecks) по всем РК рекламодателя
+  "budget_exhausted": true,               // exists РК: spent ≥ total_budget, или сегодняшние списания ≥ daily_budget
+  "active_ends_at": "2026-09-14T…Z",      // min(ends_at) по активным РК с ends_at; null = нет
+  "wallet_kopecks": 0                     // баланс рекламного кошелька (ledger_accounts, kind=liability); null = кошелька нет
 }
 ```
+
+- `budget_exhausted`: «дневной лимит выбран» — списания за текущие сутки
+  (МСК) по РК ≥ `daily_budget_kopecks`; если витрина хранит готовый флаг
+  (например, `paused_reason = 'budget'`) — использовать его.
+- `wallet_kopecks`: тот же кошелёк, из которого витрина списывает показы РК
+  (`lk/reklama`, якорь `reklama-wallet`). Если окажется, что это тот же
+  счёт, что читает `targeting.balance` (BalanceChecker), — переиспользовать
+  его чтение, семантика поля не меняется. `null` (кошелёк не заведён)
+  считать как 0.
 
 - **«Запускалась»** — РК со `status = 'active'` сейчас **или** со статусом из
   множества «после запуска» (`paused`, `finished`/`completed`, `archived`
@@ -123,6 +150,15 @@ if rule.abandonedWizard !== undefined:
     abandoned = data.wizard_started_at !== null
       && (data.wizard_submitted_at === null || data.wizard_submitted_at < data.wizard_started_at)
     if rule.abandonedWizard !== abandoned → fail
+if rule.paidCampaigns !== undefined:
+    paid = data.spent_kopecks > 0
+    if rule.paidCampaigns !== paid → fail
+    if rule.paidCampaigns && rule.minSpentKopecks !== undefined && data.spent_kopecks < rule.minSpentKopecks → fail
+if rule.budgetExhausted !== undefined && rule.budgetExhausted !== data.budget_exhausted → fail
+if rule.endsWithinDays !== undefined:
+    if data.active_ends_at === null → fail
+    if data.active_ends_at < now || data.active_ends_at > now + endsWithinDays days → fail
+if rule.walletAtMostKopecks !== undefined && (data.wallet_kopecks ?? 0) > rule.walletAtMostKopecks → fail
 pass
 ```
 
@@ -168,6 +204,7 @@ pass
 - `validate.ts` обеих форм: дубль правила «гость × рекламодатель» (member-
   схемы `SCHEMA_BY_FORMAT` superRefine не знают), пустой блок не краснит.
 - Реестр фильтров: группа **«Рекламодатель»**, фильтр «Рекламные кампании»
-  (`targeting.advertiser`) со сводкой; редактор — три трёхпозиционных
-  условия (не важно / да / нет) + периоды при «да» + список статусов.
+  (`targeting.advertiser`) со сводкой; редактор — трёхпозиционные условия
+  (не важно / да / нет) с периодом/суммой при «да», список статусов,
+  окончание РК и рекламный кошелёк (в рублях, хранится в копейках).
 - `docs/promo-format-schemas.md` перегенерирован (`pnpm docs:formats`).

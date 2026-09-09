@@ -466,6 +466,39 @@ describe('advertiserTargetingSchema (ось «Рекламодатель», ко
     // pending у «никогда не запускавшего» возможен — на модерации, ещё не крутилась.
     expect(advertiserTargetingSchema.safeParse({ everLaunched: false, campaignStatuses: ['pending'] }).success).toBe(true);
   });
+
+  it('accepts money / budget / ending / wallet conditions', () => {
+    expect(advertiserTargetingSchema.safeParse({ paidCampaigns: true, minSpentKopecks: 50000 }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ paidCampaigns: false }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ budgetExhausted: true }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ endsWithinDays: 7, hasActiveCampaign: true }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({ walletAtMostKopecks: 0 }).success).toBe(true);
+    expect(advertiserTargetingSchema.safeParse({
+      everLaunched: true, hasActiveCampaign: false, paidCampaigns: true, minSpentKopecks: 100000,
+      budgetExhausted: true, walletAtMostKopecks: 0,
+    }).success).toBe(true);
+  });
+
+  it('rejects negative / fractional money and out-of-range endsWithinDays', () => {
+    expect(advertiserTargetingSchema.safeParse({ minSpentKopecks: -1 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ minSpentKopecks: 10.5 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ walletAtMostKopecks: -100 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ endsWithinDays: 0 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ endsWithinDays: 91 }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ budgetExhausted: 'yes' }).success).toBe(false);
+  });
+
+  it('rejects money / ending conditions that contradict launch state', () => {
+    const paidNever = advertiserTargetingSchema.safeParse({ everLaunched: false, paidCampaigns: true });
+    expect(paidNever.success).toBe(false);
+    expect(paidNever.success ? '' : paidNever.error.issues[0]?.path.join('.')).toBe('everLaunched');
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: false, budgetExhausted: true }).success).toBe(false);
+    expect(advertiserTargetingSchema.safeParse({ everLaunched: false, paidCampaigns: false, budgetExhausted: false }).success).toBe(true);
+
+    const endsNoActive = advertiserTargetingSchema.safeParse({ hasActiveCampaign: false, endsWithinDays: 7 });
+    expect(endsNoActive.success).toBe(false);
+    expect(endsNoActive.success ? '' : endsNoActive.error.issues[0]?.path.join('.')).toBe('endsWithinDays');
+  });
 });
 
 describe('promoSchema — ось «Рекламодатель» (targeting.advertiser)', () => {

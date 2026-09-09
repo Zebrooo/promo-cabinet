@@ -244,6 +244,15 @@ describe('validatePromoForm — behavior (блок «Поведение»)', () 
     expect(validatePromoForm(make('inline', {
       targeting: { advertiser: { hasActiveCampaign: false, campaignStatuses: ['active'] } },
     }))).toMatchObject({ targeting: { advertiser: { campaignStatuses: expect.stringContaining('противоречит') } } });
+    expect(validatePromoForm(make('inline', {
+      targeting: { advertiser: { everLaunched: false, paidCampaigns: true } },
+    }))).toMatchObject({ targeting: { advertiser: { everLaunched: expect.stringContaining('Списания') } } });
+    expect(validatePromoForm(make('inline', {
+      targeting: { advertiser: { hasActiveCampaign: false, endsWithinDays: 5 } },
+    }))).toMatchObject({ targeting: { advertiser: { endsWithinDays: expect.any(String) } } });
+    expect(validatePromoForm(make('inline', {
+      audience: 'anonymous', targeting: { advertiser: { walletAtMostKopecks: 0 } },
+    })).targeting?.advertiser).toMatch(/гост/i);
   });
 
   it('значение вне диапазона → ошибка на своём пути', () => {

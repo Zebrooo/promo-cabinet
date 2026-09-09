@@ -232,7 +232,9 @@ export const FILTERS: readonly FilterDescriptor[] = [
     isActive: (v) => {
       const a = v.targeting.advertiser;
       return Boolean(a?.campaignStatuses?.length) || a?.hasActiveCampaign !== undefined
-        || a?.everLaunched !== undefined || a?.abandonedWizard !== undefined;
+        || a?.everLaunched !== undefined || a?.abandonedWizard !== undefined
+        || a?.paidCampaigns !== undefined || a?.budgetExhausted !== undefined
+        || a?.endsWithinDays !== undefined || a?.walletAtMostKopecks !== undefined;
     },
     summary: (v) => {
       const a = v.targeting.advertiser;
@@ -248,6 +250,16 @@ export const FILTERS: readonly FilterDescriptor[] = [
         parts.push(`бросил мастер подачи за ${a.wizardLookbackDays ?? 30} дн.`);
       }
       if (a?.abandonedWizard === false) parts.push('мастер подачи не бросал');
+      if (a?.paidCampaigns === true) {
+        parts.push(a.minSpentKopecks !== undefined ? `платил за РК от ${rub(a.minSpentKopecks)}` : 'платил за РК');
+      }
+      if (a?.paidCampaigns === false) parts.push('не платил за РК');
+      if (a?.budgetExhausted === true) parts.push('бюджет РК исчерпан');
+      if (a?.budgetExhausted === false) parts.push('бюджет РК не исчерпан');
+      if (a?.endsWithinDays !== undefined) parts.push(`РК заканчивается за ${a.endsWithinDays} дн.`);
+      if (a?.walletAtMostKopecks !== undefined) {
+        parts.push(a.walletAtMostKopecks === 0 ? 'кошелёк пуст' : `кошелёк до ${rub(a.walletAtMostKopecks)}`);
+      }
       return parts.join(' · ');
     },
   },

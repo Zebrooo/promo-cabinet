@@ -371,6 +371,26 @@ describe('toPersisted — advertiser targeting (ось «Рекламодате�
     const result = toPersisted(make('inline', { targeting: { advertiser: { everLaunched: true, hasActiveCampaign: undefined } } }));
     expect(JSON.parse(JSON.stringify(result)).targeting.advertiser).toEqual({ everLaunched: true });
   });
+
+  it('money / budget / ending / wallet conditions keep the block alive on their own', () => {
+    expect(toPersisted(make('inline', { targeting: { advertiser: { paidCampaigns: false } } })).targeting.advertiser)
+      .toEqual({ paidCampaigns: false });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { budgetExhausted: true } } })).targeting.advertiser)
+      .toEqual({ budgetExhausted: true });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { endsWithinDays: 7 } } })).targeting.advertiser)
+      .toEqual({ endsWithinDays: 7 });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { walletAtMostKopecks: 0 } } })).targeting.advertiser)
+      .toEqual({ walletAtMostKopecks: 0 });
+  });
+
+  it('minSpentKopecks lives only with paidCampaigns=true', () => {
+    expect(toPersisted(make('inline', { targeting: { advertiser: { minSpentKopecks: 50000 } } })).targeting.advertiser)
+      .toBeUndefined();
+    expect(toPersisted(make('inline', { targeting: { advertiser: { paidCampaigns: false, minSpentKopecks: 50000 } } })).targeting.advertiser)
+      .toEqual({ paidCampaigns: false });
+    expect(toPersisted(make('inline', { targeting: { advertiser: { paidCampaigns: true, minSpentKopecks: 50000 } } })).targeting.advertiser)
+      .toEqual({ paidCampaigns: true, minSpentKopecks: 50000 });
+  });
 });
 
 describe('toPersisted — custom title derivation', () => {

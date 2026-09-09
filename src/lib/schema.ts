@@ -170,8 +170,9 @@ export const listingsTargetingSchema = z.object({
  *  должна совпасть байт-в-байт (plus русские сообщения здесь).
  *  Между условиями — И; внутри campaignStatuses — ИЛИ. Работает только для
  *  залогиненных — анонимам такие промо не показываются (fail closed, как
- *  lifecycle). Модификаторы (launchedWithinDays / wizardLookbackDays) живут
- *  только вместе со своим условием — вычищает targeting-normalize.ts.
+ *  lifecycle). Модификаторы (launchedWithinDays / wizardLookbackDays /
+ *  minSpentKopecks) живут только вместе со своим условием — вычищает
+ *  targeting-normalize.ts.
  *  Статусы — свободные слаги ad_campaigns.status (известные: pending,
  *  active), чтобы кабинет не пришлось релизить под каждый новый статус. */
 export const adCampaignStatusSchema = z
@@ -197,6 +198,18 @@ export const advertiserTargetingSchema = z.object({
   /** Только при abandonedWizard=true: окно поиска брошенного мастера в днях.
    *  Пусто = дефолт BFF (30). */
   wizardLookbackDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(90, 'Не больше 90 дней').optional(),
+  /** true = были списания по РК (сумма spent_kopecks > 0); false = не платил. */
+  paidCampaigns: z.boolean().optional(),
+  /** Только при paidCampaigns=true: суммарно списано по РК не меньше N копеек. */
+  minSpentKopecks: z.number().int('Сумма — целое число копеек').nonnegative('Сумма не может быть отрицательной').optional(),
+  /** true = есть РК, у которой бюджет исчерпан (spent ≥ total_budget или
+   *  выбран дневной лимит); false = такой нет. */
+  budgetExhausted: z.boolean().optional(),
+  /** Есть активная РК, которая заканчивается (ends_at) в ближайшие N дней. */
+  endsWithinDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(90, 'Не больше 90 дней').optional(),
+  /** Баланс рекламного кошелька (ledger_accounts, kind=liability, ЛК
+   *  «Реклама») не больше N копеек; 0 = пустой кошелёк. */
+  walletAtMostKopecks: z.number().int('Сумма — целое число копеек').nonnegative('Сумма не может быть отрицательной').optional(),
 })
   // Взаимоисключающие условия: аудитория пустая, промо не покажется никому.
   .refine((v) => !(v.hasActiveCampaign === false && v.campaignStatuses?.includes('active')), {
@@ -206,6 +219,16 @@ export const advertiserTargetingSchema = z.object({
   .refine((v) => !(v.everLaunched === false && (v.hasActiveCampaign === true || v.campaignStatuses?.includes('active'))), {
     message: 'Активная РК невозможна у того, кто никогда не запускал РК',
     path: ['everLaunched'],
+  })
+  // Списания и исчерпанный бюджет бывают только у запускавшихся РК.
+  .refine((v) => !(v.everLaunched === false && (v.paidCampaigns === true || v.budgetExhausted === true)), {
+    message: 'Списания по РК невозможны у того, кто никогда не запускал РК',
+    path: ['everLaunched'],
+  })
+  // «Заканчивается через N дней» смотрит на активную РК.
+  .refine((v) => !(v.hasActiveCampaign === false && v.endsWithinDays !== undefined), {
+    message: 'Условие про окончание РК смотрит на активную кампанию — уберите «нет активной РК»',
+    path: ['endsWithinDays'],
   });
 export type AdvertiserTargeting = z.infer<typeof advertiserTargetingSchema>;
 

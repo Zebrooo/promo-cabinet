@@ -167,6 +167,19 @@ describe('фильтр «Рекламные кампании»', () => {
       .toBe('РК в статусе: pending · бросил мастер подачи за 14 дн.');
     expect(f.summary(withAdvertiser({ hasActiveCampaign: true, abandonedWizard: false })))
       .toBe('есть активная РК · мастер подачи не бросал');
+    expect(f.summary(withAdvertiser({ paidCampaigns: true, minSpentKopecks: 150000, budgetExhausted: true })))
+      .toBe(`платил за РК от ${(1500).toLocaleString('ru-RU')} ₽ · бюджет РК исчерпан`); // разделитель тысяч — локальный пробел
+    expect(f.summary(withAdvertiser({ paidCampaigns: false, budgetExhausted: false, endsWithinDays: 7, walletAtMostKopecks: 0 })))
+      .toBe('не платил за РК · бюджет РК не исчерпан · РК заканчивается за 7 дн. · кошелёк пуст');
+    expect(f.summary(withAdvertiser({ walletAtMostKopecks: 50000 }))).toBe('кошелёк до 500 ₽');
+  });
+
+  it('деньги/бюджет/окончание/кошелёк включают фильтр сами по себе, minSpentKopecks — нет', () => {
+    expect(f.isActive(withAdvertiser({ paidCampaigns: false }))).toBe(true);
+    expect(f.isActive(withAdvertiser({ budgetExhausted: false }))).toBe(true);
+    expect(f.isActive(withAdvertiser({ endsWithinDays: 3 }))).toBe(true);
+    expect(f.isActive(withAdvertiser({ walletAtMostKopecks: 0 }))).toBe(true);
+    expect(f.isActive(withAdvertiser({ minSpentKopecks: 100 }))).toBe(false);
   });
 
   it('ошибка внутри блока подсвечивает карточку фильтра', () => {
