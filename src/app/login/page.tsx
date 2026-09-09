@@ -16,8 +16,17 @@ export default function LoginPage() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ user, password }),
     });
-    if (res.ok) router.push('/cabinet');
-    else setError('Неверный логин или пароль');
+    if (res.ok) { router.push('/cabinet'); return; }
+    // 429 — сработал анти-брутфорс (см. api/login): честно говорим, сколько ждать,
+    // иначе админ с правильным паролем будет думать, что ошибся в нём.
+    if (res.status === 429) {
+      const retry = Number(res.headers.get('retry-after')) || 0;
+      const mins = Math.max(1, Math.ceil(retry / 60));
+      setError(`Слишком много попыток входа — попробуйте через ${mins} мин.`);
+      return;
+    }
+    if (res.status >= 500) { setError('Сервер не настроен или недоступен — попробуйте позже'); return; }
+    setError('Неверный логин или пароль');
   }
 
   return (

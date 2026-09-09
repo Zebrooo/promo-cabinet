@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { isAuthed } from '@/lib/api-auth';
-import { aaEnvSchema, proxyToAaAdmin } from '@/lib/aa-admin';
+import { proxyToAaAdmin } from '@/lib/aa-admin';
 
 export const runtime = 'nodejs';
 
@@ -17,7 +17,6 @@ const variantSchema = z.object({
   position: z.number(),
 });
 const bodySchema = z.object({
-  env: aaEnvSchema,
   key: z.string().regex(KEY_RE),
   title: z.string().min(1),
   surface: z.enum(['client', 'dynamic']),
@@ -37,5 +36,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'no_control_variant' }, { status: 400 });
   }
 
-  return proxyToAaAdmin('/aa-admin/experiments/create', body);
+  return proxyToAaAdmin(req, '/aa-admin/experiments/create', body);
 }

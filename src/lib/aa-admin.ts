@@ -5,11 +5,9 @@
  * логика транслирования у всех одинаковая, вынесена сюда, чтобы не расходиться
  * по мелочи между 8 файлами.
  */
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
+import { NextResponse, type NextRequest } from 'next/server';
 import { aaAdminPost } from '@/lib/bff-client';
-
-export const aaEnvSchema = z.enum(['test', 'prod']);
+import { readEnvMode } from '@/lib/env-mode';
 
 /** Сетевой сбой/таймаут до BFF — сам BFF недоступен, это не бизнес-ошибка ручки. */
 function bffUnreachable(): NextResponse {
@@ -21,10 +19,14 @@ function bffUnreachable(): NextResponse {
  * осмысленные коды (409 canary_not_active, 503 env_not_configured, 400 на
  * невалидные поля) и объясняющее тело — кабинету достаточно retranslate,
  * без своей семантики поверх.
+ *
+ * env (prod/test) — ТОЛЬКО из httpOnly-куки режима кабинета, как у промо и
+ * очередей: поле `env` в теле запроса игнорируется, иначе из режима «Тест»
+ * можно было бы крутить канарейку и эксперименты прода.
  */
-export async function proxyToAaAdmin(path: string, body: Record<string, unknown>): Promise<NextResponse> {
+export async function proxyToAaAdmin(req: NextRequest, path: string, body: Record<string, unknown>): Promise<NextResponse> {
   try {
-    const { status, body: respBody } = await aaAdminPost(path, body);
+    const { status, body: respBody } = await aaAdminPost(path, { ...body, env: readEnvMode(req.cookies) });
     return NextResponse.json(respBody, { status });
   } catch {
     return bffUnreachable();

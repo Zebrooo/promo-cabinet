@@ -1,12 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { recordEventToBff } from "@/lib/bff-client";
+import { isAuthed } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_EVENT = 64, MAX_PATH = 512, MAX_SID = 64, MAX_PROPS = 2048;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  // Middleware проверяет только наличие куки; подпись — здесь. Иначе любой
+  // с Cookie: promo_session=x мог бы писать события в BFF от имени кабинета.
+  if (!isAuthed(req)) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+
   let b: Record<string, unknown>;
   try { b = (await req.json()) as Record<string, unknown>; }
   catch { try { b = JSON.parse(await req.text()) as Record<string, unknown>; } catch { return NextResponse.json({ ok: false }, { status: 400 }); } }

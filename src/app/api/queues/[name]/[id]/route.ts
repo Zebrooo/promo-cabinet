@@ -3,6 +3,7 @@ import { isAuthed } from '@/lib/api-auth';
 import { readPool, mutateQueue, readQueuesIndex } from '@/lib/catalogue';
 import { enqueue, dequeue } from '@/lib/mutations';
 import { readEnvMode } from '@/lib/env-mode';
+import { withCatalogueLock } from '@/lib/catalogue-lock';
 import { QUEUE_META, queueAllowsFormat } from '@/lib/queue-formats';
 
 export const runtime = 'nodejs';
@@ -16,6 +17,7 @@ export async function POST(req: NextRequest, { params }: Ctx): Promise<NextRespo
   if (!isAuthed(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const envMode = readEnvMode(req.cookies);
   try {
+    return await withCatalogueLock(envMode, async () => {
     const [pool, index] = await Promise.all([readPool(envMode), readQueuesIndex(envMode)]);
     if (!index.some((e) => e.name === params.name)) {
       return NextResponse.json({ error: 'queue_not_found' }, { status: 404 });
@@ -34,6 +36,7 @@ export async function POST(req: NextRequest, { params }: Ctx): Promise<NextRespo
     }
     await mutateQueue(params.name, (q) => ({ ...q, ids: enqueue(q.ids, params.id) }), envMode);
     return NextResponse.json({ ok: true });
+    });
   } catch {
     return NextResponse.json({ error: 'catalogue_unavailable' }, { status: 502 });
   }
