@@ -56,7 +56,6 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   'targeting.advertiser.paidCampaigns': 'true = были списания по РК (сумма spent_kopecks > 0); false = не платил за рекламу',
   'targeting.advertiser.minSpentKopecks': 'Только при paidCampaigns=true: суммарно списано по РК не меньше N копеек',
   'targeting.advertiser.budgetExhausted': 'true = есть РК с исчерпанным бюджетом (spent ≥ total_budget или выбран дневной лимит); false = такой нет',
-  'targeting.advertiser.endsWithinDays': 'Есть активная РК, которая заканчивается (ends_at) в ближайшие N дней (1–90)',
   'targeting.advertiser.walletAtMostKopecks': 'Баланс рекламного кошелька (ledger_accounts, kind=liability, ЛК «Реклама») не больше N копеек; 0 = пустой кошелёк',
   'targeting.geoSegments': 'IP-гео: сегменты показа — local (Абхазия) / tourist (Россия) / other (пусто = без гео-ограничения); если гео не определилось (VPN), промо с правилом не показывается',
   'targeting.geoCities': 'IP-гео: города-слаги, где юзер находится СЕЙЧАС (пусто = любой город; в отличие от targeting.regions — города из профиля)',

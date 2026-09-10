@@ -945,23 +945,6 @@ function AdvertiserEditor() {
       <div className="ef-row">
         <div className="ef-field">
           <label>
-            РК заканчивается через N дней
-            <HintIcon
-              label="РК заканчивается"
-              text="Есть активная кампания, у которой дата окончания наступает в ближайшие N дней (1–90). Повод предложить продление. Пусто — не фильтруем."
-            />
-          </label>
-          <input
-            type="number" className="ef-input mono" min={1} max={90} placeholder="—"
-            value={advertiser?.endsWithinDays ?? ''}
-            onChange={(e) => patch({
-              endsWithinDays: e.target.value === '' ? undefined : Number(e.target.value),
-            })}
-          />
-          <FieldError name="targeting.advertiser.endsWithinDays" />
-        </div>
-        <div className="ef-field">
-          <label>
             Рекламный кошелёк не больше, ₽
             <HintIcon
               label="Рекламный кошелёк"

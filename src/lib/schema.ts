@@ -174,7 +174,10 @@ export const listingsTargetingSchema = z.object({
  *  minSpentKopecks) живут только вместе со своим условием — вычищает
  *  targeting-normalize.ts.
  *  Статусы — свободные слаги ad_campaigns.status (известные: pending,
- *  active), чтобы кабинет не пришлось релизить под каждый новый статус. */
+ *  active), чтобы кабинет не пришлось релизить под каждый новый статус.
+ *  endsWithinDays намеренно нет: у ad_campaigns нет даты окончания, такое
+ *  правило никому не совпадало (убрано 2026-09-10, promo-bff в синхроне);
+ *  старый пул с ключом парсится — z.object без .strict() его режет. */
 export const adCampaignStatusSchema = z
   .string()
   .trim()
@@ -205,8 +208,6 @@ export const advertiserTargetingSchema = z.object({
   /** true = есть РК, у которой бюджет исчерпан (spent ≥ total_budget или
    *  выбран дневной лимит); false = такой нет. */
   budgetExhausted: z.boolean().optional(),
-  /** Есть активная РК, которая заканчивается (ends_at) в ближайшие N дней. */
-  endsWithinDays: z.number().int('Только целое число дней').min(1, 'Минимум 1 день').max(90, 'Не больше 90 дней').optional(),
   /** Баланс рекламного кошелька (ledger_accounts, kind=liability, ЛК
    *  «Реклама») не больше N копеек; 0 = пустой кошелёк. */
   walletAtMostKopecks: z.number().int('Сумма — целое число копеек').nonnegative('Сумма не может быть отрицательной').optional(),
@@ -224,11 +225,6 @@ export const advertiserTargetingSchema = z.object({
   .refine((v) => !(v.everLaunched === false && (v.paidCampaigns === true || v.budgetExhausted === true)), {
     message: 'Списания по РК невозможны у того, кто никогда не запускал РК',
     path: ['everLaunched'],
-  })
-  // «Заканчивается через N дней» смотрит на активную РК.
-  .refine((v) => !(v.hasActiveCampaign === false && v.endsWithinDays !== undefined), {
-    message: 'Условие про окончание РК смотрит на активную кампанию — уберите «нет активной РК»',
-    path: ['endsWithinDays'],
   });
 export type AdvertiserTargeting = z.infer<typeof advertiserTargetingSchema>;
 
