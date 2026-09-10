@@ -131,7 +131,7 @@ export function hasImage(p: Promo): boolean {
 export type PromoFlag =
   | 'endsSoon'     // активно и заканчивается в ближайшие 7 дней
   | 'noQueue'      // не стоит ни в одной очереди
-  | 'legacyOnly'   // стоит только в легаси-очередях, которые витрина уже не читает
+  | 'legacyOnly'   // стоит только в очередях, которые витрина не запрашивает
   | 'noImage'      // формат умеет картинку, а её нет
   | 'noCta'        // формат умеет кнопку, а ссылки нет
   | 'noTargeting'  // ни одного условия таргетинга
@@ -151,7 +151,7 @@ export const FLAG_ORDER: readonly PromoFlag[] = [
 export const FLAG_LABEL: Record<PromoFlag, string> = {
   endsSoon: 'Скоро закончится',
   noQueue: 'Не в очереди',
-  legacyOnly: 'Только легаси-очереди',
+  legacyOnly: 'Очереди без потребителя',
   noImage: 'Без картинки',
   noCta: 'Без кнопки',
   noTargeting: 'Без таргетинга',
@@ -170,7 +170,7 @@ export const WARNING_FLAGS: readonly PromoFlag[] = ['noQueue', 'legacyOnly', 'ch
 export const WARNING_TEXT: Record<PromoFlag, string> = {
   ...FLAG_LABEL,
   noQueue: 'Промо не стоит ни в одной очереди — витрина его не покажет',
-  legacyOnly: 'Промо только в легаси-очередях, которые витрина больше не читает',
+  legacyOnly: 'Промо стоит только в очередях, которые витрина не запрашивает, — показов не будет. Для каталога нужны очереди с суффиксом устройства («Транспорт · веб» и т. п.)',
   chainBroken: 'Цепочка ссылается на промо, которого нет в пуле',
   noImage: 'У формата есть картинка, но она не задана',
   noCta: 'У формата есть кнопка, но ссылка не задана',
@@ -239,7 +239,7 @@ function queueOptions(ctx: FacetContext): FacetOption[] {
   const named = [...ctx.queueNames]
     .map((name) => {
       const meta = QUEUE_META[name];
-      const group = meta?.legacy ? 'Легаси' : name.includes('-') && meta ? 'По устройствам' : 'Каталоги и слоты';
+      const group = meta?.legacy ? 'Без потребителя' : name.includes('-') && meta ? 'По устройствам' : 'Каталоги и слоты';
       return opt(name, meta?.label ?? name, group);
     })
     .sort((a, b) => a.group!.localeCompare(b.group!, 'ru') || a.label.localeCompare(b.label, 'ru'));

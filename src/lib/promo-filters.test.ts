@@ -141,8 +141,11 @@ describe('applyFilters', () => {
   it('supports the special queue values', () => {
     const none = applyFilters(POOL, { ...EMPTY_FILTERS, facets: { queue: [NO_QUEUE] } }, ctx);
     expect(none.map((p) => p.id).sort()).toEqual(['broken', 'cust']);
+    // Очереди без потребителя: home-popup (легаси-слот) и голые каталожные
+    // home/transport — витрина ходит только в `<каталог>-<устройство>`.
+    // `active` не попадает: он ещё и в home-web, которую витрина запрашивает.
     const legacy = applyFilters(POOL, { ...EMPTY_FILTERS, facets: { queue: [LEGACY_ONLY] } }, ctx);
-    expect(legacy.map((p) => p.id)).toEqual(['scheduled']);
+    expect(legacy.map((p) => p.id).sort()).toEqual(['child', 'scheduled', 'soon']);
     const home = applyFilters(POOL, { ...EMPTY_FILTERS, facets: { queue: ['home'] } }, ctx);
     expect(home.map((p) => p.id).sort()).toEqual(['active', 'child']);
   });
@@ -187,7 +190,9 @@ describe('facetCounts', () => {
     expect(facetOptions(FACET_BY_ID.section, POOL, ctx)).toEqual([{ id: 'home', label: 'home', group: undefined }]);
     const queue = facetOptions(FACET_BY_ID.queue, POOL, ctx);
     expect(queue.map((o) => o.id)).toContain(NO_QUEUE);
-    expect(queue.find((o) => o.id === 'home-popup')?.group).toBe('Легаси');
+    expect(queue.find((o) => o.id === 'home-popup')?.group).toBe('Без потребителя');
+    expect(queue.find((o) => o.id === 'transport')?.group).toBe('Без потребителя');
+    expect(queue.find((o) => o.id === 'home-web')?.group).toBe('По устройствам');
   });
 });
 
