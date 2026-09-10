@@ -28,6 +28,7 @@ export function InlineContent() {
           recommend="600×400"
           format={values.format}
         />
+        <FieldError name="imageUrl" />
       </section>
       <CtaFields withLabel />
       <TextAlignField />

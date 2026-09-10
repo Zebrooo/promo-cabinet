@@ -22,6 +22,12 @@ export const EDITOR_CSS = `
   border-radius: 10px; padding: 10px 14px;
   font-size: 13px; font-weight: 600;
 }
+.editor-bar-error-list { margin: 6px 0 0; padding-left: 18px; font-weight: 500; }
+.editor-bar-error-list li { margin: 2px 0; }
+.editor-bar-error-link {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: 700;
+  color: inherit; text-decoration: underline; cursor: pointer;
+}
 .editor-back {
   font-size: 13px; font-weight: 600; color: var(--app-fg3);
   text-decoration: none;

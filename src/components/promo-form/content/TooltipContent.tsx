@@ -39,6 +39,7 @@ export function TooltipContent() {
           label="Картинка карточки"
           format={values.format}
         />
+        <FieldError name="imageUrl" />
       </section>
       <CtaFields withLabel />
       {values.action && (

@@ -23,6 +23,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Formik, Form, useFormikContext, setNestedObjectValues } from 'formik';
+import { ZodError } from 'zod';
 import Link from 'next/link';
 import type { Promo } from '@/lib/schema';
 import { AiEnhanceButton } from '@/components/AiEnhanceButton';
@@ -32,6 +33,8 @@ import { validatePromoForm } from './validate';
 import { toPersisted, toPreview } from './to-persisted';
 import { EDITOR_CSS } from './editor-styles';
 import { scrollToFirstFieldError } from './fields';
+import { FormErrorSummary } from './FormErrorSummary';
+import { summarizeFormErrors, zodIssuesToFormErrors, type FormErrorItem } from './form-errors';
 import { DevicePlacementSection } from './sections/DevicePlacementSection';
 import { BasicsSection } from './sections/BasicsSection';
 import { ContentSection } from './sections/ContentSection';
@@ -131,9 +134,14 @@ function FormBody({
   notice?: string;
 }) {
   const router = useRouter();
-  const { values, dirty, setFieldValue, setTouched, validateForm } = useFormikContext<Promo>();
+  const { values, dirty, setFieldValue, setTouched, setErrors, validateForm } = useFormikContext<Promo>();
 
   const [error, setError] = useState('');
+  // Сводка ошибок полей включается после первого сабмита с ошибками и дальше
+  // живёт вместе с Formik-ошибками (FormErrorSummary). extraFieldErrors —
+  // ошибки, которые всплыли только в toPersisted (superRefine схемы союза).
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
+  const [extraFieldErrors, setExtraFieldErrors] = useState<FormErrorItem[]>([]);
   const [aiResult, setAiResult] = useState<{ suggestions: AiSuggestions; cacheHit: boolean; model: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -173,6 +181,7 @@ function FormBody({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setExtraFieldErrors([]);
 
     const formErrors = await validateForm();
     if (Object.keys(formErrors).length > 0) {
@@ -183,7 +192,9 @@ function FormBody({
       // a flat map only touches the top-level key, leaving getIn(touched, ...)
       // undefined for nested FieldError checks.
       setTouched(setNestedObjectValues(formErrors, true), false);
-      setError('Проверьте поля формы — есть ошибки.');
+      // Сводка в липкой панели: подпись поля + текст, клик скроллит к полю —
+      // поле без своего FieldError всё равно можно найти.
+      setShowFieldErrors(true);
       scrollToFirstFieldError();
       return;
     }
@@ -223,9 +234,21 @@ function FormBody({
     let body: Promo;
     try {
       body = toPersisted(draft);
-    } catch {
+    } catch (err) {
       setSaving(false);
-      setError('Проверьте поля формы — есть ошибки.');
+      // Сюда попадают только правила promoSchema.superRefine, которых
+      // member-схема формы не знает: показываем их как ошибки полей, а не
+      // безадресной строкой.
+      if (err instanceof ZodError) {
+        const zodErrors = zodIssuesToFormErrors<Promo>(err.issues);
+        setErrors(zodErrors as Parameters<typeof setErrors>[0]);
+        setTouched(setNestedObjectValues(zodErrors as Record<string, unknown>, true), false);
+        setExtraFieldErrors(summarizeFormErrors(zodErrors));
+        setShowFieldErrors(true);
+        scrollToFirstFieldError();
+      } else {
+        setError('Проверьте поля формы — есть ошибки.');
+      }
       return;
     }
     const url    = mode === 'create' ? '/api/promos' : `/api/promos/${encodeURIComponent(values.id)}`;
@@ -363,6 +386,7 @@ function FormBody({
           </button>
         </div>
         {error && <div className="editor-bar-error" role="alert">{error}</div>}
+        <FormErrorSummary active={showFieldErrors} extra={extraFieldErrors} />
       </div>
 
       {/* ── Page heading ───────────────────────────────────────── */}

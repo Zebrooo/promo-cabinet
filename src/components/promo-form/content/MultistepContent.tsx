@@ -2,7 +2,7 @@
 import { FieldArray, useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
-import { ColorField } from '../fields';
+import { ColorField, FieldError } from '../fields';
 import { ColorsRow, CtaFields, GradientField } from './shared';
 
 const STEP_TITLE_MAX = 80;
@@ -66,6 +66,7 @@ export function MultistepContent() {
                     placeholder="Что происходит на шаге"
                     maxLength={STEP_TITLE_MAX + 20}
                   />
+                  <FieldError name={`steps.${i}.title`} />
                   <div className="ef-label-row">
                     <span className="ef-sublabel">Текст</span>
                     <span className={`ef-counter mono${st.body.length > STEP_BODY_MAX ? ' over' : ''}`}>
@@ -80,6 +81,7 @@ export function MultistepContent() {
                     placeholder="Короткое пояснение под заголовком шага"
                     maxLength={STEP_BODY_MAX + 40}
                   />
+                  <FieldError name={`steps.${i}.body`} />
                   <div className="ef-label-row">
                     <span className="ef-sublabel">Картинка/гифка (необязательно)</span>
                   </div>
@@ -88,6 +90,7 @@ export function MultistepContent() {
                     onChange={(url) => setFieldValue(`steps.${i}.imageUrl`, url || undefined)}
                     label={`Картинка шага ${i + 1}`}
                   />
+                  <FieldError name={`steps.${i}.imageUrl`} />
                   <div className="hint">Если пусто — на сайте показывается анимированная сцена.</div>
                 </div>
               ))}
@@ -100,6 +103,7 @@ export function MultistepContent() {
             >
               + Добавить шаг
             </button>
+            <FieldError name="steps" />
             {steps.length < STEPS_MIN && (
               <div className="hint hint-warn">Нужно минимум {STEPS_MIN} шага — без них визард не сохранится.</div>
             )}
@@ -132,6 +136,7 @@ export function MultistepContent() {
             );
           })}
         </div>
+        <FieldError name="presentation" />
       </section>
 
       <CtaFields withLabel />
@@ -152,6 +157,7 @@ export function MultistepContent() {
           recommend="1200×1600"
           format={values.format}
         />
+        <FieldError name="backgroundImage" />
       </section>
     </>
   );
