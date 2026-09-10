@@ -18,7 +18,7 @@ export function hasAdvertiserCriteria(a: PromoTargeting['advertiser']): boolean 
     a && (a.campaignStatuses?.length || a.hasActiveCampaign !== undefined
       || a.everLaunched !== undefined || a.abandonedWizard !== undefined
       || a.paidCampaigns !== undefined || a.budgetExhausted !== undefined
-      || a.endsWithinDays !== undefined || a.walletAtMostKopecks !== undefined),
+      || a.walletAtMostKopecks !== undefined),
   );
 }
 
@@ -118,8 +118,7 @@ export function normalizeTargeting(input: PromoTargeting): PromoTargeting {
   if (advertiser) {
     const campaignStatuses = advertiser.campaignStatuses?.length ? advertiser.campaignStatuses : undefined;
     const {
-      hasActiveCampaign, everLaunched, abandonedWizard, paidCampaigns, budgetExhausted,
-      endsWithinDays, walletAtMostKopecks,
+      hasActiveCampaign, everLaunched, abandonedWizard, paidCampaigns, budgetExhausted, walletAtMostKopecks,
     } = advertiser;
     if (!hasAdvertiserCriteria(advertiser)) {
       const { advertiser: discardedAdvertiser, ...withoutAdvertiser } = targeting;
@@ -138,7 +137,6 @@ export function normalizeTargeting(input: PromoTargeting): PromoTargeting {
           paidCampaigns,
           minSpentKopecks: paidCampaigns === true ? advertiser.minSpentKopecks : undefined,
           budgetExhausted,
-          endsWithinDays,
           walletAtMostKopecks,
         },
       };

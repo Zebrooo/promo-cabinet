@@ -372,13 +372,14 @@ describe('toPersisted — advertiser targeting (ось «Рекламодате�
     expect(JSON.parse(JSON.stringify(result)).targeting.advertiser).toEqual({ everLaunched: true });
   });
 
-  it('money / budget / ending / wallet conditions keep the block alive on their own', () => {
+  it('money / budget / wallet conditions keep the block alive on their own', () => {
     expect(toPersisted(make('inline', { targeting: { advertiser: { paidCampaigns: false } } })).targeting.advertiser)
       .toEqual({ paidCampaigns: false });
     expect(toPersisted(make('inline', { targeting: { advertiser: { budgetExhausted: true } } })).targeting.advertiser)
       .toEqual({ budgetExhausted: true });
-    expect(toPersisted(make('inline', { targeting: { advertiser: { endsWithinDays: 7 } } })).targeting.advertiser)
-      .toEqual({ endsWithinDays: 7 });
+    // Ключ убранного поля endsWithinDays из старого пула — не условие: блок уходит целиком.
+    expect(toPersisted(make('inline', { targeting: { advertiser: { endsWithinDays: 7 } as never } })).targeting.advertiser)
+      .toBeUndefined();
     expect(toPersisted(make('inline', { targeting: { advertiser: { walletAtMostKopecks: 0 } } })).targeting.advertiser)
       .toEqual({ walletAtMostKopecks: 0 });
   });

@@ -234,7 +234,7 @@ export const FILTERS: readonly FilterDescriptor[] = [
       return Boolean(a?.campaignStatuses?.length) || a?.hasActiveCampaign !== undefined
         || a?.everLaunched !== undefined || a?.abandonedWizard !== undefined
         || a?.paidCampaigns !== undefined || a?.budgetExhausted !== undefined
-        || a?.endsWithinDays !== undefined || a?.walletAtMostKopecks !== undefined;
+        || a?.walletAtMostKopecks !== undefined;
     },
     summary: (v) => {
       const a = v.targeting.advertiser;
@@ -256,7 +256,6 @@ export const FILTERS: readonly FilterDescriptor[] = [
       if (a?.paidCampaigns === false) parts.push('не платил за РК');
       if (a?.budgetExhausted === true) parts.push('бюджет РК исчерпан');
       if (a?.budgetExhausted === false) parts.push('бюджет РК не исчерпан');
-      if (a?.endsWithinDays !== undefined) parts.push(`РК заканчивается за ${a.endsWithinDays} дн.`);
       if (a?.walletAtMostKopecks !== undefined) {
         parts.push(a.walletAtMostKopecks === 0 ? 'кошелёк пуст' : `кошелёк до ${rub(a.walletAtMostKopecks)}`);
       }

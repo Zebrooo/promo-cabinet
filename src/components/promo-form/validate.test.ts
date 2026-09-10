@@ -248,9 +248,6 @@ describe('validatePromoForm — behavior (блок «Поведение»)', () 
       targeting: { advertiser: { everLaunched: false, paidCampaigns: true } },
     }))).toMatchObject({ targeting: { advertiser: { everLaunched: expect.stringContaining('Списания') } } });
     expect(validatePromoForm(make('inline', {
-      targeting: { advertiser: { hasActiveCampaign: false, endsWithinDays: 5 } },
-    }))).toMatchObject({ targeting: { advertiser: { endsWithinDays: expect.any(String) } } });
-    expect(validatePromoForm(make('inline', {
       audience: 'anonymous', targeting: { advertiser: { walletAtMostKopecks: 0 } },
     })).targeting?.advertiser).toMatch(/гост/i);
   });

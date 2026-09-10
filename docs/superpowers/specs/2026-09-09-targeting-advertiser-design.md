@@ -16,7 +16,7 @@
 | 3 | Покупал продвижение объявлений (VIP/premium/bump) | `targeting.purchases` | без изменений — тот же фильтр «Покупки пакетов» |
 | 4 | Платил за рекламу (реальные списания по РК) | нечем | `paidCampaigns: true` (+ `minSpentKopecks`) |
 | 5 | Бюджет РК кончился — реклама стоит | нечем | `budgetExhausted: true` |
-| 6 | РК заканчивается на днях — пора продлить | нечем | `endsWithinDays: N` |
+| 6 | РК заканчивается на днях — пора продлить | нечем | **снято 2026-09-10**: у `ad_campaigns` нет даты окончания (см. § 7) |
 | 7 | Пустой рекламный кошелёк (РК создана, крутиться не может) | нечем | `walletAtMostKopecks: 0` |
 
 Кабинет даёт форму и хранит правило в пуле; проверку делает BFF (новый
@@ -42,7 +42,6 @@
       "paidCampaigns": true,                     // true = сумма spent_kopecks по РК > 0; false = не платил
       "minSpentKopecks": 100000,                 // только при paidCampaigns=true; суммарно списано ≥ N копеек
       "budgetExhausted": true,                   // true = есть РК с spent ≥ total_budget или выбранным дневным лимитом; false = нет
-      "endsWithinDays": 7,                       // есть активная РК с ends_at в ближайшие N дней; 1–90
       "walletAtMostKopecks": 0                   // баланс рекламного кошелька ≤ N копеек; 0 = пустой
     }
   }
@@ -61,7 +60,6 @@ Zod-схема — `advertiserTargetingSchema` в `src/lib/schema.ts` кабин
 - `everLaunched: false` + (`hasActiveCampaign: true` или `active` в статусах);
 - `everLaunched: false` + (`paidCampaigns: true` или `budgetExhausted: true`) —
   списания бывают только у запускавшихся РК;
-- `hasActiveCampaign: false` + `endsWithinDays` — окончание смотрит на активную РК.
 
 ## 3. Семантика
 
@@ -82,8 +80,7 @@ LifecycleChecker), а не пропускает.
 ### 3.3 Что считается условием
 
 `campaignStatuses` (непустой), `hasActiveCampaign`, `everLaunched`,
-`abandonedWizard`, `paidCampaigns`, `budgetExhausted`, `endsWithinDays`,
-`walletAtMostKopecks`. `launchedWithinDays`, `wizardLookbackDays` и
+`abandonedWizard`, `paidCampaigns`, `budgetExhausted`, `walletAtMostKopecks`. `launchedWithinDays`, `wizardLookbackDays` и
 `minSpentKopecks` — только модификаторы: без своего условия (`=== true`)
 кабинет их вычищает (`lib/targeting-normalize.ts`), пустой блок в пул не
 пишется.
@@ -104,7 +101,6 @@ LifecycleChecker), а не пропускает.
   "wizard_submitted_at": null,            // последний form_submit_success (тот же form_id) за окно
   "spent_kopecks": 250000,                // sum(spent_kopecks) по всем РК рекламодателя
   "budget_exhausted": true,               // exists РК: spent ≥ total_budget, или сегодняшние списания ≥ daily_budget
-  "active_ends_at": "2026-09-14T…Z",      // min(ends_at) по активным РК с ends_at; null = нет
   "wallet_kopecks": 0                     // баланс рекламного кошелька (ledger_accounts, kind=liability); null = кошелька нет
 }
 ```
@@ -155,9 +151,6 @@ if rule.paidCampaigns !== undefined:
     if rule.paidCampaigns !== paid → fail
     if rule.paidCampaigns && rule.minSpentKopecks !== undefined && data.spent_kopecks < rule.minSpentKopecks → fail
 if rule.budgetExhausted !== undefined && rule.budgetExhausted !== data.budget_exhausted → fail
-if rule.endsWithinDays !== undefined:
-    if data.active_ends_at === null → fail
-    if data.active_ends_at < now || data.active_ends_at > now + endsWithinDays days → fail
 if rule.walletAtMostKopecks !== undefined && (data.wallet_kopecks ?? 0) > rule.walletAtMostKopecks → fail
 pass
 ```
@@ -208,3 +201,19 @@ pass
   (не важно / да / нет) с периодом/суммой при «да», список статусов,
   окончание РК и рекламный кошелёк (в рублях, хранится в копейках).
 - `docs/promo-format-schemas.md` перегенерирован (`pnpm docs:formats`).
+
+## 7. Снято: `endsWithinDays` (2026-09-10)
+
+В `public.ad_campaigns` витрины нет колонок `ends_at` / `end_at` (ни в
+0042_ad_campaigns.sql, ни в последующих миграциях): кампания живёт до
+исчерпания бюджета или паузы. BFF читал дату из несуществующей колонки,
+агрегат всегда был `null`, правило не совпадало ни с кем — тихий отказ.
+Поле убрано из схемы кабинета (promo-cabinet) и BFF (promo-bff) синхронно;
+старый пул с ключом парсится, ключ вырезается, блок из одного
+`endsWithinDays` считается пустым. Если продукт введёт срок кампании
+(колонка + мастер + аукцион + биллинг), поле возвращается вместе с колонкой.
+
+Защита от повторения в BFF: сигнал читает `ad_campaigns` явным списком
+колонок (`AD_CAMPAIGN_SIGNAL_COLUMNS`), несуществующая колонка даёт
+PostgREST 400 и ошибку в логе, а не тихий `null`; тест держит список и
+маппер в синхроне.

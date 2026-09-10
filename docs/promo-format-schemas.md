@@ -75,7 +75,6 @@
 | `targeting.advertiser.paidCampaigns` | булево | опционально | true = были списания по РК (сумма spent_kopecks > 0); false = не платил за рекламу |
 | `targeting.advertiser.minSpentKopecks` | число | опционально | Только при paidCampaigns=true: суммарно списано по РК не меньше N копеек |
 | `targeting.advertiser.budgetExhausted` | булево | опционально | true = есть РК с исчерпанным бюджетом (spent ≥ total_budget или выбран дневной лимит); false = такой нет |
-| `targeting.advertiser.endsWithinDays` | число | опционально | Есть активная РК, которая заканчивается (ends_at) в ближайшие N дней (1–90) |
 | `targeting.advertiser.walletAtMostKopecks` | число | опционально | Баланс рекламного кошелька (ledger_accounts, kind=liability, ЛК «Реклама») не больше N копеек; 0 = пустой кошелёк |
 | `maxImpressionsPerUser` | число | опционально | Лимит показов на юзера (пусто = без лимита) |
 | `cooldownHours` | число | обязательно | Пауза между повторными показами одному юзеру, часов |
