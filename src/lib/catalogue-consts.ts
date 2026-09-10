@@ -11,10 +11,14 @@ export const DEVICE_QUEUES: { name: string; persist: boolean }[] =
   DEVICE_QUEUE_CATALOGS.flatMap((c) => QUEUE_DEVICES.map((d) => ({ name: `${c}-${d}`, persist: false })));
 
 export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
-  // Legacy pre-cutover queues. Kept until the storefront stops requesting
-  // them (retire = separate step D after the per-catalog cutover).
-  { name: 'home-banner', persist: true  }, // abkhaz-auto topline (cookie-pinned banner)
-  { name: 'home-popup',  persist: false }, // abkhaz-auto popup (rotates per visit)
+  // home-banner / home-popup убраны 2026-09-10. Аудит кода витрины подтвердил,
+  // что ни одно из имён не уходит в запрос к BFF: они осиротели в 50271b2
+  // (abkhaz-auto#77, «Overlay + topline no longer pin home-popup/home-banner»)
+  // и сегодня живут только как id слота кабинета (ad-campaign.ts, колонка
+  // campaign.slot), в поле queue не попадая никогда. Топлайн и оверлей отдают
+  // persistent-topline и `<каталог>-<устройство>` соответственно.
+  // Как и с каталожными очередями, объекты в S3 остаются — убран только
+  // bootstrap и guard.
   { name: 'tooltip',     persist: false }, // abkhaz-auto tooltip (anchored bubble; site requests this queue)
   { name: 'cabinet-onboarding', persist: false }, // ad-cabinet onboarding tooltips (editor lead-by-hand)
   { name: 'persistent-topline', persist: true },
@@ -61,17 +65,11 @@ export const PROD_SERVED_QUEUES: readonly string[] = [
   // `${catalogFromPath(path)}-${device}`.
   ...DEVICE_QUEUES.map((q) => q.name),
 
-  // Потребитель НЕ НАЙДЕН — под guard-ом временно, снимается отдельным PR.
-  // Аудитом кода витрины 2026-09-10 подтверждено, что эти два имени не уходят
-  // в запрос: осиротели в 50271b2 (abkhaz-auto#77, «Overlay + topline no longer
-  // pin home-popup/home-banner»), сегодня живут только как id слота кабинета
-  // (ad-campaign.ts, колонка campaign.slot) и в поле queue не попадают.
-  // Guard держится до правки promo-bff scripts/bff-smoke.mjs — смоук всё ещё
-  // ждёт эти очереди, и снимать их надо тем же контуром, что и его.
-  'home-banner',          // потребитель не найден; legacy pre-cutover (topline)
-  'home-popup',           // потребитель не найден; legacy pre-cutover (overlay)
-  // «Голые» каталожные имена сняты с guard-а 2026-09-10 вместе с bootstrap-ом
-  // (см. CANONICAL_QUEUES выше): витрина запрашивает только `<каталог>-<устройство>`.
+  // Имён без потребителя в этом списке больше нет. Снятые 2026-09-10:
+  // home-banner и home-popup (осиротели в 50271b2, abkhaz-auto#77; смоук
+  // promo-bff перестал их ждать в promo-bff#42) и восемь «голых» каталожных
+  // (осиротели в d5e4520, abkhaz-auto#113 — витрина запрашивает только
+  // `<каталог>-<устройство>`). Объекты очередей в S3 при этом не удалялись.
 ];
 
 /**
