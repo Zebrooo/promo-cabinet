@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "docs:formats": "tsx scripts/generate-format-docs.ts",
-    "queues:seed-device": "tsx scripts/seed-device-queues.ts"
+    "queues:seed-device": "tsx scripts/seed-device-queues.ts",
+    "campaign:seed-reklama-2026-09": "tsx scripts/seed-reklama-2026-09.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
