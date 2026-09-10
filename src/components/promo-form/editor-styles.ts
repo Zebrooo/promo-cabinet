@@ -310,6 +310,13 @@ export const EDITOR_CSS = `
   background: var(--brand-sea-700); border-color: var(--brand-sea-700);
   color: #fff;
 }
+/* Очередь без потребителя: витрина её не запрашивает — промо в ней не покажется. */
+.qchip-dead { border-style: dashed; }
+.qchip-dead-mark {
+  margin-left: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--brand-coral-700); opacity: .85;
+}
+.qchip.on .qchip-dead-mark { color: #fff; }
 
 /* Targeting filters */
 .ef-flt-list { display: flex; flex-direction: column; gap: 10px; }

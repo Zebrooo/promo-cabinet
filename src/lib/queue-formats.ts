@@ -16,50 +16,70 @@ export interface QueueMeta {
   sectionHint: string;
   /** Exact formats requested from a fixed-format queue. */
   servedFormats?: Promo['format'][];
-  /** true for queues the storefront no longer requests. */
+  /**
+   * true = ни один потребитель не запрашивает очередь по этому имени, значит
+   * промо в ней не покажется никому. Кабинет помечает такие очереди в пикере
+   * и зажигает предупреждение `legacyOnly` на промо, которое стоит ТОЛЬКО в
+   * них (см. lib/promo-filters.ts). Список потребителей — комментарии у
+   * PROD_SERVED_QUEUES в catalogue-consts.ts.
+   */
   legacy?: boolean;
 }
+
+/** Подсказка для голых каталожных очередей: витрина ходит только в
+ *  `<каталог>-<устройство>` (fp/o/route.ts, fp/promoline/route.ts), поэтому
+ *  сама `transport` и её собратья ничего не показывают. */
+const catalogHint = (label: string) =>
+  `Витрина эту очередь не запрашивает — она ходит в «${label} · веб / моб. браузер / приложение». Промо здесь не покажется`;
 
 export const QUEUE_META: Record<string, QueueMeta> = {
   home: {
     name: 'home',
     label: 'Главная',
-    sectionHint: 'Главная страница',
+    sectionHint: catalogHint('Главная'),
+    legacy: true,
   },
   transport: {
     name: 'transport',
     label: 'Транспорт',
-    sectionHint: 'Авто, шины, диски и запчасти; строку promoline в ленте витрина берёт из очередей «Транспорт · веб / моб. браузер / приложение»',
+    sectionHint: catalogHint('Транспорт'),
+    legacy: true,
   },
   realty: {
     name: 'realty',
     label: 'Недвижимость',
-    sectionHint: 'Раздел недвижимости',
+    sectionHint: catalogHint('Недвижимость'),
+    legacy: true,
   },
   goods: {
     name: 'goods',
     label: 'Товары',
-    sectionHint: 'Товары и барахолка',
+    sectionHint: catalogHint('Товары'),
+    legacy: true,
   },
   services: {
     name: 'services',
     label: 'Услуги',
-    sectionHint: 'Раздел услуг',
+    sectionHint: catalogHint('Услуги'),
+    legacy: true,
   },
   jobs: {
     name: 'jobs',
     label: 'Работа',
-    sectionHint: 'Раздел работы',
+    sectionHint: catalogHint('Работа'),
+    legacy: true,
   },
   news: {
     name: 'news',
     label: 'Новости',
-    sectionHint: 'Раздел новостей',
+    sectionHint: catalogHint('Новости'),
+    legacy: true,
   },
   listing: {
     name: 'listing',
     label: 'Страница объявления',
-    sectionHint: 'Карточка объявления',
+    sectionHint: catalogHint('Страница объявления'),
+    legacy: true,
   },
   tooltip: {
     name: 'tooltip',

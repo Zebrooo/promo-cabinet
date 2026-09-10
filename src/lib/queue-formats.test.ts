@@ -8,21 +8,28 @@ describe('QUEUE_META', () => {
     expect(missing, `QUEUE_META is missing: ${missing.join(', ')}`).toHaveLength(0);
   });
 
-  it('marks home-banner and home-popup as legacy', () => {
+  it('marks home-banner and home-popup as queues without a consumer', () => {
     expect(QUEUE_META['home-banner']?.legacy).toBe(true);
     expect(QUEUE_META['home-popup']?.legacy).toBe(true);
   });
 
-  it('does not mark catalog queues as legacy', () => {
-    const catalogQueues = ['home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing'];
-    for (const queue of catalogQueues) {
-      expect(QUEUE_META[queue]?.legacy, `${queue} should not be legacy`).toBeFalsy();
+  it('marks the bare catalog queues as unread by the storefront — она ходит только в `<каталог>-<устройство>`', () => {
+    for (const queue of ['home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing']) {
+      expect(QUEUE_META[queue]?.legacy, `${queue}: без потребителя`).toBe(true);
+      expect(QUEUE_META[queue]?.sectionHint, `${queue}: подсказка ведёт в per-device очереди`)
+        .toContain('веб / моб. браузер / приложение');
     }
   });
 
-  it('points transport promoline placement to the per-device transport queues (persistent-promoline убрана: витрина её не запрашивала)', () => {
+  it('does NOT mark the per-device queues — их витрина запрашивает (fp/o, fp/promoline)', () => {
+    for (const queue of ['transport-web', 'transport-touch', 'transport-mobile', 'home-web']) {
+      expect(QUEUE_META[queue]?.legacy, `${queue} обслуживается витриной`).toBeFalsy();
+    }
+  });
+
+  it('points transport placement to the per-device transport queues (bare `transport` ничего не показывает)', () => {
     expect(QUEUE_META.transport?.sectionHint).toBe(
-      'Авто, шины, диски и запчасти; строку promoline в ленте витрина берёт из очередей «Транспорт · веб / моб. браузер / приложение»',
+      'Витрина эту очередь не запрашивает — она ходит в «Транспорт · веб / моб. браузер / приложение». Промо здесь не покажется',
     );
   });
 
