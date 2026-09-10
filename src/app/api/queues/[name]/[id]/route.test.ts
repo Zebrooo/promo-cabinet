@@ -6,6 +6,7 @@ import { queuesIndexKey, queueKey, promosKey, getS3Client, resetS3ClientForTests
 import { createSessionToken } from '@/lib/auth';
 import { readQueue } from '@/lib/catalogue';
 import { env } from '@/env';
+import type { Promo } from '@/lib/schema';
 import { POST, DELETE } from './route';
 
 const SECRET = 'unit-test-secret';
@@ -18,7 +19,7 @@ const authed = (name: string, id: string, method = 'POST') =>
   });
 const ctx = (name: string, id: string) => ({ params: { name, id } });
 
-const promo = (id: string, format: 'inline' | 'promoline' = 'inline') => ({
+const promo = (id: string, format: Promo['format'] = 'inline') => ({
   id, name: id, startsAt: '2024-01-01T00:00:00.000Z', endsAt: '2024-12-31T00:00:00.000Z',
   targeting: {}, cooldownHours: 0, format, title: id,
 });
@@ -119,37 +120,37 @@ describe('POST /api/queues/[name]/[id]', () => {
   });
 
   it('enqueues the declared format into a fixed-format queue', async () => {
-    await seedIndex([{ name: 'persistent-promoline', persist: true }]);
-    await seedQueue('persistent-promoline', true, []);
-    await seedPool([promo('promoline-1', 'promoline')]);
+    await seedIndex([{ name: 'persistent-topline', persist: true }]);
+    await seedQueue('persistent-topline', true, []);
+    await seedPool([promo('topline-1', 'topline')]);
 
     const res = await POST(
-      authed('persistent-promoline', 'promoline-1'),
-      ctx('persistent-promoline', 'promoline-1'),
+      authed('persistent-topline', 'topline-1'),
+      ctx('persistent-topline', 'topline-1'),
     );
 
     expect(res.status).toBe(200);
-    expect((await readQueue('persistent-promoline')).ids).toEqual(['promoline-1']);
+    expect((await readQueue('persistent-topline')).ids).toEqual(['topline-1']);
   });
 
   it('rejects another format for a fixed-format queue without mutating it', async () => {
-    await seedIndex([{ name: 'persistent-promoline', persist: true }]);
-    await seedQueue('persistent-promoline', true, []);
+    await seedIndex([{ name: 'persistent-topline', persist: true }]);
+    await seedQueue('persistent-topline', true, []);
     await seedPool([promo('inline-1')]);
 
     const res = await POST(
-      authed('persistent-promoline', 'inline-1'),
-      ctx('persistent-promoline', 'inline-1'),
+      authed('persistent-topline', 'inline-1'),
+      ctx('persistent-topline', 'inline-1'),
     );
 
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({
       error: 'format_not_allowed',
-      queue: 'persistent-promoline',
+      queue: 'persistent-topline',
       promoFormat: 'inline',
-      allowedFormats: ['promoline'],
+      allowedFormats: ['topline'],
     });
-    expect(await readQueue('persistent-promoline')).toEqual({ persist: true, ids: [] });
+    expect(await readQueue('persistent-topline')).toEqual({ persist: true, ids: [] });
   });
 });
 

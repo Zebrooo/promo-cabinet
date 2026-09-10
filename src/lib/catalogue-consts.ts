@@ -19,7 +19,10 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   { name: 'cabinet-onboarding', persist: false }, // ad-cabinet onboarding tooltips (editor lead-by-hand)
   { name: 'persistent-topline', persist: true },
   { name: 'persistent-inline',  persist: true },
-  { name: 'persistent-promoline', persist: true },
+  // persistent-promoline убрана 2026-09-10: витрина её никогда не запрашивала
+  // (строку в ленте отдаёт fp/promoline/route.ts из очереди
+  // `<каталог>-<устройство>`), а пикер формы предлагал её для promoline —
+  // промо ложилось в очередь, которую никто не читает, без единой ошибки.
   // Per-catalog queues (step B' of the per-catalog rollout): one queue per
   // storefront catalog page context; the BFF picks by format inside the queue.
   { name: 'home',      persist: false },
@@ -36,29 +39,37 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
 ];
 
 /**
- * Queue names production consumers request from the BFF RIGHT NOW (storefront
- * slot wiring + ad-cabinet onboarding). Deleting or renaming one of these
- * silently darks a live slot, so the queues API refuses with 409 until the
- * consumer stops requesting the name.
+ * Очереди, которые нельзя удалить или переименовать через queues API (409
+ * prod_served_queue): удаление обслуживаемой очереди молча гасит слот витрины.
  *
- * After the per-catalog cutover (step C) add the 8 catalog queues here; the
- * legacy names move out only at the retire step D.
+ * Правило списка: рядом с КАЖДЫМ именем — роут-потребитель, который
+ * запрашивает очередь по этому имени (abkhaz-auto, src/app/api/fp/*). Имя без
+ * потребителя — кандидат на удаление отдельным PR (по одному контуру за раз,
+ * чтобы откат был точечным), а не повод оставить «на всякий случай»:
+ * мёртвая очередь в пикере формы принимает промо, которое не покажется никому.
+ *
+ * Проверка потребителей — 2026-09-10 по коду abkhaz-auto (grep по src/):
  */
 export const PROD_SERVED_QUEUES: readonly string[] = [
-  'home-banner',
-  'home-popup',
-  'tooltip',
-  'cabinet-onboarding',
-  'persistent-topline',
-  'persistent-inline',
-  'persistent-promoline',
-  // Per-catalog queues — the storefront now requests one per page/catalog
-  // (step C cutover, feat/per-catalog-promo-queues): overlay+topline derive the
-  // queue from catalogFromPath(). Guarded so they can't be deleted while served.
-  'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing',
-  // Per-device очереди — сторфронт запрашивает их после Фазы 3. Guard от удаления.
+  // Подтверждённые потребители (витрина запрашивает по имени):
+  'persistent-topline',   // src/app/api/fp/topline/route.ts
+  'persistent-inline',    // src/app/api/fp/inline/route.ts
+  'tooltip',              // src/app/api/fp/tooltip/route.ts
+  'cabinet-onboarding',   // src/app/api/fp/onboarding/route.ts
+  // `<каталог>-<устройство>`: src/app/api/fp/o/route.ts (оверлей) и
+  // src/app/api/fp/promoline/route.ts (строка в ленте) — queue:
+  // `${catalogFromPath(path)}-${device}`.
   ...DEVICE_QUEUES.map((q) => q.name),
-  // Legacy home-banner/home-popup stay until the retire step D.
+
+  // ПОТРЕБИТЕЛЬ НЕ НАЙДЕН в src/ abkhaz-auto на 2026-09-10 — витрина всегда
+  // добавляет суффикс устройства, «голые» каталожные очереди и legacy-пара
+  // home-banner/home-popup по имени не запрашиваются. Держим guard, пока не
+  // проверено мобильное приложение (abkhaz-auto-mobile) и прямые обращения
+  // из promo-bff (scripts/bff-smoke.mjs всё ещё ждёт home-banner/home-popup);
+  // что подтвердится мёртвым — снимать отдельным PR, по одному контуру.
+  'home-banner',          // потребитель не найден; legacy pre-cutover (topline)
+  'home-popup',           // потребитель не найден; legacy pre-cutover (overlay)
+  'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing', // потребитель не найден (шаг C заменён на per-device)
 ];
 
 /**

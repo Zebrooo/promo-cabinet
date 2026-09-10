@@ -29,7 +29,7 @@ export const QUEUE_META: Record<string, QueueMeta> = {
   transport: {
     name: 'transport',
     label: 'Транспорт',
-    sectionHint: 'Авто, шины, диски и запчасти; promoline — в очереди «Персистентный промолайн»',
+    sectionHint: 'Авто, шины, диски и запчасти; строку promoline в ленте витрина берёт из очередей «Транспорт · веб / моб. браузер / приложение»',
   },
   realty: {
     name: 'realty',
@@ -82,12 +82,6 @@ export const QUEUE_META: Record<string, QueueMeta> = {
     label: 'Персистентный inline',
     sectionHint: 'Постоянный inline-слот витрины',
     servedFormats: ['inline'],
-  },
-  'persistent-promoline': {
-    name: 'persistent-promoline',
-    label: 'Персистентный промолайн',
-    sectionHint: 'Постоянный промолайн между объявлениями витрины',
-    servedFormats: ['promoline'],
   },
   'home-banner': {
     name: 'home-banner',
