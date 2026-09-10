@@ -22,3 +22,15 @@ describe('promo-format-schemas.md (drift)', () => {
     ).toBe(fresh);
   });
 });
+
+describe('FIELD_DESCRIPTIONS (описания полей для доки)', () => {
+  it('каждое описание относится к существующему пути схемы — протухшее описание мёртвого поля не должно жить в словаре', async () => {
+    const { FIELD_DESCRIPTIONS } = await import('./format-docs');
+    const fresh = generateFormatDocs();
+    // format — дискриминатор союза: в таблицы контентных полей не входит,
+    // описывается во вводной части документа.
+    const stale = Object.keys(FIELD_DESCRIPTIONS)
+      .filter((path) => path !== 'format' && !fresh.includes(`| \`${path}\` |`));
+    expect(stale, 'описания без поля в схеме').toEqual([]);
+  });
+});

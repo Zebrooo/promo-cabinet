@@ -21,22 +21,39 @@ function FieldError({ name }: { name: string }) {
   // здесь показываем только строку (ошибку самого блока), иначе React
   // упадёт на объекте-ребёнке.
   if (!meta.touched || typeof meta.error !== 'string' || !meta.error) return null;
-  return <div className="hint hint-warn ef-field-error">{meta.error}</div>;
+  // data-field-error — якорь для сводки ошибок в липкой панели: по клику
+  // на строку сводки страница скроллит к этому элементу (scrollToFieldError).
+  return <div className="hint hint-warn ef-field-error" data-field-error={name}>{meta.error}</div>;
+}
+
+/** Элемент ошибки поля по Formik-пути; без пути — первая ошибка на странице. */
+export function findFieldErrorElement(path?: string): Element | null {
+  if (typeof document === 'undefined') return null;
+  if (path) {
+    const exact = document.querySelector(`[data-field-error="${CSS.escape(path)}"]`);
+    if (exact) return exact;
+  }
+  return document.querySelector('.ef-field-error');
 }
 
 /** Кнопка «Сохранить» живёт в липкой панели, а поле с ошибкой может быть на
- *  два экрана ниже: после сабмита с ошибками прокручиваем к первой из них.
+ *  два экрана ниже: после сабмита с ошибками прокручиваем к первой из них
+ *  (или к конкретной — по клику в сводке ошибок).
  *  Два кадра ожидания: FieldError появляется после setTouched на следующем
  *  рендере, а свёрнутая карточка таргетинга с ошибкой раскрывается ещё одним
  *  рендером позже (эффект в TargetingSection). Не нашли — молча выходим:
- *  текст ошибки и так виден в липкой панели. */
-export function scrollToFirstFieldError(): void {
+ *  текст ошибки и так виден в сводке липкой панели. */
+export function scrollToFieldError(path?: string): void {
   if (typeof document === 'undefined') return;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      document.querySelector('.ef-field-error')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      findFieldErrorElement(path)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
   });
+}
+
+export function scrollToFirstFieldError(): void {
+  scrollToFieldError();
 }
 
 export function TextareaField({

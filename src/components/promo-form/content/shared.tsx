@@ -4,7 +4,7 @@
 // multiple primitives + read values (not pure useField wrappers).
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
-import { ColorField } from '../fields';
+import { ColorField, FieldError } from '../fields';
 import { HintIcon } from '../HintIcon';
 import { normalizeLeadPhone } from '../to-persisted';
 
@@ -80,6 +80,8 @@ export function CtaFields({ withLabel }: { withLabel: boolean }) {
           />
         )}
       </div>
+      <FieldError name="action.href" />
+      <FieldError name="action.label" />
     </section>
   );
 }
@@ -224,6 +226,9 @@ export function GradientField() {
           onClick={() => setFieldValue('backgroundGradient', undefined)}
         >Убрать градиент</button>
       </div>
+      <FieldError name="backgroundGradient.from" />
+      <FieldError name="backgroundGradient.to" />
+      <FieldError name="backgroundGradient.angle" />
     </div>
   );
 }

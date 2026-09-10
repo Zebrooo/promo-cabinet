@@ -46,6 +46,7 @@ export function DivkitContent() {
         </span>
       )}
       <FieldError name="divkitJson" />
+      <FieldError name="divkitUrl" />
     </section>
   );
 }

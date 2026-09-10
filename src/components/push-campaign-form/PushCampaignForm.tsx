@@ -22,6 +22,7 @@ import {
 import { describePushError } from '@/lib/push-campaign-summary';
 import { EDITOR_CSS } from '@/components/promo-form/editor-styles';
 import { FieldError, scrollToFirstFieldError } from '@/components/promo-form/fields';
+import { FormErrorSummary } from '@/components/promo-form/FormErrorSummary';
 import { TargetingSection } from '@/components/promo-form/sections/TargetingSection';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
 import { validatePushCampaignForm } from './validate';
@@ -84,6 +85,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
     useFormikContext<PushCampaignFormValues>();
 
   const [error, setError] = useState('');
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
   const [busy, setBusy] = useState<'save' | 'send' | 'delete' | null>(null);
 
   /** Валидация + нормализация; null = в форме ошибки (уже показаны). */
@@ -94,7 +96,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
       // Вложенные пути (targeting.minAge, schedule.daysOfWeek) тоже должны
       // стать touched — иначе FieldError под ними не покажется.
       setTouched(setNestedObjectValues(formErrors, true), false);
-      setError('Проверьте поля формы — есть ошибки.');
+      setShowFieldErrors(true);
       scrollToFirstFieldError();
       return null;
     }
@@ -200,6 +202,7 @@ function FormBody({ mode, broadcastConfigured, lastSendError }: Omit<Props, 'ini
           </button>
         </div>
         {error && <div className="editor-bar-error" role="alert">{error}</div>}
+        <FormErrorSummary active={showFieldErrors} />
       </div>
 
       <header className="editor-head">

@@ -23,7 +23,7 @@ import { FORMAT_LABEL } from './format-labels';
  *  для элементов массива объектов — `field[].child` (например `steps[].title`).
  *  Если пути нет в словаре — попадает под общий fallback по имени листового
  *  поля (см. FIELD_DESCRIPTIONS_BY_LEAF ниже). */
-const FIELD_DESCRIPTIONS: Record<string, string> = {
+export const FIELD_DESCRIPTIONS: Record<string, string> = {
   id: 'Уникальный идентификатор промо',
   name: 'Название промо для админки (не показывается юзеру)',
   title: 'Заголовок промо — обязателен для всех форматов, часть контракта BFF',

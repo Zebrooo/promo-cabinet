@@ -1,7 +1,7 @@
 'use client';
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
-import { TextareaField, CheckboxField } from '../fields';
+import { TextareaField, CheckboxField, FieldError } from '../fields';
 import { PromoImageUpload } from '@/components/PromoImageUpload';
 import { CtaFields, TextAlignField, ColorsRow, GradientField } from './shared';
 
@@ -23,6 +23,7 @@ export function OverlayContent() {
           recommend={values.format === 'fullscreen' ? '1200×1600' : '600×400'}
           format={values.format}
         />
+        <FieldError name="imageUrl" />
       </section>
       <CtaFields withLabel />
       {values.action && (
@@ -58,6 +59,7 @@ export function OverlayContent() {
           recommend="1200×1600"
           format={values.format}
         />
+        <FieldError name="backgroundImage" />
       </section>
       <TextAlignField />
       <CheckboxField name="dismissible" label='Можно закрыть кнопкой «×»' />
