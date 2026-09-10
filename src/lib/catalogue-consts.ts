@@ -23,18 +23,18 @@ export const CANONICAL_QUEUES: { name: string; persist: boolean }[] = [
   // (строку в ленте отдаёт fp/promoline/route.ts из очереди
   // `<каталог>-<устройство>`), а пикер формы предлагал её для promoline —
   // промо ложилось в очередь, которую никто не читает, без единой ошибки.
-  // Per-catalog queues (step B' of the per-catalog rollout): one queue per
-  // storefront catalog page context; the BFF picks by format inside the queue.
-  { name: 'home',      persist: false },
-  { name: 'transport', persist: false },
-  { name: 'realty',    persist: false },
-  { name: 'goods',     persist: false },
-  { name: 'services',  persist: false },
-  { name: 'jobs',      persist: false },
-  { name: 'news',      persist: false },
-  { name: 'listing',   persist: false },
+  // «Голые» каталожные очереди (home, transport, realty, goods, services, jobs,
+  // news, listing) убраны 2026-09-10: шаг B' раскатки заменён на per-device
+  // (d5e4520, abkhaz-auto#113 — витрина запрашивает `<каталог>-<устройство>`),
+  // и с тех пор эти имена не уходят в запрос ни из одного роута. Аудит кода
+  // витрины 2026-09-10: единственные отправители очереди — fp/o и fp/promoline,
+  // оба шаблоном `${catalogFromPath(path)}-${device}`. Приложение
+  // (abkhaz-auto-mobile) очереди по имени не запрашивает вовсе.
+  //
+  // Убраны только из bootstrap-а и guard-а: объекты queue-<каталог>.json в S3
+  // остаются, и scripts/seed-device-queues.ts по-прежнему читает их по имени
+  // через DEVICE_QUEUE_CATALOGS — путь миграции промо в per-device цел.
   // Per-device очереди (catalog×{web,touch,mobile}) — актуальный контур раскатки.
-  // Старые catalog-очереди выше остаются до retire-шага (Фаза 4).
   ...DEVICE_QUEUES,
 ];
 
@@ -61,15 +61,17 @@ export const PROD_SERVED_QUEUES: readonly string[] = [
   // `${catalogFromPath(path)}-${device}`.
   ...DEVICE_QUEUES.map((q) => q.name),
 
-  // ПОТРЕБИТЕЛЬ НЕ НАЙДЕН в src/ abkhaz-auto на 2026-09-10 — витрина всегда
-  // добавляет суффикс устройства, «голые» каталожные очереди и legacy-пара
-  // home-banner/home-popup по имени не запрашиваются. Держим guard, пока не
-  // проверено мобильное приложение (abkhaz-auto-mobile) и прямые обращения
-  // из promo-bff (scripts/bff-smoke.mjs всё ещё ждёт home-banner/home-popup);
-  // что подтвердится мёртвым — снимать отдельным PR, по одному контуру.
+  // Потребитель НЕ НАЙДЕН — под guard-ом временно, снимается отдельным PR.
+  // Аудитом кода витрины 2026-09-10 подтверждено, что эти два имени не уходят
+  // в запрос: осиротели в 50271b2 (abkhaz-auto#77, «Overlay + topline no longer
+  // pin home-popup/home-banner»), сегодня живут только как id слота кабинета
+  // (ad-campaign.ts, колонка campaign.slot) и в поле queue не попадают.
+  // Guard держится до правки promo-bff scripts/bff-smoke.mjs — смоук всё ещё
+  // ждёт эти очереди, и снимать их надо тем же контуром, что и его.
   'home-banner',          // потребитель не найден; legacy pre-cutover (topline)
   'home-popup',           // потребитель не найден; legacy pre-cutover (overlay)
-  'home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing', // потребитель не найден (шаг C заменён на per-device)
+  // «Голые» каталожные имена сняты с guard-а 2026-09-10 вместе с bootstrap-ом
+  // (см. CANONICAL_QUEUES выше): витрина запрашивает только `<каталог>-<устройство>`.
 ];
 
 /**

@@ -18,14 +18,20 @@ describe('CANONICAL_ANCHORS', () => {
   });
 });
 
-describe('catalog queues (per-catalog rollout, step B\')', () => {
+describe('catalog queues (per-device rollout)', () => {
   const CATALOG_QUEUES = ['home', 'transport', 'realty', 'goods', 'services', 'jobs', 'news', 'listing'];
 
-  it('registers all 8 catalog queues with persist:false', () => {
+  it('does not bootstrap or guard the bare catalog queues — витрина ходит только в `<каталог>-<устройство>`', () => {
     for (const name of CATALOG_QUEUES) {
-      const entry = CANONICAL_QUEUES.find((q) => q.name === name);
-      expect(entry, `queue "${name}" must be canonical`).toBeDefined();
-      expect(entry?.persist, `queue "${name}" must not persist (rotates per visit)`).toBe(false);
+      expect(CANONICAL_QUEUES.some((q) => q.name === name), `queue "${name}" must not be recreated`).toBe(false);
+      expect(PROD_SERVED_QUEUES, `queue "${name}" must be deletable`).not.toContain(name);
+    }
+  });
+
+  it('keeps every per-device queue both canonical and guarded (это и есть живой контур)', () => {
+    for (const { name } of DEVICE_QUEUES) {
+      expect(CANONICAL_QUEUES.some((q) => q.name === name), `${name} must be canonical`).toBe(true);
+      expect(PROD_SERVED_QUEUES, `${name} must stay guarded`).toContain(name);
     }
   });
 
@@ -51,8 +57,8 @@ describe('catalog queues (per-catalog rollout, step B\')', () => {
     expect(PROD_SERVED_QUEUES).not.toContain('persistent-promoline');
   });
 
-  it('has 14 base + per-device canonical queues with unique names', () => {
-    expect(CANONICAL_QUEUES).toHaveLength(14 + DEVICE_QUEUES.length); // 4 legacy + 8 catalog + 2 persistent + 24 device
+  it('has 6 base + per-device canonical queues with unique names', () => {
+    expect(CANONICAL_QUEUES).toHaveLength(6 + DEVICE_QUEUES.length); // 4 legacy + 2 persistent + 24 device
     const names = CANONICAL_QUEUES.map((q) => q.name);
     expect(new Set(names).size).toBe(names.length);
   });
