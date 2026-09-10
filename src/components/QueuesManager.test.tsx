@@ -9,12 +9,12 @@ vi.mock('next/navigation', () => ({
 describe('QueuesManager queue metadata', () => {
   it('shows a fixed queue human label, storage name and placement hint', () => {
     const html = renderToStaticMarkup(
-      <QueuesManager initial={[{ name: 'persistent-promoline', persist: true }]} />,
+      <QueuesManager initial={[{ name: 'persistent-inline', persist: true }]} />,
     );
 
-    expect(html).toContain('Персистентный промолайн');
-    expect(html).toContain('persistent-promoline');
-    expect(html).toContain('Постоянный промолайн между объявлениями витрины');
+    expect(html).toContain('Персистентный inline');
+    expect(html).toContain('persistent-inline');
+    expect(html).toContain('Постоянный inline-слот витрины');
   });
 
   it('falls back to the raw name for a queue without metadata', () => {

@@ -27,8 +27,8 @@ function render(name: string): string {
       persist
       promos={[]}
       poolPromos={[
-        promo('eligible-promoline', 'promoline'),
-        promo('wrong-inline', 'inline'),
+        promo('eligible-inline', 'inline'),
+        promo('wrong-topline', 'topline'),
       ]}
     />,
   );
@@ -36,21 +36,21 @@ function render(name: string): string {
 
 describe('QueueEditor fixed-format queues', () => {
   it('shows the human label and placement hint', () => {
-    const html = render('persistent-promoline');
-    expect(html).toContain('Персистентный промолайн');
-    expect(html).toContain('Постоянный промолайн между объявлениями витрины');
-    expect(html).toContain('persistent-promoline');
+    const html = render('persistent-inline');
+    expect(html).toContain('Персистентный inline');
+    expect(html).toContain('Постоянный inline-слот витрины');
+    expect(html).toContain('persistent-inline');
   });
 
   it('offers only compatible promos in the add picker', () => {
-    const html = render('persistent-promoline');
-    expect(html).toContain('eligible-promoline');
-    expect(html).not.toContain('wrong-inline');
+    const html = render('persistent-inline');
+    expect(html).toContain('eligible-inline');
+    expect(html).not.toContain('wrong-topline');
   });
 
   it('keeps custom queues unrestricted', () => {
     const html = render('custom-queue');
-    expect(html).toContain('eligible-promoline');
-    expect(html).toContain('wrong-inline');
+    expect(html).toContain('eligible-inline');
+    expect(html).toContain('wrong-topline');
   });
 });

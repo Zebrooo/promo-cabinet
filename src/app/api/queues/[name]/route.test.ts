@@ -144,16 +144,16 @@ describe('PATCH /api/queues/[name]', () => {
   });
 
   it('409 prod_served_queue when renaming a queue the storefront requests', async () => {
-    await seedIndex([{ name: 'persistent-promoline', persist: true }]);
-    await seedQueue('persistent-promoline', true, ['a']);
-    const res = await PATCH(authed('persistent-promoline', { method: 'PATCH', body: JSON.stringify({ rename: 'renamed' }) }), ctx('persistent-promoline'));
+    await seedIndex([{ name: 'persistent-topline', persist: true }]);
+    await seedQueue('persistent-topline', true, ['a']);
+    const res = await PATCH(authed('persistent-topline', { method: 'PATCH', body: JSON.stringify({ rename: 'renamed' }) }), ctx('persistent-topline'));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toBe('prod_served_queue');
     expect(body.message).toMatch(/обслуживает прод/);
     // Nothing changed
     const idx = await readQueuesIndex();
-    expect(idx.some((e) => e.name === 'persistent-promoline')).toBe(true);
+    expect(idx.some((e) => e.name === 'persistent-topline')).toBe(true);
     expect(idx.some((e) => e.name === 'renamed')).toBe(false);
   });
 
@@ -178,15 +178,24 @@ describe('DELETE /api/queues/[name]', () => {
   });
 
   it('409 prod_served_queue when deleting a queue the storefront requests', async () => {
-    await seedIndex([{ name: 'main', persist: false }, { name: 'persistent-promoline', persist: true }]);
-    await seedQueue('persistent-promoline', true, ['a']);
-    const res = await DELETE(authed('persistent-promoline', { method: 'DELETE' }), ctx('persistent-promoline'));
+    await seedIndex([{ name: 'main', persist: false }, { name: 'persistent-topline', persist: true }]);
+    await seedQueue('persistent-topline', true, ['a']);
+    const res = await DELETE(authed('persistent-topline', { method: 'DELETE' }), ctx('persistent-topline'));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toBe('prod_served_queue');
     expect(body.message).toMatch(/обслуживает прод/);
     const idx = await readQueuesIndex();
-    expect(idx.some((e) => e.name === 'persistent-promoline')).toBe(true);
+    expect(idx.some((e) => e.name === 'persistent-topline')).toBe(true);
+  });
+
+  it('persistent-promoline больше не под guard-ом: пустую мёртвую очередь можно удалить штатным DELETE', async () => {
+    await seedIndex([{ name: 'main', persist: false }, { name: 'persistent-promoline', persist: true }]);
+    await seedQueue('persistent-promoline', true, []);
+    const res = await DELETE(authed('persistent-promoline', { method: 'DELETE' }), ctx('persistent-promoline'));
+    expect(res.status).toBe(200);
+    const idx = await readQueuesIndex();
+    expect(idx.some((e) => e.name === 'persistent-promoline')).toBe(false);
   });
 
   it('404 when deleting an unknown queue name', async () => {

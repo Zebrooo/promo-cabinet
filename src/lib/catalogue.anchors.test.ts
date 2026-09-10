@@ -39,17 +39,20 @@ describe('catalog queues (per-catalog rollout, step B\')', () => {
     expect(CANONICAL_QUEUES).toEqual(expect.arrayContaining([
       { name: 'persistent-topline', persist: true },
       { name: 'persistent-inline', persist: true },
-      { name: 'persistent-promoline', persist: true },
     ]));
     expect(PROD_SERVED_QUEUES).toEqual(expect.arrayContaining([
       'persistent-topline',
       'persistent-inline',
-      'persistent-promoline',
     ]));
   });
 
-  it('has 15 base + per-device canonical queues with unique names', () => {
-    expect(CANONICAL_QUEUES).toHaveLength(15 + DEVICE_QUEUES.length); // 4 legacy + 8 catalog + 3 persistent + 24 device
+  it('does not know persistent-promoline anymore (витрина её не запрашивала; не пересоздаётся и не под guard-ом)', () => {
+    expect(CANONICAL_QUEUES.some((q) => q.name === 'persistent-promoline')).toBe(false);
+    expect(PROD_SERVED_QUEUES).not.toContain('persistent-promoline');
+  });
+
+  it('has 14 base + per-device canonical queues with unique names', () => {
+    expect(CANONICAL_QUEUES).toHaveLength(14 + DEVICE_QUEUES.length); // 4 legacy + 8 catalog + 2 persistent + 24 device
     const names = CANONICAL_QUEUES.map((q) => q.name);
     expect(new Set(names).size).toBe(names.length);
   });

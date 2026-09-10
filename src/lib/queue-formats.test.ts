@@ -20,9 +20,9 @@ describe('QUEUE_META', () => {
     }
   });
 
-  it('points transport promoline placement to the dedicated persistent queue', () => {
+  it('points transport promoline placement to the per-device transport queues (persistent-promoline убрана: витрина её не запрашивала)', () => {
     expect(QUEUE_META.transport?.sectionHint).toBe(
-      'Авто, шины, диски и запчасти; promoline — в очереди «Персистентный промолайн»',
+      'Авто, шины, диски и запчасти; строку promoline в ленте витрина берёт из очередей «Транспорт · веб / моб. браузер / приложение»',
     );
   });
 
@@ -39,27 +39,22 @@ describe('QUEUE_META', () => {
       sectionHint: 'Постоянный inline-слот витрины',
       servedFormats: ['inline'],
     });
-    expect(QUEUE_META['persistent-promoline']).toEqual({
-      name: 'persistent-promoline',
-      label: 'Персистентный промолайн',
-      sectionHint: 'Постоянный промолайн между объявлениями витрины',
-      servedFormats: ['promoline'],
-    });
+    expect(QUEUE_META).not.toHaveProperty('persistent-promoline');
   });
 
   it('keeps other queues as display-only metadata without format restrictions', () => {
     for (const [key, meta] of Object.entries(QUEUE_META)) {
       expect(meta.label, `${key}.label`).toBeTruthy();
       expect(meta.sectionHint, `${key}.sectionHint`).toBeTruthy();
-      if (key !== 'persistent-topline' && key !== 'persistent-inline' && key !== 'persistent-promoline') {
+      if (key !== 'persistent-topline' && key !== 'persistent-inline') {
         expect(meta).not.toHaveProperty('servedFormats');
       }
     }
   });
 
   it('enforces servedFormats only for fixed-format queues', () => {
-    expect(queueAllowsFormat('persistent-promoline', 'promoline')).toBe(true);
-    expect(queueAllowsFormat('persistent-promoline', 'inline')).toBe(false);
+    expect(queueAllowsFormat('persistent-inline', 'inline')).toBe(true);
+    expect(queueAllowsFormat('persistent-inline', 'promoline')).toBe(false);
     expect(queueAllowsFormat('persistent-topline', 'topline')).toBe(true);
     expect(queueAllowsFormat('persistent-topline', 'promoline')).toBe(false);
     expect(queueAllowsFormat('transport', 'popup')).toBe(true);
