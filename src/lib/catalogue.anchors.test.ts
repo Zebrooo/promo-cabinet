@@ -35,9 +35,17 @@ describe('catalog queues (per-device rollout)', () => {
     }
   });
 
-  it('keeps the legacy pre-cutover queues (retire is a separate step D)', () => {
-    for (const name of ['home-banner', 'home-popup', 'tooltip', 'cabinet-onboarding']) {
+  it('keeps the fixed-name queues the storefront still requests', () => {
+    for (const name of ['tooltip', 'cabinet-onboarding']) {
       expect(CANONICAL_QUEUES.some((q) => q.name === name)).toBe(true);
+      expect(PROD_SERVED_QUEUES).toContain(name);
+    }
+  });
+
+  it('does not bootstrap or guard home-banner / home-popup — витрина их не запрашивает', () => {
+    for (const name of ['home-banner', 'home-popup']) {
+      expect(CANONICAL_QUEUES.some((q) => q.name === name), `${name} must not be recreated`).toBe(false);
+      expect(PROD_SERVED_QUEUES, `${name} must be deletable`).not.toContain(name);
     }
   });
 
@@ -57,8 +65,8 @@ describe('catalog queues (per-device rollout)', () => {
     expect(PROD_SERVED_QUEUES).not.toContain('persistent-promoline');
   });
 
-  it('has 6 base + per-device canonical queues with unique names', () => {
-    expect(CANONICAL_QUEUES).toHaveLength(6 + DEVICE_QUEUES.length); // 4 legacy + 2 persistent + 24 device
+  it('has 4 base + per-device canonical queues with unique names', () => {
+    expect(CANONICAL_QUEUES).toHaveLength(4 + DEVICE_QUEUES.length); // tooltip + cabinet-onboarding + 2 persistent + 24 device
     const names = CANONICAL_QUEUES.map((q) => q.name);
     expect(new Set(names).size).toBe(names.length);
   });

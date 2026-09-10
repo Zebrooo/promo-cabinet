@@ -157,7 +157,7 @@ describe('ensureMainQueue', () => {
   it('bootstraps all canonical queues + main on an empty store', async () => {
     await ensureMainQueue();
     const idx = await readQueuesIndex();
-    expect(idx).toHaveLength(7 + DEVICE_QUEUES.length); // main + 6 canonical (4 legacy + 2 persistent) + 24 device
+    expect(idx).toHaveLength(5 + DEVICE_QUEUES.length); // main + 4 canonical (tooltip + cabinet-onboarding + 2 persistent) + 24 device
     const names = new Set(idx.map((q) => q.name));
     for (const name of [
       'transport-web', 'transport-touch', 'transport-mobile',
