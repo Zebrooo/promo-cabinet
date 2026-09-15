@@ -188,7 +188,8 @@ export function FrequencySection({ poolPromos }: { poolPromos: { id: string; tit
       {legacyHours > 0 && !hasNewCooldown && (
         <div className="hint hint-warn">
           Устаревший кулдаун {legacyHours} ч. BFF читает его как паузу формата {legacyHours * 60} мин
-          и правило «не повторять себя» {legacyHours * 60} мин. Задайте поля выше — устаревшее перестанет действовать.
+          и правило «не повторять себя» {legacyHours * 60} мин. Чтобы отключить, введите 0 в поле паузы
+          или задайте правило; чтобы заменить — задайте новые значения.
         </div>
       )}
     </section>

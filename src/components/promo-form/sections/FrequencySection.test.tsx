@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Formik } from 'formik';
 import { describe, expect, it } from 'vitest';
@@ -38,7 +37,14 @@ describe('FrequencySection — паузы', () => {
     const legacy = render({ ...base, cooldownHours: 5 });
     expect(legacy).toContain('Устаревший кулдаун 5 ч');
     expect(legacy).toContain('300 мин');
+    // Подсказка должна объяснять, как отключить устаревшую паузу — иначе
+    // единственный способ (0 в поле паузы) не очевиден оператору.
+    expect(legacy).toContain('введите 0');
     expect(render({ ...base, cooldownHours: 5, cooldownSelfMinutes: 10 })).not.toContain('Устаревший кулдаун');
+    // Типизированный 0 тоже считается «новые поля заданы» (hasNewCooldown) —
+    // и теперь это действительно так: to-persisted.ts сохраняет явный 0,
+    // и легаси-пауза реально отключается, так что прятать подсказку верно.
+    expect(render({ ...base, cooldownHours: 5, cooldownSelfMinutes: 0 })).not.toContain('Устаревший кулдаун');
     expect(render({ ...base, cooldownHours: 0 })).not.toContain('Устаревший кулдаун');
   });
 

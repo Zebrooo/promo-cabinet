@@ -69,13 +69,21 @@ function normalize(rawValues: Promo): Promo {
     : values.action;
   const afterClickPromoId = values.afterClickPromoId?.trim() ? values.afterClickPromoId : undefined;
 
-  // Паузы: ноль общей паузы и пустой список правил = «правил нет» — в S3 не
-  // пишутся (BFF всё равно читал бы их как отсутствие). promoId правил
-  // обрезаем. cooldownHours НЕ трогаем и не вычисляем: перевод устаревшего
-  // поля живёт только в BFF (спека 2026-09-15-promo-cooldown-rotation §3.4).
-  const cooldownSelfMinutes = values.cooldownSelfMinutes ? values.cooldownSelfMinutes : undefined;
+  // Паузы: пустой список правил = «правил нет» — в S3 не пишется (BFF всё
+  // равно читал бы их как отсутствие). promoId правил обрезаем.
   const cooldownPromos = values.cooldownPromos?.length
     ? values.cooldownPromos.map((rule) => ({ promoId: rule.promoId.trim(), minutes: rule.minutes }))
+    : undefined;
+  // Явный ноль общей паузы обычно тоже не пишется («правил нет»). Исключение:
+  // у промо с устаревшим cooldownHours > 0 и без направленных правил 0 —
+  // единственный способ отключить устаревшую паузу (BFF: присутствующее поле
+  // cooldownSelfMinutes = новые правила заданы, легаси игнорируется целиком).
+  // cooldownHours САМ по себе не трогаем и не вычисляем: перевод устаревшего
+  // поля живёт только в BFF (спека 2026-09-15-promo-cooldown-rotation §3.4).
+  const legacyActive = (values.cooldownHours ?? 0) > 0 && !cooldownPromos;
+  const cooldownSelfMinutes =
+    values.cooldownSelfMinutes ? values.cooldownSelfMinutes
+    : values.cooldownSelfMinutes === 0 && legacyActive ? 0
     : undefined;
 
   return {
