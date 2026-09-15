@@ -45,7 +45,7 @@ import { PreviewRail } from './PreviewRail';
 
 const empty: Promo = {
   id: '', name: '', startsAt: '', endsAt: '', targeting: {},
-  cooldownHours: 0, format: 'inline', title: '',
+  format: 'inline', title: '',
   audience: 'all',
   deviceTarget: 'both',
 };

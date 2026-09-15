@@ -713,6 +713,31 @@ describe('afterClickPromoId (цепочка по клику) и suppressAfterCli
   });
 });
 
+describe('паузы (cooldownSelfMinutes / cooldownPromos)', () => {
+  it('cooldownHours стало необязательным устаревшим полем', () => {
+    const { cooldownHours: _dropped, ...rest } = valid;
+    void _dropped;
+    expect(promoSchema.safeParse(rest).success).toBe(true);
+  });
+  it('принимает новые поля в границах, включая ссылку на себя', () => {
+    const res = promoSchema.safeParse({
+      ...valid,
+      cooldownSelfMinutes: 0,
+      cooldownPromos: [{ promoId: valid.id, minutes: 3 }, { promoId: 'other', minutes: 525_600 }],
+    });
+    expect(res.success).toBe(true);
+  });
+  it('отвергает дробные и внеграничные минуты, пустой promoId и дубликаты', () => {
+    expect(promoSchema.safeParse({ ...valid, cooldownSelfMinutes: 2.5 }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, cooldownSelfMinutes: 525_601 }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, cooldownPromos: [{ promoId: 'a', minutes: 0 }] }).success).toBe(false);
+    expect(promoSchema.safeParse({ ...valid, cooldownPromos: [{ promoId: '', minutes: 1 }] }).success).toBe(false);
+    const dup = promoSchema.safeParse({ ...valid, cooldownPromos: [{ promoId: 'a', minutes: 1 }, { promoId: 'a', minutes: 2 }] });
+    expect(dup.success).toBe(false);
+    if (!dup.success) expect(dup.error.issues[0].path).toEqual(['cooldownPromos']);
+  });
+});
+
 describe('audience field', () => {
   it('accepts a promo with audience: authenticated', () => {
     expect(() => promoSchema.parse({ ...valid, audience: 'authenticated' })).not.toThrow();
