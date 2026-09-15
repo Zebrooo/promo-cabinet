@@ -848,3 +848,29 @@ describe('лид-режим (leadCapture)', () => {
     }
   });
 });
+
+describe('toPersisted — паузы', () => {
+  it('ноль общей паузы и пустой список правил не пишутся; promoId правил обрезается; cooldownHours проносится как есть', () => {
+    const out = toPersisted(make('popup', {
+      cooldownHours: 5,
+      cooldownSelfMinutes: 0,
+      cooldownPromos: [],
+    }));
+    expect(out.cooldownSelfMinutes).toBeUndefined();
+    expect(out.cooldownPromos).toBeUndefined();
+    // Как и leadCapture выше: zod держит ключ в объекте со значением undefined
+    // (alwaysSet — ключ был во входе normalize()), в S3 он всё равно не
+    // попадёт, потому что PromoForm.tsx шлёт body через JSON.stringify, а тот
+    // undefined-ключи вырезает. Проверяем именно это — сериализованный вид.
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('cooldownSelfMinutes');
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('cooldownPromos');
+    expect(out.cooldownHours).toBe(5);
+
+    const kept = toPersisted(make('popup', {
+      cooldownSelfMinutes: 120,
+      cooldownPromos: [{ promoId: '  summer-sale ', minutes: 3 }],
+    }));
+    expect(kept.cooldownSelfMinutes).toBe(120);
+    expect(kept.cooldownPromos).toEqual([{ promoId: 'summer-sale', minutes: 3 }]);
+  });
+});

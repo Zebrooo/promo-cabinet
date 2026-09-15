@@ -65,6 +65,15 @@ export function validatePromoForm(rawValues: Promo): FormikErrors<Promo> {
     errors = setIn(errors, 'afterClickPromoId', 'Промо не может показываться после клика по самому себе — укажите id другого промо');
   }
 
+  // Паузы после других промо: пустой id и дубликат — те же правила, что в
+  // superRefine схемы союза, но с адресом поля для формы.
+  const rules = values.cooldownPromos ?? [];
+  if (rules.some((rule) => !rule.promoId?.trim())) {
+    errors = setIn(errors, 'cooldownPromos', 'Укажите id промо в каждом правиле паузы');
+  } else if (new Set(rules.map((rule) => rule.promoId.trim())).size !== rules.length) {
+    errors = setIn(errors, 'cooldownPromos', 'Одно промо указано в паузах дважды — оставьте одно правило');
+  }
+
   // Сбор лидов без номера доставки бессмыслен: заявка сохранится, но улетать
   // ей некуда — рекламодатель узнает о ней из отчёта через день. Правило
   // кросс-полевое (зависит от leadCapture), поэтому живёт здесь, а не в схеме.

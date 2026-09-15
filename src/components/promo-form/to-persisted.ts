@@ -69,6 +69,15 @@ function normalize(rawValues: Promo): Promo {
     : values.action;
   const afterClickPromoId = values.afterClickPromoId?.trim() ? values.afterClickPromoId : undefined;
 
+  // Паузы: ноль общей паузы и пустой список правил = «правил нет» — в S3 не
+  // пишутся (BFF всё равно читал бы их как отсутствие). promoId правил
+  // обрезаем. cooldownHours НЕ трогаем и не вычисляем: перевод устаревшего
+  // поля живёт только в BFF (спека 2026-09-15-promo-cooldown-rotation §3.4).
+  const cooldownSelfMinutes = values.cooldownSelfMinutes ? values.cooldownSelfMinutes : undefined;
+  const cooldownPromos = values.cooldownPromos?.length
+    ? values.cooldownPromos.map((rule) => ({ promoId: rule.promoId.trim(), minutes: rule.minutes }))
+    : undefined;
+
   return {
     ...values,
     title,
@@ -82,6 +91,8 @@ function normalize(rawValues: Promo): Promo {
     afterClickPromoId,
     ctaColor,
     ctaTextColor,
+    cooldownSelfMinutes,
+    cooldownPromos,
     // ФИКС бага sanitize(): divkitJson больше не утекает в пул после
     // успешного S3-аплоада — вызывающий код (submit-флоу в PromoForm.tsx)
     // обязан явно поставить divkitUrl и обнулить divkitJson до вызова
