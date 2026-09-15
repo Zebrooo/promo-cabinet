@@ -41,4 +41,19 @@ describe('FrequencySection — паузы', () => {
     expect(render({ ...base, cooldownHours: 5, cooldownSelfMinutes: 10 })).not.toContain('Устаревший кулдаун');
     expect(render({ ...base, cooldownHours: 0 })).not.toContain('Устаревший кулдаун');
   });
+
+  it('предупреждает, если id правила паузы не входит в пул', () => {
+    const html = render({ ...base, cooldownPromos: [{ promoId: 'nope', minutes: 5 }] });
+    expect(html).toContain('Промо с таким id нет в пуле — правило паузы не сработает.');
+  });
+
+  it('не предупреждает, если id правила есть в пуле', () => {
+    const html = render({ ...base, cooldownPromos: [{ promoId: 'other', minutes: 5 }] });
+    expect(html).not.toContain('правило паузы не сработает');
+  });
+
+  it('не предупреждает про ссылку на себя, даже если своего id ещё нет в пуле', () => {
+    const html = render({ ...base, id: 'new-promo', cooldownPromos: [{ promoId: 'new-promo', minutes: 5 }] });
+    expect(html).not.toContain('правило паузы не сработает');
+  });
 });

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useFormikContext } from 'formik';
 import type { Promo } from '@/lib/schema';
 import { FieldError } from '../fields';
@@ -147,26 +147,34 @@ export function FrequencySection({ poolPromos }: { poolPromos: { id: string; tit
           Пауза от показа указанного промо; своё промо в списке — «не повторять чаще N минут».
         </div>
         {(values.cooldownPromos ?? []).map((rule, index) => (
-          <div className="ef-row" key={index}>
-            <input
-              className="ef-input mono"
-              list="cooldown-promo-ids"
-              value={rule.promoId}
-              onChange={(e) => setRule(index, { ...rule, promoId: e.target.value })}
-              placeholder="id промо"
-              maxLength={64}
-            />
-            <input
-              type="number"
-              className="ef-input mono"
-              min={1}
-              step={1}
-              value={rule.minutes}
-              onChange={(e) => setRule(index, { ...rule, minutes: Number(e.target.value) })}
-              placeholder="минут"
-            />
-            <button type="button" className="ef-link-btn" onClick={() => removeRule(index)}>Убрать</button>
-          </div>
+          <Fragment key={index}>
+            <div className="ef-row">
+              <input
+                className="ef-input mono"
+                list="cooldown-promo-ids"
+                value={rule.promoId}
+                onChange={(e) => setRule(index, { ...rule, promoId: e.target.value })}
+                placeholder="id промо"
+                maxLength={64}
+              />
+              <input
+                type="number"
+                className="ef-input mono"
+                min={1}
+                step={1}
+                value={rule.minutes}
+                onChange={(e) => setRule(index, { ...rule, minutes: Number(e.target.value) })}
+                placeholder="минут"
+              />
+              <button type="button" className="ef-link-btn" onClick={() => removeRule(index)}>Убрать</button>
+            </div>
+            {rule.promoId.trim() && rule.promoId !== values.id &&
+              !poolPromos.some((pp) => pp.id === rule.promoId) && (
+              <div className="hint hint-warn">
+                Промо с таким id нет в пуле — правило паузы не сработает.
+              </div>
+            )}
+          </Fragment>
         ))}
         <datalist id="cooldown-promo-ids">
           {poolPromos.map((pp) => (
