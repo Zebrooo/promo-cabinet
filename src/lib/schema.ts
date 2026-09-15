@@ -269,6 +269,17 @@ export const promoStepSchema = z.object({
  * контракта BFF (список/логи промо всегда показывают title), даже если сам
  * рендерер формата title не читает.
  */
+/** Год в минутах — верхняя граница любой паузы. Побайтово то же в
+ *  catalogue-schema.ts BFF. */
+export const COOLDOWN_MAX_MINUTES = 525_600;
+/** Направленных правил у одного промо. Побайтово то же в BFF. */
+export const COOLDOWN_PROMOS_MAX = 20;
+
+export const cooldownPromoRuleSchema = z.object({
+  promoId: z.string().min(1, 'Укажите id промо').max(64, 'id промо — не длиннее 64 символов'),
+  minutes: z.number().int('Только целое число минут').min(1, 'Минимум 1 минута').max(COOLDOWN_MAX_MINUTES, 'Не больше года (525 600 минут)'),
+});
+
 export const servingBlockSchema = z.object({
   id: z.string().min(1, 'Укажите id'),
   name: z.string().min(1, 'Укажите название'),
@@ -318,7 +329,16 @@ export const servingBlockSchema = z.object({
     (v) => (v === 0 ? undefined : v),
     z.number().int().positive('Значение должно быть больше 0').optional(),
   ),
-  cooldownHours: z.number().int().nonnegative('Часы не могут быть отрицательными'),
+  /** УСТАРЕВШЕЕ. BFF читает его только без новых полей: N > 0 = пауза формата
+   *  N×60 минут плюс правило на себя N×60. Кабинет поле не редактирует и не
+   *  вычисляет — проносит как есть (спека 2026-09-15-promo-cooldown-rotation). */
+  cooldownHours: z.number().int().nonnegative('Часы не могут быть отрицательными').optional(),
+  /** Общая пауза формата: после показа этого промо другие промо того же
+   *  формата на том же устройстве ждут N минут; само промо не ждёт. */
+  cooldownSelfMinutes: z.number().int('Только целое число минут').min(0, 'Минуты не могут быть отрицательными').max(COOLDOWN_MAX_MINUTES, 'Не больше года (525 600 минут)').optional(),
+  /** Направленные паузы: не показывать это промо N минут после показа
+   *  указанного; ссылка на себя = «не повторять чаще N минут». */
+  cooldownPromos: z.array(cooldownPromoRuleSchema).max(COOLDOWN_PROMOS_MAX, 'Не больше 20 правил').optional(),
   /** Цепочка показов: id промо-предшественника. Промо с этим полем BFF
    *  отдаёт только после зафиксированного показа предшественника
    *  (ChainChecker). Ограничения побайтово те же, что в catalogue-schema.ts
@@ -599,6 +619,10 @@ export const promoSchema = z
     }
     if (p.afterClickPromoId !== undefined && p.afterClickPromoId === p.id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'afterClickPromoId должен ссылаться на другое промо', path: ['afterClickPromoId'] });
+    }
+    const ruleIds = (p.cooldownPromos ?? []).map((r) => r.promoId);
+    if (new Set(ruleIds).size !== ruleIds.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Одно промо указано в паузах дважды — оставьте одно правило', path: ['cooldownPromos'] });
     }
     // lifecycle смотрит на СОБСТВЕННЫЕ объявления зрителя — у гостя их нет,
     // условие не совпадёт никогда (BFF fail closed). Дубль правила для формы —

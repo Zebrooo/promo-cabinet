@@ -120,6 +120,17 @@ describe('validatePromoForm — cross-field rules', () => {
   });
 });
 
+describe('validatePromoForm — паузы после других промо', () => {
+  it('паузы: пустой id правила и дубликат — ошибки формы', () => {
+    expect(validatePromoForm(make('inline', { cooldownPromos: [{ promoId: '  ', minutes: 3 }] })))
+      .toHaveProperty('cooldownPromos');
+    expect(validatePromoForm(make('inline', { cooldownPromos: [{ promoId: 'a', minutes: 3 }, { promoId: 'a', minutes: 5 }] })))
+      .toHaveProperty('cooldownPromos');
+    expect(validatePromoForm(make('inline', { cooldownPromos: [{ promoId: 'a', minutes: 3 }] })))
+      .not.toHaveProperty('cooldownPromos');
+  });
+});
+
 describe('validatePromoForm — divkit form-only rule', () => {
   it('requires either divkitUrl or divkitJson', () => {
     const errors = validatePromoForm(make('divkit'));

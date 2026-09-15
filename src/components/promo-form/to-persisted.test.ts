@@ -848,3 +848,58 @@ describe('лид-режим (leadCapture)', () => {
     }
   });
 });
+
+describe('toPersisted — паузы', () => {
+  it('пустой список правил не пишется; promoId правил обрезается; cooldownHours проносится как есть', () => {
+    const out = toPersisted(make('popup', {
+      cooldownHours: 5,
+      cooldownPromos: [],
+    }));
+    expect(out.cooldownPromos).toBeUndefined();
+    // Как и leadCapture выше: zod держит ключ в объекте со значением undefined
+    // (alwaysSet — ключ был во входе normalize()), в S3 он всё равно не
+    // попадёт, потому что PromoForm.tsx шлёт body через JSON.stringify, а тот
+    // undefined-ключи вырезает. Проверяем именно это — сериализованный вид.
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('cooldownPromos');
+    expect(out.cooldownHours).toBe(5);
+
+    const kept = toPersisted(make('popup', {
+      cooldownSelfMinutes: 120,
+      cooldownPromos: [{ promoId: '  summer-sale ', minutes: 3 }],
+    }));
+    expect(kept.cooldownSelfMinutes).toBe(120);
+    expect(kept.cooldownPromos).toEqual([{ promoId: 'summer-sale', minutes: 3 }]);
+  });
+
+  it('явный 0 общей паузы отключает устаревший cooldownHours, когда нет направленных правил — иначе админ думает, что пауза выключена, а BFF её всё ещё применяет', () => {
+    const out = toPersisted(make('popup', {
+      cooldownHours: 5,
+      cooldownSelfMinutes: 0,
+    }));
+    const json = JSON.parse(JSON.stringify(out));
+    expect(json.cooldownSelfMinutes).toBe(0);
+    expect(json.cooldownHours).toBe(5);
+  });
+
+  it('явный 0 общей паузы не пишется, если устаревшего cooldownHours нет или он уже 0 — писать нечего отключать', () => {
+    const noHours = toPersisted(make('popup', {
+      cooldownHours: 0,
+      cooldownSelfMinutes: 0,
+    }));
+    expect(JSON.parse(JSON.stringify(noHours))).not.toHaveProperty('cooldownSelfMinutes');
+
+    const noHoursField = toPersisted(make('popup', {
+      cooldownSelfMinutes: 0,
+    }));
+    expect(JSON.parse(JSON.stringify(noHoursField))).not.toHaveProperty('cooldownSelfMinutes');
+  });
+
+  it('явный 0 общей паузы не пишется, если направленные правила уже отменяют устаревший cooldownHours', () => {
+    const out = toPersisted(make('popup', {
+      cooldownHours: 5,
+      cooldownSelfMinutes: 0,
+      cooldownPromos: [{ promoId: 'a', minutes: 3 }],
+    }));
+    expect(JSON.parse(JSON.stringify(out))).not.toHaveProperty('cooldownSelfMinutes');
+  });
+});
