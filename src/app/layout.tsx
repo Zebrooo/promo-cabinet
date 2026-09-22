@@ -1,5 +1,9 @@
 import './globals.css';
 import '@zebrooo/promo-renderer/styles.css';
+// Стили DivKit-клиента: без них превью divkit-промо рендерится без layout'а
+// (блоки внахлёст). Сам движок renderer грузит лениво через
+// import('@divkitframework/divkit/client') — только когда превьюится divkit.
+import '@divkitframework/divkit/dist/client.css';
 import type { ReactNode } from 'react';
 import { Manrope, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
