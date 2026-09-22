@@ -42,14 +42,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pat
     );
     if (!r.Body) return new NextResponse('not_found', { status: 404 });
 
-    const stream = r.Body as ReadableStream<Uint8Array> & { transformToWebStream?: () => ReadableStream };
-    const webStream = stream.transformToWebStream ? stream.transformToWebStream() : stream;
+    // БУФЕРИЗУЕМ, а не стримим. Стрим, оборванный браузером (посетитель закрыл
+    // попап/ушёл со страницы), не возвращал S3-сокет в пул — 50 таких обрывов,
+    // и все S3-запросы кабинета вставали в очередь за сокетами (инцидент
+    // 2026-09-16..22, 26k+ запросов в очереди). Промо-ассеты маленькие (сотни
+    // КБ), полная вычитка тела освобождает сокет детерминированно.
+    const body = await r.Body.transformToByteArray();
 
-    return new NextResponse(webStream, {
+    return new NextResponse(Buffer.from(body), {
       status: 200,
       headers: {
         'Content-Type': r.ContentType ?? 'application/octet-stream',
-        ...(r.ContentLength ? { 'Content-Length': String(r.ContentLength) } : {}),
+        'Content-Length': String(body.byteLength),
         // Загруженные ключи иммутабельны (UUID в имени) — кэшируем агрессивно.
         'Cache-Control': 'public, max-age=31536000, immutable',
         // CORS разрешён для всех — картинки могут грузить abkhaz-auto и любой
