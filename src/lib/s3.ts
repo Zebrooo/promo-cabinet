@@ -15,6 +15,14 @@ export function getS3Client(): S3Client {
       region: env.awsRegion,
       ...(env.s3Endpoint ? { endpoint: env.s3Endpoint } : {}),
       forcePathStyle: env.s3ForcePathStyle,
+      // Таймауты обязательны: дефолтный пул — 50 сокетов БЕЗ requestTimeout.
+      // Один не вернувшийся в пул сокет (напр., оборванный клиентом стрим
+      // GetObject) занят навсегда; 50 таких — и ВСЕ S3-запросы кабинета виснут
+      // в очереди (инцидент 2026-09-16..22: 26k+ запросов в очереди).
+      requestHandler: {
+        connectionTimeout: 5_000,
+        requestTimeout: 30_000,
+      },
     });
   }
   return client;
