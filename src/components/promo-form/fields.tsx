@@ -91,10 +91,21 @@ export function ColorField({ name, label, fallback }: { name: string; label: str
 }
 
 export function CheckboxField({ name, label, title }: { name: string; label: string; title?: string }) {
-  const [field] = useField({ name, type: 'checkbox' });
+  // Нарочно без useField({ type: 'checkbox' }) + {...field}: formik-овский
+  // handleChange для чекбокса смотрит на DOM-value, а у инпута без атрибута
+  // value после SSR-гидрации (React-canary в Next не переписывает value
+  // инпутов) остаётся браузерный дефолт "on" — formik уходит в семантику
+  // группы чекбоксов и копит массив вместо boolean. Пишем boolean сами.
+  const [field, , helpers] = useField(name);
   return (
     <label className="ef-checkbox" title={title}>
-      <input type="checkbox" {...field} checked={field.value ?? false} />
+      <input
+        type="checkbox"
+        name={name}
+        checked={field.value === true}
+        onChange={(e) => helpers.setValue(e.target.checked)}
+        onBlur={field.onBlur}
+      />
       {label}
     </label>
   );
